@@ -28,8 +28,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@choppu/shelljs": "^1.0.0",
-    "@choppu/shelljs-node-hid": "^1.0.0",
+    "@choppu/shelljs": "^1.0.1",
+    "@choppu/shelljs-node-hid": "^1.0.1",
     "markdown-it": "^14.1.0",
     "node-fetch": "^3.3.2",
     "typescript": "^5.8.3"
