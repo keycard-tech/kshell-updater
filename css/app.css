@@ -164,7 +164,11 @@ input[type=number] {
   color: var(--white-95);
   height: 100%;
   opacity: 1;
-  display: inherit;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
   animation: fade 300ms;
 }
 
@@ -172,9 +176,12 @@ input[type=number] {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 10px;
-    width: 100%;
-    padding: 24px;
+    gap: 1%;
+    width: 95%;
+    height: 100vh;
+    margin: 0 2.5%;
+    align-items: center;
+    justify-content: center;
     box-sizing: border-box;
 }
 
@@ -182,7 +189,7 @@ input[type=number] {
     flex-basis: calc(50% - 5px);
     width: calc(50% - 5px);
     flex-grow: 0;
-    height: calc(100vh - 52px);
+    height: calc(90vh);
     background-color: var(--white-4);
     border: solid 1px var(--white-12);
     border-radius: var(--border-radius-28);
@@ -219,7 +226,7 @@ input[type=number] {
 
 .keycard_shell__update-btns-container {
     width: 100%;
-    height: calc(50vh - 30px);
+    height: calc(45vh - 4px);
     background-color: var(--white-4);
     border: solid 1px var(--white-12);
     border-radius: var(--border-radius-28);
@@ -228,6 +235,7 @@ input[type=number] {
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 5px;
 }
 
@@ -335,7 +343,6 @@ input[type=number] {
     border-radius: var(--border-radius-28);
     padding: 24px;
     box-sizing: border-box;
-    margin: 19vh auto;
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
@@ -456,7 +463,6 @@ progress::-moz-progress-value {
     border: solid 1px var(--white-12);
     border-radius: var(--border-radius-28);
     letter-spacing: var(--text-letter-spacing);
-    margin: 24px auto;
     padding: 20px;
     box-sizing: border-box;
 }
