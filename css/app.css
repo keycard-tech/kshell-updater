@@ -26,25 +26,25 @@
     --neutral-solid-20: #E7EAEE;
     --scrollbar-color: rgb(60, 77, 75);
     --text-font: 'Inter', monospace;
-    --text-line-height: 22px;
+    --text-line-height: 2.2rem;
     --text-letter-spacing: -2%;
     --text-font-weight: 300;
-    --text-font-size: 16px;
-    --text-font-meduim: 14px;
-    --text-font-small: 12px;
-    --text-small-line-height: 20px;
+     --text-font-size: 1.6rem;
+    --text-font-meduim: 1.4rem;
+    --text-font-small: 1.2rem;
+    --text-small-line-height: 2rem;
     --heading-font: 'Lora', cursive;
-    --heading-line-height: 40px;
+    --heading-line-height: 4rem;
     --heading-font-weight: 500;
-    --heading-font-size: 32px;
-    --heading2-font-size: 24px;
+    --heading-font-size: 3.2rem;
+    --heading2-font-size: 2.4rem;
     --heading2-font-weight: 400;
-    --heading2-line-height: 32px;
-    --input-border-radius: 8px;
-    --border-radius-12: 12px;
-    --border-radius-16: 16px;
-    --border-radius-20: 20px;
-    --border-radius-28: 28px;
+    --heading2-line-height: 3.2rem;
+    --input-border-radius: .8rem;
+    --border-radius-12: 1.2rem;
+    --border-radius-16: 1.6rem;
+    --border-radius-20: 2rem;
+    --border-radius-28: 2.8rem;
 }
 
 html, body, div, span, applet, object, iframe,
@@ -72,8 +72,11 @@ footer, header, hgroup, menu, nav, section {
   display: block;
 }
 
+html {
+    font-size: 62.5%;
+}
+
 body {
-  font-size: 100%;
   font-size: var(--text-font-size);
   line-height: var(--text-line-height);
   font-family: var(--text-font);
@@ -120,7 +123,7 @@ input[disabled="disabled"], input[disabled="disabled"]:hover {
 
 ::-webkit-scrollbar {
   background-color: var(--white-4);
-  width: 5px;
+  width: .5rem;
 }
 
 ::-webkit-scrollbar-thumb:window-inactive,
@@ -131,7 +134,7 @@ input[disabled="disabled"], input[disabled="disabled"]:hover {
 
 ::-webkit-scrollbar:horizontal {
   background-color: var(--bg-color);
-  height: 5px;
+  height: .5rem;
 }
 
 input::-webkit-outer-spin-button,
@@ -186,19 +189,19 @@ input[type=number] {
 }
 
 .keycard_shell__shell-connected-container {
-    flex-basis: calc(50% - 5px);
-    width: calc(50% - 5px);
+    flex-basis: calc(50% - .5rem);
+    width: calc(50% - .5rem);
     flex-grow: 0;
     height: calc(90vh);
     background-color: var(--white-4);
-    border: solid 1px var(--white-12);
+    border: solid .1rem var(--white-12);
     border-radius: var(--border-radius-28);
-    padding: 24px;
+    padding: 2.4rem;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: .8rem;
 }
 
 .keycard_shell__shell-connected-img {
@@ -209,34 +212,34 @@ input[type=number] {
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: .8rem;
     justify-content: flex-start;
     align-items: flex-start;
 }
 
 .keycard_shell__device-update-container {
-  flex-basis: calc(50% - 5px);
-  width: calc(50% - 5px);
+  flex-basis: calc(50% - .5rem);
+  width: calc(50% - .5rem);
   flex-grow: 0;
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: .8rem;
 }
 
 .keycard_shell__update-btns-container {
     width: 100%;
-    height: calc(45vh - 4px);
+    height: calc(45vh - .4rem);
     background-color: var(--white-4);
-    border: solid 1px var(--white-12);
+    border: solid .1rem var(--white-12);
     border-radius: var(--border-radius-28);
-    padding: 24px;
+    padding: 2.4rem;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 5px;
+    gap: .5rem;
 }
 
 .keycard_shell__h2 {
@@ -252,7 +255,7 @@ input[type=number] {
     flex-direction: row;
     flex-wrap: wrap;
     width: 100%;
-    gap: 8px;
+    gap: .8rem;
 }
 
 .keycard__shell_version-label {
@@ -268,7 +271,7 @@ input[type=number] {
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 1px;
+    gap: .1rem;
     padding: 0;
     box-sizing: border-box;
 }
@@ -282,7 +285,7 @@ input[type=number] {
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: .8rem;
     width: 100%;
     margin: 3px 0;
 }
@@ -290,7 +293,7 @@ input[type=number] {
 .keycard_shell__btn {
   font-family: var(--text-font);
   background-color: var(--white-4);
-  border: solid 1px var(--white-8);
+  border: solid .1rem var(--white-8);
   border-radius: var(--border-radius-12);
   width: 100%;
   color: var(--orange);
@@ -298,7 +301,7 @@ input[type=number] {
   font-weight: var(--heading2-font-weight);
   line-height: var(--text-line-height);
   outline: none;
-  padding: 8px;
+  padding: .8rem;
   box-sizing: border-box;
   opacity: 1;
   cursor: pointer;
@@ -307,17 +310,17 @@ input[type=number] {
 
 .keycard_shell__local-update-btn {
     background-image: url(../img/local.svg);
-    background-size: 20px;
+    background-size: 2rem;
     background-clip: padding-box;
-    background-position: right 8px center;
+    background-position: right .8rem center;
     background-repeat: no-repeat;
 }
 
 .keycard_shell__online-update-btn {
     background-image: url(../img/online.svg);
-    background-size: 20px;
+    background-size: 2rem;
     background-clip: padding-box;
-    background-position: right 8px center;
+    background-position: right .8rem center;
     background-repeat: no-repeat;
 }
 
@@ -339,14 +342,14 @@ input[type=number] {
 .keycard_shell__load-update-container {
     width: 360px;
     background-color: var(--white-4);
-    border: solid 1px var(--white-12);
+    border: solid .1rem var(--white-12);
     border-radius: var(--border-radius-28);
-    padding: 24px;
+    padding: 2.4rem;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 2rem;
 }
 
 .keycard_shell__progress-bar-container {
@@ -354,7 +357,7 @@ input[type=number] {
     flex-direction: column;
     flex-wrap: wrap;
     width: 100%;
-    gap: 4px;
+    gap: .4rem;
 }
 
 .keycard_shell__progress-bar-label {
@@ -371,14 +374,14 @@ input[type=number] {
 
 progress {
   border-radius: var(--border-radius-16);
-  height: 12px;
+  height: 1.2rem;
   background: var(--white-4);
-  border: solid 1px var(--white-12);
+  border: solid .1rem var(--white-12);
 }
 
 progress::-webkit-progress-bar {
   border-radius: var(--border-radius-16);
-  height: 12px;
+  height: 1.2rem;
   background: var(--white-4);
 }
 
@@ -408,14 +411,14 @@ progress::-moz-progress-value {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: .4rem;
   align-items: center;
 }
 
 .keycard_shell__message-err-img {
     color: var(--error);
-    width: 20px;
-    height: 20px;
+    width: 2rem;
+    height: 2rem;
 }
 
 .keycard_shell__load-update-btn-container {
@@ -436,7 +439,7 @@ progress::-moz-progress-value {
   outline: none;
   padding: 0;
   padding-bottom: .2em;
-  border-bottom: 1px solid white;
+  border-bottom: .1rem solid white;
 }
 
 .keycard_shell__version {
@@ -458,12 +461,12 @@ progress::-moz-progress-value {
     display: flex;
     flex-direction: column;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 1.2rem;
     background-color: var(--white-4);
-    border: solid 1px var(--white-12);
+    border: solid .1rem var(--white-12);
     border-radius: var(--border-radius-28);
     letter-spacing: var(--text-letter-spacing);
-    padding: 20px;
+    padding: 2rem;
     box-sizing: border-box;
 }
 
