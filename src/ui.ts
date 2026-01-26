@@ -30,18 +30,13 @@ export namespace UI {
     backBtn.classList.remove(hideElementClass);
   }
 
-  export function setVersion(db_v: number, fw_v: string) : void {
-    dbVersion.innerHTML = "Database Version " + db_v.toString();
-    fwVersion.innerHTML = "Firmware Version " + fw_v;
-  }
-
   export function enableProgressBar() : void {
     progressBar.classList.remove(hideElementClass);
   }
 
-  export function setOnlineUpdateLabel() : void {
-    dbVersion.innerHTML = 'Online update disabled';
-    fwVersion.innerHTML = 'Online update disabled';
+  export function setOnlineUpdateLabel(dbVers?: string, fwVers?: string) : void {
+    dbVersion.innerHTML = dbVers ? `Database Version ${dbVers}`: 'Online update disabled';
+    fwVersion.innerHTML = fwVers ? `Firmware Version ${fwVers}` : 'Online update disabled';
   }
 
   export function showUpdateLoadingScreen(updateType: string, version: string, connected: boolean) : void {

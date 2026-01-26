@@ -11,7 +11,12 @@ const dbContextPath = "https://shell.keycard.tech/update/get-db";
 const folderPath = "https://shell.keycard.tech/uploads/";
 
 const fwVersionPosition = 652;
-const dbVersionMagic = 0x4532
+const dbVersionMagic = 0x4532;
+
+export type latestVersionCheckObj = {
+    isFwLatest: boolean; 
+    isDBLatest: boolean;
+}
 
 export class KShell {
   window: WebContents;
@@ -20,10 +25,15 @@ export class KShell {
   fw?: ArrayBuffer;
   db?: ArrayBuffer;
   deviceFound: boolean;
+  versions: latestVersionCheckObj;
 
   constructor(window: WebContents) {
     this.window = window;
     this.deviceFound = false;
+    this.versions = {
+      isFwLatest: false, 
+      isDBLatest: false
+    } as latestVersionCheckObj;
     this.installEventHandlers();
   }
 
@@ -44,8 +54,8 @@ export class KShell {
           let transport = await this.connect();
           let appEth = await new ShellJS.Commands(transport);
           let { fwVersion, dbVersion } = await appEth.getAppConfiguration();
-          let isLatestVersions = Utils.checkLatestVersion(Utils.parseFirmwareVersion(fwVersion), dbVersion, this.firmware_context, this.db_context);  
-          this.window.send("shell-connected", this.deviceFound, isLatestVersions);
+          this.versions = Utils.checkLatestVersion(Utils.parseFirmwareVersion(fwVersion), dbVersion, this.firmware_context, this.db_context);  
+          this.window.send("shell-connected", this.deviceFound, this.versions);
           transport.close();
         } else if (e.type === 'remove') {
           this.deviceFound = false;
@@ -116,6 +126,22 @@ export class KShell {
     }
   }
 
+  async handleConnection(connectionStatus: string): Promise<void> {
+    if(connectionStatus == "online" && this.deviceFound) {
+      let transport = await this.connect();
+      let appEth = await new ShellJS.Commands(transport);
+      let { fwVersion, dbVersion } = await appEth.getAppConfiguration();
+      this.firmware_context = await fetch(fwContextPath).then((r: any) => r.json());
+      this.db_context = await fetch(dbContextPath).then((r: any) => r.json());
+      this.versions = Utils.checkLatestVersion(Utils.parseFirmwareVersion(fwVersion), dbVersion, this.firmware_context, this.db_context); 
+      this.window.send("handle-online-update", this.versions, this.firmware_context?.version, this.db_context?.version);   
+    } else {
+      this.db_context = undefined;
+      this.firmware_context = undefined;
+      this.window.send("handle-online-update");
+    }
+  }
+
   async updateERC20(db?: ArrayBuffer): Promise<void> {
     let localUpdate = false;
     
@@ -163,6 +189,7 @@ export class KShell {
       transport.close();
     }
   }
+  
 
   withErrorHandler(fn: (...args: any) => Promise<void>): (ev: IpcMainEvent) => void {
     return async (_: IpcMainEvent, ...args: any) => {
@@ -177,5 +204,6 @@ export class KShell {
   installEventHandlers(): void {
     ipcMain.on("update-firmware", this.withErrorHandler(this.updateFirmware));
     ipcMain.on("update-erc20", this.withErrorHandler(this.updateERC20));
+    ipcMain.on("online-status-changed", this.withErrorHandler(async(status: string) => this.handleConnection(status)));
   }
 }

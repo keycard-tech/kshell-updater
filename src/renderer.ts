@@ -1,4 +1,6 @@
+import { IpcRendererEvent } from "electron";
 import { UI } from "./ui";
+import { latestVersionCheckObj } from "./kshell";
 const { ipcRenderer } = require('electron');
 
 const fwUpdateOnlineBtn = document.getElementById("btn-fw-update") as HTMLButtonElement;
@@ -16,6 +18,10 @@ export function handleUpdateProgress(event: string) : void {
   });
 }
 
+function updateOnlineStatus() : void {
+  ipcRenderer.send('online-status-changed', navigator.onLine ? 'online' : 'offline');
+}
+
 ipcRenderer.on("shell-connected", (_ : any, connected: boolean, isLatestVersions: {isFwLatest: boolean, isDBLatest: boolean}) => {
   UI.handleConnected(connected);
   fwUpdateOnlineBtn.disabled = isLatestVersions.isFwLatest;
@@ -28,7 +34,7 @@ ipcRenderer.on("shell-disconnected", (_ : any, connected: boolean) => {
 });
 
 ipcRenderer.on("set-version", (_: any, db_ver: number, fw_ver: string) => {
-  UI.setVersion(db_ver, fw_ver);
+  UI.setOnlineUpdateLabel(db_ver.toString(), fw_ver);
 });
 
 ipcRenderer.on("disable-online-update", () => {
@@ -98,6 +104,12 @@ ipcRenderer.on("card-exceptions", function (_ : any, err: any) {
   UI.updateStatusMessage(err, "error");
 });
 
+ipcRenderer.on("handle-online-update", function(e: IpcRendererEvent, versionCheck?: latestVersionCheckObj, fwVersion?: string, dbVersion?: string) {
+    fwUpdateOnlineBtn.disabled = versionCheck ? versionCheck.isFwLatest : true;
+    dbUpdateOnlineBtn.disabled = versionCheck ? versionCheck.isDBLatest : true;
+    (dbVersion && fwVersion) ? UI.setOnlineUpdateLabel(dbVersion, fwVersion) : UI.setOnlineUpdateLabel();
+});
+
 fwUpdateOnlineBtn.addEventListener("click", (e) => {
   ipcRenderer.send("update-firmware");
   e.preventDefault();
@@ -123,6 +135,9 @@ dbUpdateLocalBtn.addEventListener("change", async (e: any) => {
 document.getElementById("shell-message-close")?.addEventListener("click", (e) => {
   UI.hideStatusMessage();
 });
+
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
 
 handleUpdateProgress("chunk-loaded");
 
