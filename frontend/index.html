@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Keycard Shell Updater</title>
+    <link rel="stylesheet" href="css/app.css" />
+  </head>
+  <body>
+    <div class="ksh">
+      <div class="ksh__head">
+        <div>
+          <h1 class="ksh__h1">Keycard Shell Updater</h1>
+          <span class="ksh__hint" id="subtitle">Checking for a connected Shell…</span>
+        </div>
+        <span class="ksh__badge" id="badge">Scanning</span>
+      </div>
+
+      <section class="ksh__card" id="card-empty">
+        <div class="ksh__empty">
+          <img src="img/connect_shell.png" alt="Keycard Shell" />
+          <h2 class="ksh__h2">Connect your Keycard Shell</h2>
+          <span class="ksh__hint">USB-C. Accept the prompt on the Shell screen if it asks.</span>
+        </div>
+      </section>
+
+      <section class="ksh__card" id="card-device" hidden>
+        <h2 class="ksh__h2" id="device-name">Keycard Shell</h2>
+        <div class="ksh__fields">
+          <span class="ksh__field-label">Serial number</span>
+          <span class="ksh__field-value" id="f-serial">–</span>
+          <span class="ksh__field-label">Firmware on device</span>
+          <span class="ksh__field-value" id="f-fw">–</span>
+          <span class="ksh__field-label">Database on device</span>
+          <span class="ksh__field-value" id="f-db">–</span>
+          <span class="ksh__field-label">Variant</span>
+          <span class="ksh__field-value" id="f-variant">–</span>
+          <span class="ksh__field-label">Attestation key</span>
+          <span class="ksh__field-value" id="f-key">–</span>
+        </div>
+        <span class="ksh__hint" id="device-hint">Read over HID from the device itself.</span>
+      </section>
+
+      <div class="ksh__statusbar">
+        <span id="status-device">No device connected</span>
+        <span id="status-note">Tauri scaffold · transport check</span>
+      </div>
+    </div>
+    <script src="main.js"></script>
+  </body>
+</html>

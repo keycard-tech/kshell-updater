@@ -1,4 +1,12 @@
-out/
 node_modules/
+out/
 dist/
 .DS_Store
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# local-only working notes and UI screenshots
+docs/
+shots/

@@ -1,0 +1,177 @@
+/* Tokens and components taken from the agreed design (see docs/ui-proposal.md). */
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/schibsted-grotesk-400-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/schibsted-grotesk-600-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/schibsted-grotesk-700-latin.woff2") format("woff2");
+}
+
+:root {
+  --orange: #ff7d46;
+  --orange-progress: #ff6400;
+  --teal: #23ada0;
+  --error: #e95460;
+  --bg-color: #010101;
+  --white-95: #fffffff2;
+  --white-80: #fffc;
+  --white-60: #ffffff99;
+  --white-40: #ffffff66;
+  --white-20: #ffffff33;
+  --white-12: #ffffff1f;
+  --white-8: #ffffff14;
+  --white-4: #ffffff0a;
+  --white-2: #ffffff05;
+  --border-radius-12: 12px;
+  --border-radius-16: 16px;
+  --border-radius-20: 20px;
+  --text-font-size: 16px;
+  --text-font-medium: 14px;
+  --text-font-small: 12px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-color);
+  color: var(--white-95);
+  font-family: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  font-size: var(--text-font-size);
+  font-weight: 400;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* the components set display, which would otherwise beat the UA's [hidden] rule */
+[hidden] { display: none !important; }
+
+.ksh {
+  height: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ksh__h1 {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 32px;
+}
+
+.ksh__h2 {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 26px;
+}
+
+.ksh__hint {
+  font-size: var(--text-font-small);
+  line-height: 18px;
+  color: var(--white-40);
+}
+
+.ksh__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 12px;
+  border: solid 1px var(--white-20);
+  border-radius: 100px;
+  font-size: var(--text-font-small);
+  line-height: 20px;
+  color: var(--white-80);
+  white-space: nowrap;
+}
+.ksh__badge--ready {
+  color: var(--teal);
+  border-color: #23ada059;
+}
+.ksh__badge--warn {
+  color: var(--orange);
+  border-color: #ff7d4659;
+}
+.ksh__badge--error {
+  color: var(--error);
+  border-color: #e9546059;
+}
+
+.ksh__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ksh__card {
+  flex: 1;
+  min-height: 0;
+  padding: 20px;
+  border: solid 1px var(--white-8);
+  border-radius: var(--border-radius-20);
+  background: var(--white-2);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ksh__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+.ksh__empty img {
+  width: 220px;
+}
+
+.ksh__fields {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  gap: 10px 16px;
+  font-size: var(--text-font-medium);
+  line-height: 22px;
+}
+.ksh__field-label {
+  color: var(--white-40);
+}
+.ksh__field-value {
+  color: var(--white-95);
+  overflow-wrap: anywhere;
+}
+
+.ksh__statusbar {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--white-40);
+}
