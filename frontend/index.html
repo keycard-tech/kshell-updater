@@ -26,7 +26,7 @@
           </div>
         </button>
 
-        <div class="ksh__card ksh__card--quiet">
+        <button class="ksh__card ksh__card--quiet" id="card-verify" type="button">
           <div class="ksh__card-head">
             <h2 class="ksh__h1">Verify Shell authenticity</h2>
             <span class="ksh__badge">Camera only</span>
@@ -39,10 +39,123 @@
               </p>
               <span class="ksh__hint">No USB cable · Settings/Shell/Verify on the device</span>
             </div>
-            <img class="ksh__card-img" src="img/qr-glyph.svg" alt="" />
+            <img class="ksh__card-img ksh__card-img--qr" src="img/qr-glyph-dark.svg" alt="" />
           </div>
+        </button>
+      </div>
+
+      <!-- Verify: the challenge is written here and read back from the Shell's screen -->
+      <div class="ksh__verify" id="screen-verify" hidden>
+        <div class="ksh__head">
+          <div>
+            <h1 class="ksh__h1">Verify authenticity of Shell</h1>
+            <p class="ksh__prompt" id="verify-sub">
+              The Shell signs a challenge; this computer checks it against the list of produced
+              units
+            </p>
+          </div>
+          <span class="ksh__badge">Camera only</span>
+        </div>
+
+        <div class="ksh__verify-body">
+          <div class="ksh__verify-side">
+            <ol class="ksh__steps">
+              <li>
+                <span class="ksh__step-num">1</span>
+                <span>On the Shell open <b>Settings/Shell/Verify</b> and scan this QR code.</span>
+              </li>
+              <li>
+                <span class="ksh__step-num">2</span>
+                <span>The Shell displays a response QR code.</span>
+              </li>
+              <li>
+                <span class="ksh__step-num">3</span>
+                <span>Scan that QR code with this computer's camera.</span>
+              </li>
+            </ol>
+
+            <p class="ksh__hint">
+              Nothing is uploaded: the response is checked on this computer against the pinned key.
+            </p>
+
+            <div id="verify-source">
+              <div class="ksh__segmented">
+                <button type="button" class="ksh__seg" id="verify-list-online">Fetched list</button>
+                <button type="button" class="ksh__seg" id="verify-list-file">Own list</button>
+              </div>
+              <span class="ksh__chip ksh__chip--quiet" id="verify-net">Online</span>
+            </div>
+            <span class="ksh__hint" id="verify-list-line"></span>
+
+            <div class="ksh__note" id="verify-note" hidden>
+              <p id="verify-note-text"></p>
+              <button class="ksh__link ksh__link--button" type="button" id="btn-note-file">
+                Load units list from file
+              </button>
+            </div>
+
+            <button class="ksh__btn ksh__btn--primary" id="btn-camera" disabled>
+              Enable camera
+            </button>
+            <button class="ksh__link ksh__link--button ksh__link--block" type="button" id="btn-verify-back">
+              Update firmware and database
+            </button>
+          </div>
+
+          <figure class="ksh__qr">
+            <div class="ksh__qr-tile" id="verify-qr"></div>
+            <figcaption id="verify-qr-caption">
+              Challenge QR code · valid for this session
+            </figcaption>
+          </figure>
         </div>
       </div>
+
+      <!-- The camera lives on one screen: the preview and the camera it uses never split -->
+      <div class="ksh__verify" id="screen-scan" hidden>
+        <div class="ksh__head">
+          <div>
+            <h1 class="ksh__h1" id="scan-title">Now scan the Shell QR code</h1>
+            <p class="ksh__prompt" id="scan-sub">Hold the Shell screen inside the frame</p>
+          </div>
+          <span class="ksh__badge" id="scan-badge">Scanning…</span>
+        </div>
+
+        <div class="ksh__verify-body">
+          <div class="ksh__verify-side">
+            <p class="ksh__prompt">
+              Keep the Shell screen steady. Nothing is uploaded: the response is checked on this
+              computer against the pinned units list key.
+            </p>
+            <p class="ksh__hint">
+              If it will not focus, move closer or raise the screen brightness.
+            </p>
+            <button class="ksh__btn" id="btn-scan-back">Back</button>
+          </div>
+
+          <figure class="ksh__qr">
+            <div class="ksh__video">
+              <video id="scan-video" autoplay playsinline muted></video>
+              <i class="ksh__video-frame"></i>
+            </div>
+            <figcaption>
+              <select
+                class="ksh__select ksh__select--camera"
+                id="scan-camera"
+                aria-label="Camera"
+              ></select>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <section class="ksh__done ksh__done--verify" id="screen-verdict" hidden>
+        <img src="img/success.svg" alt="" id="verdict-icon" />
+        <h1 class="ksh__h1" id="verdict-title">Your Shell is authentic</h1>
+        <p class="ksh__prompt" id="verdict-text"></p>
+        <span class="ksh__hint" id="verdict-sub"></span>
+        <button class="ksh__btn ksh__btn--primary" id="btn-verdict">Done</button>
+      </section>
 
       <div class="ksh__ready" id="screen-ready" hidden>
         <div class="ksh__device">
@@ -131,6 +244,8 @@
         <span id="status-note">reading the release list…</span>
       </div>
     </div>
+    <!-- https://github.com/cozmo/jsQR (Apache-2.0), vendored: the CSP allows no remote script -->
+    <script src="js/jsQR.js"></script>
     <script src="main.js"></script>
   </body>
 </html>

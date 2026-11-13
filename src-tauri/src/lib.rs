@@ -1,12 +1,17 @@
+pub mod bytewords;
 pub mod image;
 pub mod net;
 pub mod releases;
 mod shell;
+pub mod units;
+pub mod ur;
+pub mod verify;
 
 use serde::{Deserialize, Serialize};
 use shell::{AppConfiguration, DeviceInfo, Shell};
 use std::collections::HashMap;
 use std::sync::Mutex;
+use tauri::webview::{PermissionKind, PermissionResponse, WebviewWindowBuilder};
 use tauri::{AppHandle, Emitter, Manager};
 
 /// `HidApi` is Send but not Sync, and opening the same device twice confuses the platform
@@ -603,6 +608,21 @@ pub fn run() {
             app.manage(Cancel::default());
             app.manage(Loaded::default());
             watch_presence(app.handle().clone());
+            // `"create": false` in tauri.conf.json, because a permission the webview is never asked
+            // for is a permission the webview never grants: the camera handler can only be attached
+            // while the window is being built. Everything else still comes from the config.
+            let config = app.config().clone();
+            let window = config
+                .app
+                .windows
+                .first()
+                .ok_or("tauri.conf.json declares no window")?;
+            WebviewWindowBuilder::from_config(&*app, window)?
+                .on_permission_request(|_, kind| match kind {
+                    PermissionKind::Camera => PermissionResponse::Allow,
+                    _ => PermissionResponse::Deny,
+                })
+                .build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -615,7 +635,12 @@ pub fn run() {
             cancel_flash,
             save_update_record,
             load_update_record,
-            clear_update_record
+            clear_update_record,
+            verify::units_status,
+            verify::units_fetch,
+            verify::units_use_file,
+            verify::units_challenge,
+            verify::units_check
         ])
         .run(tauri::generate_context!())
         .expect("error while running Keycard Shell Updater");

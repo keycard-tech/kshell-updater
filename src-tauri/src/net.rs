@@ -8,6 +8,9 @@
 use reqwest::header::ACCEPT;
 use thiserror::Error;
 
+/// Upper bound on a produced units list: 4096 rows today, and room for years of them.
+pub const MAX_LIST_BYTES: usize = 8 * 1024 * 1024;
+
 /// Upper bound on a release image. The firmware partition is [`crate::image::FW_SIZE`]; a database is
 /// far smaller. Anything larger is not what we asked for.
 pub const MAX_IMAGE_BYTES: usize = crate::image::FW_SIZE;
@@ -95,4 +98,9 @@ pub async fn get_text(url: &str) -> Result<String, NetError> {
 
 pub async fn get_image(url: &str) -> Result<Vec<u8>, NetError> {
     get(url, "application/octet-stream", MAX_IMAGE_BYTES).await
+}
+
+/// A release asset that is not an image: the produced units list is a signed binary of its own.
+pub async fn get_bytes(url: &str, max: usize) -> Result<Vec<u8>, NetError> {
+    get(url, "application/octet-stream", max).await
 }

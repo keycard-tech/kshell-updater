@@ -11,6 +11,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "Keycard Shell Updater",
         "width": 936,
         "height": 670,

@@ -291,13 +291,22 @@ const preloadedState = (kind) => {
 const preloadedNote = (kind) => state.cache[keyFor(kind)]?.note;
 const isReadyToFlash = (kind) => preloadedState(kind) === 'ready';
 
-const SCREENS = ['screen-home', 'screen-ready', 'screen-transfer', 'screen-done'];
+const SCREENS = [
+  'screen-home',
+  'screen-ready',
+  'screen-transfer',
+  'screen-done',
+  'screen-verify',
+  'screen-scan',
+  'screen-verdict',
+];
 
 /** One screen at a time. The status bar belongs to the screens that have nowhere else to say it. */
 function show(screen) {
   state.screen = screen;
   for (const id of SCREENS) el(id).hidden = id !== screen;
   el('statusbar').hidden = screen === 'screen-ready' || screen === 'screen-transfer';
+  if (screen !== 'screen-scan') stopCamera();
 }
 
 /** The landing card, in the words of mockups 01 and 02. */
@@ -684,7 +693,9 @@ async function refresh() {
 function showWaiting(message) {
   state.device = null;
   state.config = null;
-  show('screen-home');
+  // Only the screens that ask something of the device are left behind; verify needs no cable, so a
+  // poll that finds nothing must not close it.
+  if (state.screen === 'screen-ready' || state.screen === 'screen-transfer') show('screen-home');
   renderHome();
   el('status-device').textContent = message;
   el('status-dot').className = 'ksh__dot ksh__dot--off';
@@ -711,6 +722,262 @@ async function chooseFile(kind) {
   render(kind);
 }
 
+/* Verify: a challenge this computer wrote, and the Shell's signed answer to it. */
+
+const HELP_VERIFY_URL = 'https://keycard.tech/help/verify-keycard-shell-authenticity';
+
+const verify = {
+  // The list the screen describes, straight from `units_status`.
+  status: null,
+  mode: 'online',
+  net: 'unknown',
+  // Why the camera or the list is not available yet, said in the note box rather than a dialog.
+  problem: null,
+  stream: null,
+  timer: null,
+  verdict: null,
+  drawn: false,
+};
+
+/** 20261112 as the site writes it: the date the list was built is how a list is named. */
+const listDate = (build) => `${build}`.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');
+
+const dayDate = (days) => new Date(days * 86_400_000).toISOString().slice(0, 10);
+
+function stopCamera() {
+  if (verify.timer) clearInterval(verify.timer);
+  verify.timer = null;
+  for (const track of verify.stream?.getTracks() ?? []) track.stop();
+  verify.stream = null;
+  el('scan-video').srcObject = null;
+}
+
+async function openVerify() {
+  show('screen-verify');
+  verify.problem = null;
+  verify.drawn = false;
+  renderVerify();
+  await ensureList();
+  await ensureChallenge();
+  renderVerify();
+}
+
+/**
+ * One challenge per visit: drawing a second would invalidate what the Shell is already signing. It
+ * is drawn even with no list, as in mockup 14 - the code is then real but means nothing, and the
+ * note box says so while the camera stays locked.
+ */
+async function ensureChallenge() {
+  if (verify.drawn) return;
+  await drawChallenge();
+  verify.drawn = true;
+}
+
+/** A list is needed before a challenge means anything, so the screen waits for one. */
+async function ensureList() {
+  verify.status = await invoke('units_status').catch(() => null);
+  if (verify.mode !== 'online') return;
+  try {
+    verify.status = await invoke('units_fetch');
+    verify.net = 'online';
+  } catch (error) {
+    verify.net = 'offline';
+    // A cached list stays useful: the screen then says when it was fetched rather than nothing.
+    verify.status = (await invoke('units_status').catch(() => null)) ?? verify.status;
+    if (!verify.status) verify.problem = String(error);
+  }
+}
+
+async function useOwnList() {
+  const path = await invoke('plugin:dialog|open', {
+    options: {
+      multiple: false,
+      title: 'Choose a units list',
+      filters: [{ name: 'Produced units list', extensions: ['bin'] }],
+    },
+  });
+  if (!path) return;
+  try {
+    verify.status = await invoke('units_use_file', { path });
+    verify.mode = 'file';
+    verify.problem = null;
+    await drawChallenge();
+    verify.drawn = true;
+  } catch (error) {
+    verify.problem = String(error);
+  }
+  renderVerify();
+}
+
+async function drawChallenge() {
+  const { svg } = await invoke('units_challenge');
+  // The SVG is written here rather than fetched, so painting it needs no remote origin.
+  el('verify-qr').innerHTML = svg;
+}
+
+function renderVerify() {
+  const loaded = Boolean(verify.status);
+  el('verify-list-online').classList.toggle('ksh__seg--on', verify.mode === 'online');
+  el('verify-list-file').classList.toggle('ksh__seg--on', verify.mode === 'file');
+  el('verify-net').textContent = verify.net === 'offline' ? 'No network' : 'Online';
+  el('verify-source').hidden = !loaded;
+  el('verify-list-line').hidden = !loaded;
+
+  if (loaded) {
+    const { origin, fetchedAt, file } = verify.status;
+    const line = el('verify-list-line');
+    const verified = document.createElement('span');
+    verified.className = 'ksh__sha--ok';
+    verified.textContent = 'signature verified';
+    // A file name is text, however the list got here.
+    line.replaceChildren(
+      verified,
+      ` · ${origin === 'file' ? file : `fetched ${dayDate(fetchedAt)}${origin === 'cached' ? ', no network since' : ''}`}`,
+    );
+  }
+
+  el('verify-note').hidden = loaded && !verify.problem;
+  el('verify-note-text').textContent = loaded
+    ? String(verify.problem ?? '')
+    : verify.problem
+      ? `No units list could be loaded here: ${verify.problem}`
+      : 'No units list on this computer, so nothing can be concluded yet. The camera unlocks once one is loaded.';
+  el('btn-note-file').hidden = loaded;
+
+  el('verify-sub').textContent = loaded
+    ? 'The Shell signs a challenge; this computer checks it against the list of produced units'
+    : 'Checked against the signed list of produced units · no list loaded';
+  el('verify-qr-caption').textContent = loaded
+    ? 'Challenge QR code · valid for this session'
+    : 'The challenge means nothing until a list can check it';
+
+  const button = el('btn-camera');
+  button.textContent = loaded ? 'Enable camera' : 'Load units list';
+  button.disabled = false;
+}
+
+async function cameraStart(deviceId) {
+  try {
+    verify.stream = await navigator.mediaDevices.getUserMedia({
+      video: deviceId ? { deviceId: { exact: deviceId } } : {},
+      audio: false,
+    });
+  } catch (error) {
+    verify.problem = `This computer has no camera the app could open: ${error}`;
+    renderVerify();
+    return;
+  }
+  verify.problem = null;
+  show('screen-scan');
+  // Nothing between the answer and the screen. play() takes a second or two, and on a WebKitGTK
+  // without the gstreamer plugins it never settles at all; the frame is there to aim at either way,
+  // and a picture that cannot be shown is said in the note box of a screen you can already read.
+  el('scan-video').srcObject = verify.stream;
+  el('scan-video')
+    .play()
+    .catch((error) => {
+      verify.problem = `The camera is open but its picture cannot be shown here: ${error}`;
+    });
+  await listCameras();
+  startDecoding();
+}
+
+async function listCameras() {
+  const devices = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter(
+    (device) => device.kind === 'videoinput',
+  );
+  const track = verify.stream?.getVideoTracks()[0];
+  // The same device id is spelled with braces on some platforms and without them on others.
+  const current = String(track?.getSettings?.().deviceId ?? '')
+    .replace(/^\{/, '')
+    .replace(/\}$/, '');
+  const select = el('scan-camera');
+  select.replaceChildren(
+    ...devices.map((device, index) => {
+      const option = document.createElement('option');
+      option.value = device.deviceId;
+      option.selected = device.deviceId === current;
+      option.textContent = device.label || `Camera ${index + 1}`;
+      return option;
+    }),
+  );
+  select.disabled = devices.length < 2;
+}
+
+function startDecoding() {
+  const video = el('scan-video');
+  const canvas = document.createElement('canvas');
+  // 420 px is enough for a code on a device screen, and it is what every frame costs.
+  const size = 420;
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+
+  if (verify.timer) clearInterval(verify.timer);
+  verify.timer = setInterval(() => {
+    if (state.screen !== 'screen-scan' || video.readyState < 2) return;
+    context.drawImage(video, 0, 0, size, size);
+    const code = window.jsQR?.(context.getImageData(0, 0, size, size).data, size, size, {
+      inversionAttempts: 'dontInvert',
+    });
+    if (code?.data) scanAnswer(code.data);
+  }, 120);
+}
+
+async function scanAnswer(text) {
+  stopCamera();
+  let verdict;
+  try {
+    verdict = await invoke('units_check', { text });
+  } catch (error) {
+    verdict = { outcome: 'refused', reason: String(error) };
+  }
+  verify.verdict = verdict;
+  renderVerdict();
+  show('screen-verdict');
+}
+
+function renderVerdict() {
+  const { outcome, reason, uid } = verify.verdict ?? {
+    outcome: 'refused',
+    reason: 'nothing was scanned',
+  };
+  const updated = verify.status
+    ? `Produced units list last updated ${listDate(verify.status.build)}`
+    : '';
+
+  const shown =
+    outcome === 'authentic'
+      ? {
+          icon: 'img/success.svg',
+          title: 'Your Shell is authentic',
+          text: 'It signed the challenge correctly and it is on our produced units list.',
+          sub: `${updated} · checked on this computer`,
+          button: 'Done',
+        }
+      : outcome === 'notRegistered'
+        ? {
+            icon: 'img/untrustworthy.svg',
+            title: 'Your Shell is not on our produced units list',
+            text: `The response was signed correctly, but no entry matches ${uid}. We can go through the process together.`,
+            sub: updated,
+            button: 'Learn more',
+          }
+        : {
+            icon: 'img/fail.svg',
+            title: 'Shell was not verified',
+            text: `Something went wrong: ${reason}. Go to Settings/Shell/Verify on your Shell and try again.`,
+            sub: updated,
+            button: 'Try again',
+          };
+
+  el('verdict-icon').src = shown.icon;
+  el('verdict-title').textContent = shown.title;
+  el('verdict-text').textContent = shown.text;
+  el('verdict-sub').textContent = shown.sub;
+  el('btn-verdict').textContent = shown.button;
+}
+
 buildRows();
 el('btn-transfer').addEventListener('click', startTransfer);
 el('btn-cancel').addEventListener('click', () => {
@@ -730,6 +997,41 @@ el('card-update').addEventListener('click', () => {
 el('btn-done').addEventListener('click', () => {
   show('screen-home');
   refresh();
+});
+el('card-verify').addEventListener('click', openVerify);
+el('btn-verify-back').addEventListener('click', () => show('screen-home'));
+el('verify-list-online').addEventListener('click', () => {
+  if (verify.mode === 'online') return;
+  verify.mode = 'online';
+  verify.problem = null;
+  openVerify();
+});
+el('verify-list-file').addEventListener('click', useOwnList);
+el('btn-note-file').addEventListener('click', useOwnList);
+el('btn-camera').addEventListener('click', () => {
+  if (verify.status) cameraStart();
+  else useOwnList();
+});
+el('btn-scan-back').addEventListener('click', () => {
+  stopCamera();
+  show('screen-verify');
+});
+el('scan-camera').addEventListener('change', async (event) => {
+  const device = event.target.value;
+  stopCamera();
+  await cameraStart(device);
+});
+el('btn-verdict').addEventListener('click', () => {
+  const outcome = verify.verdict?.outcome;
+  if (outcome === 'notRegistered') {
+    // Out to the desktop browser: the help page is where that process continues, not here.
+    invoke('plugin:opener|open_url', { url: HELP_VERIFY_URL }).catch((error) =>
+      console.warn(`could not open ${HELP_VERIFY_URL}: ${error}`),
+    );
+    return;
+  }
+  if (outcome === 'authentic') show('screen-home');
+  else openVerify();
 });
 listen('shell://connected', () => refresh());
 listen('shell://disconnected', () => {
@@ -766,7 +1068,8 @@ setInterval(async () => {
   try {
     const found = await invoke('list_shells');
     const path = found.length ? found[0].path : null;
-    if (path !== state.device?.path || (path && !state.config)) await refresh();
+    const seen = state.device?.path ?? null;
+    if (path !== seen || (path && !state.config)) await refresh();
   } catch {
     // Unreadable for a moment while USB settles; the next tick sees it.
   } finally {
