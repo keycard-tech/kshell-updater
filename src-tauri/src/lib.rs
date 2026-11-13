@@ -183,8 +183,11 @@ pub async fn download_verified(
     }
     .map_err(|e| e.to_string())?;
     if actual != expected {
-        return Err(format!(
-            "checksum mismatch for {name}: published {expected}, downloaded {actual}"
+        // Two 64-character hashes are what a developer would want and what a person updating a
+        // device cannot use, so they go to the log and the row gets one sentence.
+        eprintln!("checksum mismatch for {name}: published {expected}, downloaded {actual}");
+        return Err(String::from(
+            "This file does not match its published checksum.",
         ));
     }
     let info = inspect(kind, &bytes)?;
@@ -430,18 +433,83 @@ fn report_back(usb: &Usb) -> Result<AppConfiguration, String> {
         }
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
-    Err(format!(
-        "the flash finished but the Shell never reported a configuration: {last}"
+    eprintln!("no configuration after the flash: {last}");
+    Err(String::from(
+        "The Shell did not report its version after restarting.",
     ))
 }
 
+/// What the person sees: status words and OS numbers go to the log, not to the screen.
 fn explain(error: shell::ShellError) -> String {
+    use shell::ShellError;
     match error {
-        shell::ShellError::StatusWord(code) if code == shell::SW_USER_DECLINED => {
-            String::from("the flash was declined on the Shell's screen")
+        ShellError::StatusWord(code) if code == shell::SW_USER_DECLINED => {
+            String::from("The flash was declined on the Shell's screen.")
         }
-        shell::ShellError::Cancelled => String::from("cancelled"),
-        other => other.to_string(),
+        // The literal is `SW_USER_DECLINED`, whose arm above already took the name.
+        ShellError::StatusWord(code) => {
+            eprintln!("shell rejected the command: SW {code:#06x}");
+            String::from("The Shell refused the update.")
+        }
+        ShellError::Cancelled => String::from(CANCELLED),
+        ShellError::Timeout => String::from("The Shell did not answer in time."),
+        ShellError::Framing(why) => {
+            eprintln!("framing error: {why}");
+            String::from("The Shell sent an answer that could not be read.")
+        }
+        other => {
+            eprintln!("shell error: {other}");
+            String::from("Could not reach the Shell over USB.")
+        }
+    }
+}
+
+/// The one error string the view matches on instead of showing.
+const CANCELLED: &str = "cancelled";
+
+/// Unconfirmed update: written before the first byte, so a half-written Shell is known later.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateRecord {
+    pub serial: String,
+    pub firmware: Option<String>,
+    pub database: Option<String>,
+}
+
+fn record_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    Ok(dir.join("update-state.json"))
+}
+
+#[tauri::command]
+fn save_update_record(app: AppHandle, record: UpdateRecord) -> Result<(), String> {
+    let path = record_path(&app)?;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    }
+    let body = serde_json::to_vec_pretty(&record).map_err(|e| e.to_string())?;
+    std::fs::write(&path, body).map_err(|e| format!("could not write {}: {e}", path.display()))
+}
+
+#[tauri::command]
+fn load_update_record(app: AppHandle) -> Result<Option<UpdateRecord>, String> {
+    let path = record_path(&app)?;
+    match std::fs::read(&path) {
+        Ok(body) => serde_json::from_slice(&body)
+            .map(Some)
+            // A record this process cannot read would claim an update history it cannot substantiate.
+            .map_err(|e| format!("could not read {}: {e}", path.display())),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(format!("could not read {}: {error}", path.display())),
+    }
+}
+
+#[tauri::command]
+fn clear_update_record(app: AppHandle) -> Result<(), String> {
+    match std::fs::remove_file(record_path(&app)?) {
+        Ok(()) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
     }
 }
 
@@ -529,6 +597,7 @@ pub fn run() {
         // The renderer calls `plugin:dialog|open` through `invoke` rather than the plugin's JS API,
         // which would mean vendoring its api-iife.js into the frontend.
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             app.manage(Usb(Mutex::new(hidapi::HidApi::new()?)));
             app.manage(Cancel::default());
@@ -543,7 +612,10 @@ pub fn run() {
             preload_images,
             pick_image_file,
             flash_image,
-            cancel_flash
+            cancel_flash,
+            save_update_record,
+            load_update_record,
+            clear_update_record
         ])
         .run(tauri::generate_context!())
         .expect("error while running Keycard Shell Updater");

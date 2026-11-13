@@ -7,8 +7,7 @@
   </head>
   <body>
     <div class="ksh">
-      <!-- Two ways in. The update card is a button, so the landing screen is also the "connect your
-           device" screen rather than a dead end that waits for a cable. -->
+      <!-- the landing screen is also the "connect your device" screen: card one is the button -->
       <div class="ksh__home" id="screen-home">
         <button class="ksh__card" id="card-update" type="button">
           <div class="ksh__card-head">
@@ -70,7 +69,7 @@
             </span>
             <span class="ksh__chip-text">Its screen asks you to confirm the flash.</span>
           </div>
-          <div class="ksh__chip" id="chip-second">
+          <div class="ksh__chip">
             <span class="ksh__chip-title"><span class="ksh__step-num">3</span>Database second</span>
             <span class="ksh__chip-text">
               Only if both are selected: the database goes in a second pass.
@@ -80,44 +79,39 @@
 
         <div class="ksh__footer">
           <div class="ksh__flowfoot">
-            <button class="ksh__btn ksh__btn--primary" id="btn-transfer" disabled>Transfer to device</button>
+            <button class="ksh__btn ksh__btn--primary" id="btn-transfer" disabled>
+              Transfer to device
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- One screen for both images: the firmware goes first, the database second, and only the
-           numbers and the item list change between them. -->
+      <!-- one readout for both images, drawn at 0.78 and centred -->
       <div class="ksh__transfer" id="screen-transfer" hidden>
-        <div class="ksh__transfer-head">
-          <div>
-            <h1 class="ksh__h1" id="transfer-title">Transferring</h1>
-            <span class="ksh__device-serial" id="transfer-sub">Please do not disconnect the device.</span>
+        <div class="ksh__panel">
+          <h1 class="ksh__h1" id="transfer-title">Transferring</h1>
+
+          <div class="ksh__progress-top">
+            <span class="ksh__percent" id="transfer-percent">0%</span>
+            <span class="ksh__bytes" id="transfer-bytes">0 / 0 bytes</span>
           </div>
-          <span class="ksh__paginator" id="transfer-step">1 / 2</span>
-        </div>
-
-        <div class="ksh__progress-top">
-          <span class="ksh__percent" id="transfer-percent">0%</span>
-          <span class="ksh__bytes" id="transfer-bytes">0 / 0 bytes</span>
-        </div>
-        <div class="ksh__progress"><i class="ksh__progress-bar" id="transfer-bar"></i></div>
-        <span class="ksh__progress-caption" id="transfer-caption">Transferring update</span>
-
-        <div class="ksh__checkline">
-          <img src="img/check.svg" alt="" />
-          <span>Check the Keycard Shell screen for instructions</span>
-        </div>
-
-        <div class="ksh__items" id="transfer-items"></div>
-
-        <div class="ksh__footer ksh__footer--split">
-          <span class="ksh__footnote" id="transfer-note"
-            >The device asks you to confirm the flash before it writes anything.</span
+          <div class="ksh__progress">
+            <i class="ksh__progress-bar" id="transfer-bar"></i>
+          </div>
+          <span class="ksh__progress-caption" id="transfer-caption"
+            >Please do not disconnect the device.</span
           >
-          <div class="ksh__actions">
-            <button class="ksh__btn" id="btn-transfer-back" hidden>Back</button>
-            <button class="ksh__btn" id="btn-cancel">Cancel</button>
+
+          <div class="ksh__checkline" id="transfer-checkline">
+            <img src="img/check.svg" alt="" />
+            <span>Check the Keycard Shell screen for instructions</span>
           </div>
+
+          <div class="ksh__items" id="transfer-items"></div>
+
+          <button class="ksh__btn ksh__btn--primary" id="btn-cancel">Cancel</button>
+          <button class="ksh__btn ksh__btn--primary" id="btn-transfer-back" hidden>Back</button>
+          <span class="ksh__paginator" id="transfer-step">1 / 2</span>
         </div>
       </div>
 
@@ -125,12 +119,15 @@
         <img src="img/success.svg" alt="" />
         <h1 class="ksh__h1">Update complete</h1>
         <p class="ksh__prompt" id="done-summary">Your Shell is up to date.</p>
-        <span class="ksh__hint">You can disconnect the device.</span>
+        <span class="ksh__hint" id="done-verify">You can disconnect the device.</span>
         <button class="ksh__btn ksh__btn--primary" id="btn-done">Done</button>
       </section>
 
       <div class="ksh__statusbar" id="statusbar">
-        <span><i class="ksh__dot ksh__dot--off" id="status-dot"></i><span id="status-device">No device connected</span></span>
+        <span
+          ><i class="ksh__dot ksh__dot--off" id="status-dot"></i
+          ><span id="status-device">No device connected</span></span
+        >
         <span id="status-note">reading the release list…</span>
       </div>
     </div>

@@ -5,18 +5,21 @@ const KINDS = [
   {
     kind: 'firmware',
     title: 'Firmware',
-    hintSwitch: 'Same version, other build: switching replaces the firmware and its data.',
     link: 'Release notes',
+    linkUrl: 'https://shell.keycard.tech/firmware/release-notes/',
   },
   {
     kind: 'database',
     title: 'Database',
-    hintSwitch: null,
     link: 'Version history',
+    linkUrl: 'https://shell.keycard.tech/update/db-version-history/',
   },
 ];
 
 const VARIANT = { 0: 'omni', 1: 'btc' };
+
+/// The same literal as `CANCELLED` in src-tauri/src/lib.rs: matched on, never shown.
+const CANCELLED = 'cancelled';
 
 const state = {
   device: null,
@@ -31,8 +34,7 @@ const state = {
   listError: null,
   busy: false,
   scanning: false,
-  // Every offered file is downloaded and hash-checked at start-up, so the transfer only writes.
-  // `cache` and `prepared` are keyed by `Prepared.key` (the release URL, or file://<path>).
+  // Both keyed by `Prepared.key`: the release URL, or file://<path> for a file from disk.
   cache: {},
   prepared: {},
   preloading: true,
@@ -41,20 +43,20 @@ const state = {
   step: 0,
   transfer: null,
   transferError: null,
-  result: null,
   configError: null,
+  record: null,
   screen: 'screen-home',
 };
 
 const el = (id) => document.getElementById(id);
-const label = (kind) => KINDS.find((entry) => entry.kind === kind);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const rows = {};
 
 function buildRows() {
   const host = el('rows');
   host.textContent = '';
-  for (const { kind, title, link } of KINDS) {
+  for (const { kind, title, link, linkUrl } of KINDS) {
     const row = document.createElement('div');
     row.className = 'ksh__row';
     row.dataset.kind = kind;
@@ -64,10 +66,7 @@ function buildRows() {
           <input type="checkbox" data-slot="include" checked aria-label="Update ${title}" />
           <h2 class="ksh__h2">${title}</h2>
         </div>
-        <div class="ksh__row-side">
-          <span class="ksh__status" data-slot="status">Reading…</span>
-          <a class="ksh__link" data-slot="link" hidden><img src="img/external.svg" alt="" />${link}</a>
-        </div>
+        <span class="ksh__status" data-slot="status">Reading…</span>
       </div>
       <div class="ksh__row-mid">
         <div class="ksh__segmented" data-slot="mode">
@@ -78,6 +77,8 @@ function buildRows() {
         <button type="button" class="ksh__btn ksh__btn--file ksh__btn--pick" data-slot="pick" hidden>
           Choose a .bin file
         </button>
+        <a class="ksh__link" data-slot="link" href="${linkUrl}" hidden
+          ><img src="img/external.svg" alt="" />${link}</a>
       </div>
       <div class="ksh__row-foot">
         <span class="ksh__hint" data-slot="hint"></span>
@@ -108,6 +109,13 @@ function buildRows() {
       render(kind);
     });
     refs.pick.addEventListener('click', () => chooseFile(kind));
+    refs.link.addEventListener('click', (event) => {
+      event.preventDefault();
+      // Out to the desktop browser: following the link here would navigate away mid-transfer.
+      invoke('plugin:opener|open_url', { url: linkUrl }).catch((error) =>
+        console.warn(`could not open ${linkUrl}: ${error}`),
+      );
+    });
   }
 }
 
@@ -129,9 +137,7 @@ function shortHash(hash) {
   return hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : '';
 }
 
-/// Status text, and whether the row asks for work. 'Up to date' is the only state that does not: the
-/// checkbox, the badge and the action button all follow it, so nothing can be "selected" that has
-/// nowhere to go.
+/// Status text and whether the row asks for work - the checkbox, badge and action follow that.
 function rowState(kind) {
   if (state.mode[kind] === 'file') {
     const picked = state.ready[kind]?.info;
@@ -182,7 +188,6 @@ function render(kind) {
   refs.status.className = `ksh__status${row.modifier ? ` ksh__status--${row.modifier}` : ''}`;
   refs.row.classList.toggle('ksh__row--off', !state.include[kind]);
   refs.include.checked = state.include[kind] && row.wanted;
-  // Nothing may be re-aimed while bytes are going to the device.
   refs.include.disabled = !row.wanted || state.busy;
   for (const button of refs.row.querySelectorAll('[data-mode]')) button.disabled = state.busy;
 
@@ -192,18 +197,20 @@ function render(kind) {
 
   if (mode === 'online') renderField(kind);
 
-  // Nothing to say most of the time: the slot carries problems, not descriptions of the two kinds.
+  const offline = !ready?.error && state.listError;
+  // The failure detail lives in the tooltip: in the row it would wrap and grow every screen.
   refs.hint.textContent = ready?.error
     ? ready.error
-    : row.status === 'Variant switch'
-      ? label(kind).hintSwitch
-      : state.listError
-        ? `${state.listError} Use From file to install something you already have.`
-        : preloadedState(kind) === 'failed'
-          ? `${preloadedNote(kind) ?? 'The file could not be verified.'} Use From file instead.`
-          : '';
+    : offline
+      ? 'Offline - choose From file to install what you already have.'
+      : preloadedState(kind) === 'failed'
+        ? (preloadedNote(kind) ?? 'The file could not be read.')
+        : '';
+  refs.hint.title = offline ? state.listError : '';
 
-  refs.sha.innerHTML = shaMarkup(kind, mode, ready, row);
+  const sha = shaMarkup(kind, mode, ready);
+  refs.sha.innerHTML = sha.html;
+  refs.sha.className = `ksh__sha${sha.verified ? ' ksh__sha--ok' : ''}`;
   renderSummary();
 }
 
@@ -230,39 +237,43 @@ function renderField(kind) {
   if (refs.field.dataset.signature !== signature) {
     refs.field.innerHTML = `<select class="ksh__select" data-slot="select">${options}</select>`;
     refs.field.dataset.signature = signature;
-    refs.field
-      .querySelector('select')
-      .addEventListener('change', (event) => {
-        state.variant[kind] = Number(event.target.value);
-        state.ready[kind] = null;
-        render(kind);
-      });
+    refs.field.querySelector('select').addEventListener('change', (event) => {
+      state.variant[kind] = Number(event.target.value);
+      state.ready[kind] = null;
+      render(kind);
+    });
   }
 }
 
-function shaMarkup(kind, mode, ready, row) {
+/** Green means the published hash already matched; only a problem is worth a word. */
+function shaMarkup(kind, mode, ready) {
   if (mode === 'file') {
     const info = ready?.info;
-    if (!info) return '';
+    if (!info) return { html: '', verified: false };
     const mark = ready.error
       ? `<i class="ksh__sha-state ksh__sha-state--bad">unreadable</i>`
       : info.matchesRelease
         ? `<i class="ksh__sha-state ksh__sha-state--ok" title="${info.matchesRelease}">matches release</i>`
         : `<i class="ksh__sha-state">from file</i>`;
-    return `sha256 <b>${shortHash(info.sha256)}</b>${mark}`;
+    return {
+      html: `sha256 <b>${shortHash(info.sha256)}</b>${mark}`,
+      verified: !ready.error,
+    };
   }
   const file = selectedFile(kind);
-  if (!file) return '';
-  // A verified online file needs no badge: every file offered here is hash-checked before the
-  // screen is ready, so the plain hash is the normal case. Only a problem is worth a word.
-  const state_ = preloadedState(kind);
+  if (!file) return { html: '', verified: false };
+  const checked = preloadedState(kind);
   const mark =
-    state_ === 'failed'
+    checked === 'failed'
       ? `<i class="ksh__sha-state ksh__sha-state--bad">not verified</i>`
-      : state_ === 'pending'
+      : checked === 'pending'
         ? `<i class="ksh__sha-state">checking…</i>`
         : '';
-  return `sha256 <b>${shortHash(file.sha256)}</b>${mark}`;
+  const title = checked === 'ready' ? ' title="sha256 matches the published hash"' : '';
+  return {
+    html: `sha256<b${title}> ${shortHash(file.sha256)}</b>${mark}`,
+    verified: checked === 'ready',
+  };
 }
 
 /** Which of the prepared files this row currently points at: the chosen variant, or the picked file. */
@@ -289,18 +300,20 @@ function show(screen) {
   el('statusbar').hidden = screen === 'screen-ready' || screen === 'screen-transfer';
 }
 
-/**
- * The landing screen's update card, in the words of mockups 01 and 02: what is on this Shell and
- * what can be done about it. Saying it here is what makes pressing the card an informed press.
- */
+/** The landing card, in the words of mockups 01 and 02. */
 function renderHome() {
-  const latest = { fw: versionOf(state.files.firmware[0]), db: versionOf(state.files.database[0]) };
+  const outstanding = outstandingUpdate();
+  const latest = {
+    fw: versionOf(state.files.firmware[0]),
+    db: versionOf(state.files.database[0]),
+  };
   const device = Boolean(state.device);
   const readable = device && Boolean(state.config);
   const parts = [];
   if (readable) {
     if (state.config.fwVersion !== latest.fw) parts.push(`Firmware ${state.config.fwVersion}`);
-    if (String(state.config.dbVersion) !== latest.db) parts.push(`database ${state.config.dbVersion}`);
+    if (String(state.config.dbVersion) !== latest.db)
+      parts.push(`database ${state.config.dbVersion}`);
   }
 
   el('home-badge').textContent = !device
@@ -310,24 +323,29 @@ function renderHome() {
       : parts.length
         ? 'Device ready'
         : 'Up to date';
-  el('home-badge').className = `ksh__badge${readable ? ' ksh__badge--ready' : ' ksh__badge--warn'}`;
+  el('home-badge').className = `ksh__badge${
+    readable && !outstanding ? ' ksh__badge--ready' : ' ksh__badge--warn'
+  }`;
   el('home-text').textContent = !device
     ? 'Unlock your Shell and connect it with a USB-C cable, then choose what to transfer: firmware, database or both.'
     : !readable
-      ? state.configError ?? 'The Shell did not answer. Lock it and try again.'
+      ? (state.configError ?? 'The Shell did not answer. Lock it and try again.')
       : parts.length
-      ? `${parts.join(' and ')} on this Shell can ${parts.length > 1 ? 'both' : ''} be updated. You approve the flash on the device screen.`
-          .replace('can  be', 'can be')
-      : 'This Shell runs the newest firmware and database.';
+        ? `${parts.join(' and ')} on this Shell ${
+            parts.length > 1 ? 'can both' : 'can'
+          } be updated. You approve the flash on the device screen.`
+        : 'This Shell runs the newest firmware and database.';
   el('home-sub').textContent = !device
     ? 'Connect your Shell to start'
     : !readable
       ? 'Unplug the Shell and plug it back in if it stays like this.'
-      : state.listError
-      ? 'Offline · updates from file only'
-      : state.preloading
-        ? 'Checking the files…'
-        : 'Works with no internet connection, from files you already downloaded.';
+      : outstanding
+        ? `An update did not finish: this Shell still runs ${outstanding.join(' and ')}.`
+        : state.listError
+          ? 'Offline · updates from file only'
+          : state.preloading
+            ? 'Checking the files…'
+            : 'Works with no internet connection, from files you already downloaded.';
   el('home-img').src = device ? 'img/shell.png' : 'img/connect_shell.png';
   el('card-update').disabled = !readable;
   el('card-update').setAttribute('aria-disabled', String(!readable));
@@ -339,7 +357,6 @@ function renderSummary() {
     ? `${wanted.length} update${wanted.length > 1 ? 's' : ''} selected`
     : 'No updates';
   el('select-badge').className = `ksh__badge${wanted.length ? ' ksh__badge--ready' : ''}`;
-  el('chip-second').classList.toggle('ksh__chip--dim', wanted.length < 2);
 
   const waiting = wanted.filter((kind) => !isReadyToFlash(kind));
   const button = el('btn-transfer');
@@ -355,13 +372,7 @@ function renderSummary() {
           : 'Transfer to device';
 }
 
-/**
- * Fetch and hash-check every offered file at start-up, so pressing the button only ever writes.
- *
- * Both firmware variants are taken, not just the one the device reported: switching variant is a
- * choice made on this screen, and waiting for a download after it is made is what this step exists
- * to remove. Files already verified stay verified, so re-listing does not re-download.
- */
+/** Both firmware variants: switching is decided on this screen, not after the press. */
 async function preload() {
   const files = KINDS.flatMap(({ kind }) =>
     filesFor(kind).map((file) => ({ kind, url: file.url })),
@@ -403,8 +414,7 @@ async function startTransfer() {
   const wanted = wantedKinds();
   if (state.busy || !wanted.length || wanted.some((kind) => !isReadyToFlash(kind))) return;
 
-  // Firmware first and the database second, whatever order the rows are in: a new token list on a
-  // firmware that cannot read it is worse than the other way round.
+  // Firmware first: a token list the firmware cannot read is worse than the other way round.
   state.queue = wanted.map((kind) => {
     const status = rowState(kind).status;
     return {
@@ -413,8 +423,7 @@ async function startTransfer() {
       label: itemLabel(kind),
       bytes: state.prepared[keyFor(kind)]?.bytes ?? 0,
       done: false,
-      // Both of these destroy something, and the row says so in the same words the person clicked
-      // on. There is deliberately no dialog: the warning is on the screen, in the row.
+      // No dialog: the row's own status word is the warning that pressing the button agrees to.
       allowVariantSwitch: status === 'Variant switch',
       allowDowngrade: status === 'Downgrade',
     };
@@ -422,20 +431,82 @@ async function startTransfer() {
   state.step = 0;
   state.transfer = null;
   state.transferError = null;
-  state.result = null;
   show('screen-transfer');
   await runQueue();
 }
 
+/** What the queue was going to put on the Shell, in the words its configuration uses. */
+function intendedVersions() {
+  const want = { firmware: null, database: null };
+  for (const item of state.queue) {
+    const version = state.prepared[item.key]?.version;
+    if (version !== undefined && version !== null) {
+      want[item.kind] = String(version);
+    }
+  }
+  return want;
+}
+
+const onDeviceVersions = (config) =>
+  config
+    ? {
+        firmware: config.fwVersion ?? null,
+        database: config.dbVersion === undefined ? null : String(config.dbVersion),
+      }
+    : null;
+
+/** Versions the device still owes; outlives the app, so a half-written Shell is known later. */
+function outstandingUpdate() {
+  const record = state.record;
+  if (!record || !state.config) return null;
+  const serial = state.config.serialNumber ?? state.device?.serialNumber ?? '';
+  if (record.serial && serial && record.serial !== serial) return null;
+  const now = onDeviceVersions(state.config);
+  const behind = [];
+  if (record.firmware && record.firmware !== now.firmware) behind.push(`firmware ${now.firmware}`);
+  if (record.database && record.database !== now.database) behind.push(`database ${now.database}`);
+  return behind.length ? behind : null;
+}
+
+async function saveRecord() {
+  const intended = intendedVersions();
+  state.record = {
+    serial: state.config?.serialNumber ?? state.device?.serialNumber ?? '',
+    firmware: intended.firmware,
+    database: intended.database,
+  };
+  await invoke('save_update_record', { record: state.record }).catch(() => {
+    // A read-only config directory costs the memory, not the update.
+  });
+}
+
+/** Waits for the device to come back: a flashed firmware restarts it. */
+async function verifyOnDevice() {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      const found = await invoke('list_shells');
+      if (found.length) {
+        state.device = found[0];
+        return await invoke('shell_app_configuration', { path: found[0].path });
+      }
+    } catch {
+      // Still restarting; the next attempt asks again.
+    }
+    await sleep(1000);
+  }
+  return null;
+}
+
 async function runQueue() {
   state.busy = true;
+  // Written before the first byte: if this window dies mid-write, the Shell is still owed these
+  // versions when it is next plugged in.
+  await saveRecord();
   for (const [index, item] of state.queue.entries()) {
     state.step = index + 1;
-    state.transfer = { kind: item.kind, label: item.label, done: 0, total: item.bytes };
+    state.transfer = { done: 0, total: item.bytes };
     renderTransfer();
     try {
-      // The device answers with the configuration it runs afterwards, which is the only proof that
-      // the write landed - and it costs nothing, since the firmware restarts the device anyway.
       state.config = await invoke('flash_image', {
         request: {
           kind: item.kind,
@@ -451,64 +522,92 @@ async function runQueue() {
     }
   }
   state.busy = false;
+
+  // Neither outcome is taken on trust: what the Shell answers builds both the screen and the record.
+  const after = await verifyOnDevice();
+  if (after) state.config = after;
+  const now = onDeviceVersions(after);
+  const intended = intendedVersions();
+  const behind = Object.entries(intended).filter(
+    ([kind, version]) => version && now !== null && now[kind] !== version,
+  );
+
   if (state.transferError) {
+    await saveRecord();
     renderTransfer();
     return;
   }
-  state.result = {
-    fw: state.config?.fwVersion ?? null,
-    db: state.config?.dbVersion ?? null,
-  };
+  if (now && behind.length) {
+    state.transferError = `The Shell came back with ${behind
+      .map(([kind, version]) => `${kind} ${now[kind]} instead of ${version}`)
+      .join(' and ')}.`;
+    await saveRecord();
+    renderTransfer();
+    return;
+  }
+
+  el('status-device').textContent =
+    `Keycard Shell connected · SN ${state.device?.serialNumber ?? ''}`;
+  if (!now) {
+    // Kept so the next start finishes the check this one could not.
+    el('done-summary').textContent =
+      'The transfer finished, but the Shell did not report its version.';
+    el('done-verify').textContent = 'Unplug the Shell and plug it back in to see what it runs now.';
+    show('screen-done');
+    return;
+  }
+  state.record = null;
+  await invoke('clear_update_record').catch(() => {});
   el('done-summary').textContent =
-    `Your Shell now runs firmware ${state.result.fw} and database ${state.result.db}.`;
-  el('status-device').textContent = `Keycard Shell connected · SN ${state.device?.serialNumber ?? ''}`;
+    `Your Shell now runs firmware ${now.firmware} and database ${now.database}.`;
+  el('done-verify').textContent = 'Checked against the Shell after it restarted.';
   show('screen-done');
 }
 
 function renderTransfer() {
   const current = state.transfer ?? { done: 0, total: 0 };
   const failed = Boolean(state.transferError);
-  const cancelled = state.transferError === 'cancelled';
+  const cancelled = state.transferError === CANCELLED;
   const percent = current.total ? Math.floor((current.done / current.total) * 100) : 0;
 
+  // One sentence and no status words: `explain` on the Rust side chose the wording.
   el('transfer-title').textContent = failed
     ? cancelled
       ? 'Transfer cancelled'
       : 'Update failed'
-    : `Transferring ${current.label ?? ''}`;
-  el('transfer-sub').textContent = failed
-    ? 'The Shell has not been asked to restart.'
-    : 'Please do not disconnect the device.';
+    : 'Transferring';
   el('transfer-step').textContent = `${state.step} / ${Math.max(state.queue.length, 1)}`;
   el('transfer-percent').textContent = `${percent}%`;
   el('transfer-bytes').textContent = `${group(current.done)} / ${group(current.total)} bytes`;
   el('transfer-bar').style.width = `${percent}%`;
-  el('transfer-caption').textContent = failed ? state.transferError : 'Transferring update';
-  el('transfer-note').textContent = failed
-    ? 'Nothing else was written to the Shell.'
-    : 'The device asks you to confirm the flash before it writes anything.';
+  el('transfer-caption').textContent = failed
+    ? state.transferError
+    : 'Please do not disconnect the device.';
+  el('transfer-checkline').hidden = failed;
   el('btn-cancel').hidden = failed;
   el('btn-transfer-back').hidden = !failed;
 
   el('transfer-items').innerHTML = state.queue
     .map((item, index) => {
-      const label = item.done
+      const active = !failed && index + 1 === state.step;
+      const text = item.done
         ? 'Done'
         : failed && index + 1 === state.step
           ? 'Failed'
           : failed
             ? 'Not started'
-            : index + 1 === state.step
-              ? 'Transferring'
-              : 'Queued';
-      const dim = label === 'Queued' || label === 'Not started';
-      const stateClass =
-        label === 'Done'
-          ? 'ksh__item-state ksh__item-state--latest'
-          : dim
-            ? 'ksh__item-state ksh__item-state--waiting'
-            : 'ksh__item-state';
-      return `<div class="ksh__item${dim ? ' ksh__item--waiting' : ''}">${item.label}<i class="${stateClass}">${label}</i></div>`;
+            : 'Queued';
+      const dim = text === 'Queued' || text === 'Not started';
+      const stateClass = item.done
+        ? 'ksh__item-state ksh__item-state--latest'
+        : dim
+          ? 'ksh__item-state ksh__item-state--waiting'
+          : 'ksh__item-state ksh__item-state--failed';
+      // The turning squares, not the word 'Transferring': the row already says which image it is.
+      const marker = active
+        ? '<i class="ksh__loader"><i></i><i></i></i>'
+        : `<i class="${stateClass}">${text}</i>`;
+      return `<div class="ksh__item${dim ? ' ksh__item--waiting' : ''}">${item.label}${marker}</div>`;
     })
     .join('');
 }
@@ -538,7 +637,9 @@ async function readConfiguration(device) {
   state.config = null;
   state.configError = null;
   try {
-    state.config = await invoke('shell_app_configuration', { path: device.path });
+    state.config = await invoke('shell_app_configuration', {
+      path: device.path,
+    });
     const variant = state.config.fwVariant ?? null;
     el('device-line').textContent =
       `SN ${device.serialNumber ?? state.config.serialNumber} · on device: firmware ${state.config.fwVersion}` +
@@ -546,6 +647,11 @@ async function readConfiguration(device) {
     el('device-line').title = `attestation key ${state.config.publicKey}`;
     // Default to the variant already on the device, so the plain action is not a variant switch.
     if (variant !== null) state.variant.firmware = variant;
+    // A remembered update the device now satisfies is finished, whoever wrote the bytes.
+    if (state.record && !outstandingUpdate()) {
+      state.record = null;
+      invoke('clear_update_record').catch(() => {});
+    }
   } catch (error) {
     state.configError = String(error);
     el('device-line').textContent = state.configError;
@@ -567,8 +673,7 @@ async function refresh() {
     el('device-name').textContent = `${device.productName || 'Keycard Shell'} connected`;
     el('status-dot').className = 'ksh__dot';
     el('status-device').textContent = `Keycard Shell connected · SN ${device.serialNumber ?? ''}`;
-    // Plugging in does not hijack the landing screen; it makes the card pressable, and pressing the
-    // card is what opens the update flow.
+    // Plugging in only makes the card pressable; pressing it is what opens the flow.
     show(state.screen);
     await readConfiguration(device);
   } catch (error) {
@@ -628,9 +733,9 @@ el('btn-done').addEventListener('click', () => {
 });
 listen('shell://connected', () => refresh());
 listen('shell://disconnected', () => {
-  // Unplugged mid-transfer: the write cannot continue, and the transfer screen would sit there
-  // showing a percentage that will never move.
-  if (!el('screen-transfer').hidden && !state.transferError) state.transferError = 'The device was disconnected.';
+  if (!el('screen-transfer').hidden && !state.transferError)
+    // No device, no write: the percentage would sit there frozen.
+    state.transferError = 'The device was disconnected.';
   renderTransfer();
   showWaiting('No device connected');
 });
@@ -644,13 +749,17 @@ listen('shell://preloaded', ({ payload }) => {
   if (keyFor('database') === payload.key) render('database');
 });
 showWaiting('No device connected');
-refresh();
-loadReleases().then(preload);
+// Read before the device, so the first render can mention a previous run.
+invoke('load_update_record')
+  .then((record) => {
+    state.record = record ?? null;
+  })
+  .catch(() => {})
+  .then(refresh)
+  .then(() => loadReleases())
+  .then(preload);
 
-// Presence is polled as well as pushed: the Rust watcher's first `shell://connected` can fire before
-// this document has a listener, and a Shell that was already plugged in then stays invisible until
-// the cable is moved. The same tick retries a configuration read that failed on a device still
-// settling, which `readConfiguration` reports by leaving `state.config` null.
+// Polled as well as pushed: the watcher's first event can arrive before this document listens.
 setInterval(async () => {
   if (state.scanning || state.busy) return;
   state.scanning = true;
