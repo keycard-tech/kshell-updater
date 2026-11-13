@@ -24,25 +24,28 @@
       </section>
 
       <section class="ksh__card" id="card-device" hidden>
-        <h2 class="ksh__h2" id="device-name">Keycard Shell</h2>
-        <div class="ksh__fields">
-          <span class="ksh__field-label">Serial number</span>
-          <span class="ksh__field-value" id="f-serial">–</span>
-          <span class="ksh__field-label">Firmware on device</span>
-          <span class="ksh__field-value" id="f-fw">–</span>
-          <span class="ksh__field-label">Database on device</span>
-          <span class="ksh__field-value" id="f-db">–</span>
-          <span class="ksh__field-label">Variant</span>
-          <span class="ksh__field-value" id="f-variant">–</span>
-          <span class="ksh__field-label">Attestation key</span>
-          <span class="ksh__field-value" id="f-key">–</span>
+        <div class="ksh__device">
+          <img src="img/check.svg" alt="" />
+          <div>
+            <h2 class="ksh__h2" id="device-name">Keycard Shell</h2>
+            <span class="ksh__hint" id="device-line">serial –</span>
+          </div>
         </div>
-        <span class="ksh__hint" id="device-hint">Read over HID from the device itself.</span>
+
+        <div class="ksh__rows" id="rows"></div>
+
+        <span class="ksh__hint" id="release-note">Reading the release list…</span>
+
+        <div class="ksh__footer">
+          <button class="ksh__btn ksh__btn--primary" id="btn-download" disabled>
+            Download and verify
+          </button>
+        </div>
       </section>
 
       <div class="ksh__statusbar">
         <span id="status-device">No device connected</span>
-        <span id="status-note">Tauri scaffold · transport check</span>
+        <span id="status-note">releases verified by sha256</span>
       </div>
     </div>
     <script src="main.js"></script>
