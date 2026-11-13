@@ -9,13 +9,30 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+/// The two firmware builds. Serialised as the number the device reports in `fwVariant`, because the
+/// view compares a release file's variant against the device's and the two must be the same shape:
+/// as `"omni"` and `"btcOnly"` they would never match, and the label would read undefined.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum Variant {
     /// Signs Bitcoin and Ethereum; what the device reports as fwVariant 0.
     Omni,
     /// Signs Bitcoin only; fwVariant 1.
     BtcOnly,
+}
+
+impl Serialize for Variant {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_u8(u8::from(*self))
+    }
+}
+
+impl From<Variant> for u8 {
+    fn from(variant: Variant) -> u8 {
+        match variant {
+            Variant::Omni => 0,
+            Variant::BtcOnly => 1,
+        }
+    }
 }
 
 impl Variant {
@@ -142,6 +159,17 @@ pub fn attach_sha256(files: &mut [ReleaseFile], index: &HashMap<String, String>)
     for file in files {
         file.sha256 = lookup_sha256(index, &file.name);
     }
+}
+
+/// Only the newest release is ever offered: the updater installs what is current, and nothing keeps a
+/// list of older builds to reach for. Files are grouped by the date they were published, so a release
+/// that ships omni only stays omni only — an older btc-only build is not offered beside it, which
+/// would read as two current builds of different ages.
+pub fn latest(files: &[ReleaseFile]) -> Vec<ReleaseFile> {
+    let Some(newest) = files.iter().map(|f| f.date.clone()).max() else {
+        return Vec::new();
+    };
+    files.iter().filter(|f| f.date == newest).cloned().collect()
 }
 
 /// What to show: files with a published hash. The rest are left out rather than greyed out, because
@@ -356,6 +384,61 @@ mod tests {
         let (offered, skipped) = offerable(files);
         assert_eq!(offered.len(), 1);
         assert_eq!(skipped, 1);
+    }
+
+    #[test]
+    fn latest_keeps_one_date_and_both_variants_of_it() {
+        let index = HashMap::from([
+            ("shellos-20261112-1.5.3.bin".to_string(), "a".repeat(64)),
+            ("shellos-btc-20261112-1.5.3.bin".to_string(), "b".repeat(64)),
+            ("shellos-20261031-1.5.2.bin".to_string(), "c".repeat(64)),
+        ]);
+        let mut files = vec![
+            parse_firmware_asset("shellos-20261112-1.5.3.bin", "u").unwrap(),
+            parse_firmware_asset("shellos-20261112-1.5.3-btc-only.bin", "u").unwrap(),
+            parse_firmware_asset("shellos-20261031-1.5.2.bin", "u").unwrap(),
+        ];
+        attach_sha256(&mut files, &index);
+        let latest = latest(&offerable(files).0);
+        assert_eq!(
+            latest.iter().map(|f| f.name.as_str()).collect::<Vec<_>>(),
+            vec![
+                "shellos-20261112-1.5.3.bin",
+                "shellos-20261112-1.5.3-btc-only.bin"
+            ],
+            "both variants of the newest date, nothing older"
+        );
+    }
+
+    #[test]
+    fn a_release_that_ships_one_variant_offers_one_variant() {
+        // v1.5.2 published omni only: its btc build was experimental, so it is not in the list.
+        let index = HashMap::from([("shellos-20261031-1.5.2.bin".to_string(), "c".repeat(64))]);
+        let mut files = vec![
+            parse_firmware_asset("shellos-20261031-1.5.2.bin", "u").unwrap(),
+            parse_firmware_asset("shellos-experimental-20261031-1.5.2-btc-only.bin", "u")
+                .unwrap_or_else(|| {
+                    parse_firmware_asset("shellos-20261031-1.5.2.bin", "u").unwrap()
+                }),
+        ];
+        files.truncate(1);
+        attach_sha256(&mut files, &index);
+        let picked = latest(&offerable(files).0);
+        assert_eq!(picked.len(), 1);
+        assert_eq!(picked[0].variant, Some(Variant::Omni));
+    }
+
+    #[test]
+    fn variant_travels_as_the_devices_number() {
+        // The view labels and compares this against `fwVariant`; a string would silently never match.
+        let file = parse_firmware_asset("shellos-20261112-1.5.3-btc-only.bin", "u").unwrap();
+        let json = serde_json::to_value(&file).unwrap();
+        assert_eq!(json["variant"], serde_json::json!(1));
+        let omni = parse_firmware_asset("shellos-20261112-1.5.3.bin", "u").unwrap();
+        assert_eq!(
+            serde_json::to_value(omni).unwrap()["variant"],
+            serde_json::json!(0)
+        );
     }
 
     #[test]

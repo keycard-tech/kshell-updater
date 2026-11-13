@@ -58,6 +58,9 @@ pub struct ImageInfo {
     pub fw_variant: Option<u8>,
     pub bytes: usize,
     pub sha256: String,
+    /// Set when a file picked from disk has the hash of a published release asset, which is the only
+    /// way such a file can be recognised: its name may be anything.
+    pub matches_release: Option<String>,
 }
 
 /// The hash the bootloader checks, as hex. Pads short images exactly as `tools/firmware-hash.py`
@@ -105,6 +108,22 @@ fn version_is_plausible(major: u8, minor: u8, patch: u8) -> bool {
 /// file still reports what it is. The flags byte is not the device's `fwVariant` encoding: bit `0x20`
 /// of byte 655 marks btc-only (`0x00` on omni, seen on 1.5.2, 1.5.2-experimental-btc and 1.5.3 in both
 /// shapes), where the device reports 0 or 1. Normalised here so callers see device values.
+/// Whether a firmware image is older than what the device reported. This is what stands between a
+/// person and reflashing an older build by accident, so `1.10.0` must not lose to `1.9.9`.
+pub fn firmware_version_older(candidate: &str, on_device: &str) -> bool {
+    fn key(version: &str) -> (u32, u32, u32) {
+        let mut parts = version
+            .split('.')
+            .map(|part| part.trim().parse().unwrap_or(0));
+        (
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+            parts.next().unwrap_or(0),
+        )
+    }
+    key(candidate) < key(on_device)
+}
+
 pub fn inspect_firmware(image: &[u8]) -> Result<ImageInfo, ImageError> {
     let sha256 = firmware_hash(image)?;
     let (major, minor, patch) = (
@@ -126,6 +145,7 @@ pub fn inspect_firmware(image: &[u8]) -> Result<ImageInfo, ImageError> {
         fw_variant: Some(if btc_only { 1 } else { 0 }),
         bytes: image.len(),
         sha256,
+        matches_release: None,
     })
 }
 
@@ -146,6 +166,7 @@ pub fn inspect_database(image: &[u8]) -> Result<ImageInfo, ImageError> {
         fw_variant: None,
         bytes: image.len(),
         sha256: database_hash(image)?,
+        matches_release: None,
     })
 }
 
@@ -160,6 +181,14 @@ mod tests {
     /// A full-size image of 0xff: the shape the ELF gap-fill produces.
     fn filler(len: usize) -> Vec<u8> {
         vec![0xff; len]
+    }
+
+    #[test]
+    fn a_minor_version_is_not_a_string_comparison() {
+        assert!(firmware_version_older("1.5.2", "1.5.3"));
+        assert!(!firmware_version_older("1.10.0", "1.9.9"));
+        assert!(!firmware_version_older("1.5.3", "1.5.3"));
+        assert!(!firmware_version_older("2.0.0", "1.99.99"));
     }
 
     #[test]

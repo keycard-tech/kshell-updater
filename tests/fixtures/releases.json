@@ -36,5 +36,13 @@
     "note": null,
     "unofferable": 27,
     "verified": true
+  },
+  "imageInfo": {
+    "bytes": 0,
+    "fwVariant": 0,
+    "kind": "firmware",
+    "matchesRelease": null,
+    "sha256": "",
+    "version": "0"
   }
 }

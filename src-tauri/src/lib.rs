@@ -13,6 +13,11 @@ use tauri::{AppHandle, Emitter, Manager};
 /// drivers, so exactly one instance is shared and every access takes the lock.
 struct Usb(Mutex<hidapi::HidApi>);
 
+/// Set by `cancel_flash` and read between chunks. An `Arc` because the transfer loop holds one while
+/// the command that sets it has returned: Cancel has to reach a write that is already running.
+#[derive(Clone, Default)]
+struct Cancel(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
 /// Images that have passed their checks and are waiting to be flashed, plus the published hashes
 /// read alongside the release listing.
 ///
@@ -25,17 +30,31 @@ struct Loaded(Mutex<LoadedState>);
 
 #[derive(Default)]
 struct LoadedState {
+    /// Verified bytes by key: the release URL for an online file, `file://<path>` for one picked from
+    /// disk. Keyed per file rather than per kind because both firmware variants are held at once and
+    /// the image that gets flashed has to be the one the row is showing.
     images: HashMap<String, Vec<u8>>,
     hashes: HashMap<String, String>,
 }
 
 impl Loaded {
-    fn put_image(&self, kind: &str, bytes: Vec<u8>) {
+    /// A copy, not a take: a cancelled or declined transfer must not throw away bytes the person
+    /// would otherwise have to fetch again to retry.
+    fn image_bytes(&self, key: &str) -> Option<Vec<u8>> {
         self.0
             .lock()
             .expect("loaded state poisoned")
             .images
-            .insert(kind.to_string(), bytes);
+            .get(key)
+            .cloned()
+    }
+
+    fn put_image(&self, key: &str, bytes: Vec<u8>) {
+        self.0
+            .lock()
+            .expect("loaded state poisoned")
+            .images
+            .insert(key.to_string(), bytes);
     }
 
     fn merge_hashes(&self, index: HashMap<String, String>) {
@@ -49,11 +68,22 @@ impl Loaded {
     fn hashes(&self) -> HashMap<String, String> {
         self.0.lock().expect("loaded state poisoned").hashes.clone()
     }
+
+    /// The release a file from disk came from, when its hash is one this app published. Names in the
+    /// hash lists differ from asset names, so this reads as the list wrote it.
+    fn release_for_hash(&self, hash: &str) -> Option<String> {
+        let inner = self.0.lock().expect("loaded state poisoned");
+        inner
+            .hashes
+            .iter()
+            .find(|(_, published)| published.as_str() == hash)
+            .map(|(name, _)| name.clone())
+    }
 }
 
 /// The picker's listing. `verified` is false when a release's hash list could not be read, which is
 /// said once instead of leaving every row to look independently broken.
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Catalogue {
     pub files: Vec<releases::ReleaseFile>,
@@ -62,6 +92,26 @@ pub struct Catalogue {
     pub unofferable: usize,
     pub verified: bool,
     pub note: Option<String>,
+}
+
+fn catalogue_shape(
+    files: Vec<releases::ReleaseFile>,
+    unofferable: usize,
+    failures: Vec<String>,
+) -> Catalogue {
+    Catalogue {
+        files,
+        unofferable,
+        verified: failures.is_empty(),
+        note: (!failures.is_empty()).then(|| failures.join("; ")),
+    }
+}
+
+/// The listing the command returns, exposed so `examples/releases.rs --fixtures` writes the JSON the
+/// renderer actually receives rather than a hand-written approximation of it.
+pub async fn build_catalogue(kind: &str) -> Result<Catalogue, String> {
+    let (files, unofferable, _index, failures) = catalogue_for(kind).await?;
+    Ok(catalogue_shape(files, unofferable, failures))
 }
 
 // per_page because the API's default of 30 silently truncates: keycard-shell has 32 releases, so a
@@ -107,7 +157,10 @@ pub async fn catalogue_for(
         }
     }
     releases::attach_sha256(&mut files, &index);
-    let (files, unofferable) = releases::offerable(files);
+    let (all, unofferable) = releases::offerable(files);
+    // Older builds are dropped here rather than hidden in the view, so nothing downstream can offer
+    // one by accident. The full hash index is kept, because it is what identifies a file from disk.
+    let files = releases::latest(&all);
     Ok((files, unofferable, index, failures))
 }
 
@@ -163,30 +216,75 @@ fn filename(url: &str) -> String {
 async fn list_releases(app: AppHandle, kind: String) -> Result<Catalogue, String> {
     let (files, unofferable, index, failures) = catalogue_for(&kind).await?;
     app.state::<Loaded>().merge_hashes(index);
-    Ok(Catalogue {
-        verified: failures.is_empty(),
-        note: (!failures.is_empty()).then(|| failures.join("; ")),
-        files,
-        unofferable,
-    })
+    Ok(catalogue_shape(files, unofferable, failures))
 }
 
+/// One file the view wants prepared: the same URL the listing gave it.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct DownloadRequest {
+struct FileRef {
     kind: String,
     url: String,
 }
 
+/// Verified bytes plus the key `flash_image` needs to reach them. The bytes deliberately do not
+/// travel to the renderer; the key is only a name.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Prepared {
+    pub info: image::ImageInfo,
+    pub key: String,
+}
+
+pub const EVENT_PRELOADED: &str = "shell://preloaded";
+
+/// Fetch and check every offered file at start-up, so pressing Transfer only ever writes and never
+/// waits. Each file is verified against the published hash list before it is kept, and one failing
+/// file does not stop the others: the row for it says so and From file still works.
 #[tauri::command]
-async fn download_release(
-    app: AppHandle,
-    request: DownloadRequest,
-) -> Result<image::ImageInfo, String> {
+async fn preload_images(app: AppHandle, files: Vec<FileRef>) -> Result<Vec<Prepared>, String> {
     let index = app.state::<Loaded>().hashes();
-    let (info, bytes) = download_verified(&request.kind, &request.url, &index).await?;
-    app.state::<Loaded>().put_image(&request.kind, bytes);
-    Ok(info)
+    let mut prepared = Vec::new();
+    for file in files {
+        let outcome = download_verified(&file.kind, &file.url, &index).await;
+        match outcome {
+            Ok((mut info, bytes)) => {
+                info.matches_release = Some(filename(&file.url));
+                app.state::<Loaded>().put_image(&file.url, bytes);
+                let _ = app.emit(
+                    EVENT_PRELOADED,
+                    Preloaded {
+                        key: file.url.clone(),
+                        ok: true,
+                        note: None,
+                    },
+                );
+                prepared.push(Prepared {
+                    info,
+                    key: file.url,
+                });
+            }
+            Err(error) => {
+                let _ = app.emit(
+                    EVENT_PRELOADED,
+                    Preloaded {
+                        key: file.url.clone(),
+                        ok: false,
+                        note: Some(error),
+                    },
+                );
+            }
+        }
+    }
+    Ok(prepared)
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Preloaded {
+    pub key: String,
+    pub ok: bool,
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -196,25 +294,187 @@ struct PickedFile {
     path: String,
 }
 
+pub const EVENT_FLASH_PROGRESS: &str = "shell://flash-progress";
+/// A destructive choice the view has to ask about first. A command's error is a String, so the
+/// prefix is the contract: `confirm:variant-switch`, `confirm:downgrade`.
+pub const NEEDS_CONFIRM: &str = "confirm:";
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct FlashRequest {
+    kind: String,
+    /// Which prepared file to write, from `Prepared.key`.
+    key: String,
+    /// omni and btc-only hold different signing keys; switching wipes what the other build stored.
+    #[serde(default)]
+    allow_variant_switch: bool,
+    #[serde(default)]
+    allow_downgrade: bool,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlashProgress {
+    pub kind: String,
+    pub done: usize,
+    pub total: usize,
+}
+
 #[tauri::command]
-async fn pick_image_file(app: AppHandle, file: PickedFile) -> Result<image::ImageInfo, String> {
+async fn flash_image(app: AppHandle, request: FlashRequest) -> Result<AppConfiguration, String> {
+    let kind = request.kind.clone();
+    let bytes = app
+        .state::<Loaded>()
+        .image_bytes(&request.key)
+        .ok_or_else(|| format!("{kind} was never prepared, so there is nothing to flash"))?;
+    // Re-read from the bytes rather than trusting what the view believes it picked.
+    let info = inspect(&kind, &bytes)?;
+    tauri::async_runtime::spawn_blocking(move || flash(app, kind, bytes, info, request))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn flash(
+    app: AppHandle,
+    kind: String,
+    bytes: Vec<u8>,
+    info: image::ImageInfo,
+    request: FlashRequest,
+) -> Result<AppConfiguration, String> {
+    let usb = app.state::<Usb>();
+    let stopping = app.state::<Cancel>().0.clone();
+    stopping.store(false, std::sync::atomic::Ordering::Relaxed);
+    let on_device = read_configuration(&usb)?;
+
+    if kind == "firmware" {
+        if !request.allow_variant_switch
+            && matches!((on_device.fw_variant, info.fw_variant), (Some(have), Some(want)) if have != want)
+        {
+            return Err(format!("{NEEDS_CONFIRM}variant-switch"));
+        }
+        if !request.allow_downgrade
+            && image::firmware_version_older(&info.version, &on_device.fw_version)
+        {
+            return Err(format!("{NEEDS_CONFIRM}downgrade"));
+        }
+    } else if !request.allow_downgrade {
+        // A database version is its date; an older list would drop tokens the device already has.
+        let candidate = info.version.parse::<u32>().unwrap_or(u32::MAX);
+        if candidate < on_device.db_version {
+            return Err(format!("{NEEDS_CONFIRM}downgrade"));
+        }
+    }
+
+    let total = bytes.len();
+    let ins = if kind == "firmware" {
+        shell::INS_LOAD_FIRMWARE
+    } else {
+        shell::INS_LOAD_DATABASE
+    };
+    let progress_kind = kind.clone();
+    let mut reported = 0usize;
+    {
+        let mut api = usb.0.lock().map_err(|e| e.to_string())?;
+        let device = shell::list_devices(&mut api)
+            .into_iter()
+            .next()
+            .ok_or("no Keycard Shell connected")?;
+        let opened = Shell::open(&api, &device.path).map_err(|e| e.to_string())?;
+        opened
+            .load(
+                ins,
+                &bytes,
+                |done| {
+                    // One event per percent. A firmware is 2595 chunks and the bridge has better
+                    // things to carry than all of them.
+                    if done == total || done - reported >= total / 100 {
+                        reported = done;
+                        let _ = app.emit(
+                            EVENT_FLASH_PROGRESS,
+                            FlashProgress {
+                                kind: progress_kind.clone(),
+                                done,
+                                total,
+                            },
+                        );
+                    }
+                },
+                || stopping.load(std::sync::atomic::Ordering::Relaxed),
+            )
+            .map_err(explain)?;
+    }
+    // A flashed firmware reboots, so "did it work" is only answerable by connecting again.
+    report_back(&usb)
+}
+
+fn read_configuration(usb: &Usb) -> Result<AppConfiguration, String> {
+    let mut api = usb.0.lock().map_err(|e| e.to_string())?;
+    let device = shell::list_devices(&mut api)
+        .into_iter()
+        .next()
+        .ok_or("no Keycard Shell connected")?;
+    Shell::open(&api, &device.path)
+        .map_err(|e| e.to_string())?
+        .get_app_configuration()
+        .map_err(explain)
+}
+
+fn report_back(usb: &Usb) -> Result<AppConfiguration, String> {
+    // The device is gone while it restarts, so a failure here is expected and only worth reporting
+    // once the wait is over.
+    let mut last = String::from("no answer");
+    for _ in 0..40 {
+        match read_configuration(usb) {
+            Ok(config) => return Ok(config),
+            Err(error) => last = error,
+        }
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    Err(format!(
+        "the flash finished but the Shell never reported a configuration: {last}"
+    ))
+}
+
+fn explain(error: shell::ShellError) -> String {
+    match error {
+        shell::ShellError::StatusWord(code) if code == shell::SW_USER_DECLINED => {
+            String::from("the flash was declined on the Shell's screen")
+        }
+        shell::ShellError::Cancelled => String::from("cancelled"),
+        other => other.to_string(),
+    }
+}
+
+/// Stop after the chunk in flight. Stopping mid-chunk would leave the image half written with no way
+/// to tell the Shell so, and it answers the next command as a broken firmware.
+#[tauri::command]
+fn cancel_flash(state: tauri::State<'_, Cancel>) {
+    state.0.store(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[tauri::command]
+async fn pick_image_file(app: AppHandle, file: PickedFile) -> Result<Prepared, String> {
     let PickedFile { kind, path } = file;
     let message = path.clone();
     let bytes = tauri::async_runtime::spawn_blocking(move || std::fs::read(&path))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| format!("could not read {message}: {e}"))?;
-    let info = inspect(&kind, &bytes)?;
-    app.state::<Loaded>().put_image(&kind, bytes);
-    Ok(info)
+    let mut info = inspect(&kind, &bytes)?;
+    // A file from disk is recognised by its hash alone: the person may have renamed it, and the
+    // download list is the only thing that knows what a published image hashes to.
+    info.matches_release = app.state::<Loaded>().release_for_hash(&info.sha256);
+    let key = format!("file://{message}");
+    app.state::<Loaded>().put_image(&key, bytes);
+    Ok(Prepared { info, key })
 }
 
 #[tauri::command]
 async fn list_shells(app: AppHandle) -> Result<Vec<DeviceInfo>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let usb = app.state::<Usb>();
-        let api = usb.0.lock().map_err(|e| e.to_string())?;
-        Ok(shell::list_devices(&api))
+        let mut api = usb.0.lock().map_err(|e| e.to_string())?;
+        Ok(shell::list_devices(&mut api))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -235,21 +495,20 @@ async fn shell_app_configuration(app: AppHandle, path: String) -> Result<AppConf
 pub const EVENT_CONNECTED: &str = "shell://connected";
 pub const EVENT_DISCONNECTED: &str = "shell://disconnected";
 
-/// Hotplug is polled rather than event driven. hidapi 2.x exposes no portable refresh, and a
-/// fresh context costs a few milliseconds against the half second a person waits to see the
-/// "connected" badge after plugging a cable in.
+/// Hotplug is polled rather than event driven: hidapi 2.x has no portable hotplug callback, and a
+/// re-scan costs milliseconds against the half second a person waits to see "connected" after
+/// plugging a cable in or powering the Shell on.
 fn watch_presence(app: AppHandle) {
     std::thread::spawn(move || {
         let mut present: Vec<DeviceInfo> = Vec::new();
         loop {
-            let now = match hidapi::HidApi::new() {
-                Ok(api) => shell::list_devices(&api),
-                // A USB subsystem that vanishes mid-session is rare; keep the last known state
-                // and try again rather than reporting the Shell unplugged.
-                Err(_) => {
-                    std::thread::sleep(std::time::Duration::from_secs(2));
-                    continue;
-                }
+            let now = {
+                let usb = app.state::<Usb>();
+                let mut api = match usb.0.lock() {
+                    Ok(api) => api,
+                    Err(_) => return,
+                };
+                shell::list_devices(&mut api)
             };
             if now != present {
                 if now.is_empty() {
@@ -272,6 +531,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(Usb(Mutex::new(hidapi::HidApi::new()?)));
+            app.manage(Cancel::default());
             app.manage(Loaded::default());
             watch_presence(app.handle().clone());
             Ok(())
@@ -280,8 +540,10 @@ pub fn run() {
             list_shells,
             shell_app_configuration,
             list_releases,
-            download_release,
-            pick_image_file
+            preload_images,
+            pick_image_file,
+            flash_image,
+            cancel_flash
         ])
         .run(tauri::generate_context!())
         .expect("error while running Keycard Shell Updater");

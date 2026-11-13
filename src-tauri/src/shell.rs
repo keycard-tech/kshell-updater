@@ -11,6 +11,33 @@ const TAG: u8 = 0x05;
 const CLA: u8 = 0xe0;
 const INS_GET_APP_CONFIGURATION: u8 = 0x06;
 const INS_GET_RESPONSE: u8 = 0xc0;
+/// Flashing. Both take the image in the same chunked form, `load_block` builds it.
+pub const INS_LOAD_FIRMWARE: u8 = 0xf2;
+pub const INS_LOAD_DATABASE: u8 = 0xf4;
+const LOAD_CHUNK: usize = 240;
+/// The answer a person walking away from the device gives: the flash is declined on its screen.
+pub const SW_USER_DECLINED: u16 = 0x6982;
+/// A normal command answers in milliseconds; a chunk write erases flash.
+const READ_TIMEOUT: i32 = 5_000;
+const LOAD_TIMEOUT: i32 = 30_000;
+
+/// One chunk of a `load`: only the first carries the image's total length, and it counts towards the
+/// command's own length byte, which is why 240 bytes of image become a 244-byte payload.
+pub fn load_block(ins: u8, total: usize, offset: usize, data: &[u8]) -> Vec<u8> {
+    let chunk = &data[offset..(offset + LOAD_CHUNK).min(data.len())];
+    let header = if offset == 0 {
+        (total as u32).to_be_bytes().to_vec()
+    } else {
+        Vec::new()
+    };
+    let mut apdu = Vec::with_capacity(chunk.len() + header.len() + 5);
+    apdu.extend_from_slice(&[CLA, ins, if offset == 0 { 0x00 } else { 0x80 }, 0x00]);
+    // The length byte covers everything after it, the total-length header included.
+    apdu.push((header.len() + chunk.len()) as u8);
+    apdu.extend_from_slice(&header);
+    apdu.extend_from_slice(chunk);
+    apdu
+}
 
 /// 56 payload + 2 status word; firmware 1.5 and later append variant and beta flags.
 const APP_CONFIG_LEN: usize = 58;
@@ -26,8 +53,12 @@ pub enum ShellError {
     Timeout,
     #[error("the Shell sent an unexpected packet ({0})")]
     Framing(&'static str),
-    #[error("the Shell rejected the command (SW {0})")]
-    StatusWord(String),
+    /// The number, not just its text: 0x6982 means the person declined the flash on the device,
+    /// which the updater shows differently from a genuine rejection.
+    #[error("the Shell rejected the command (SW {0:#06x})")]
+    StatusWord(u16),
+    #[error("the transfer was cancelled")]
+    Cancelled,
     #[error("the Shell answered with {actual} bytes, expected {expected}")]
     Malformed { actual: usize, expected: usize },
 }
@@ -65,7 +96,11 @@ fn is_shell(device: &hidapi::DeviceInfo) -> bool {
     device.vendor_id() == SHELL_VENDOR_ID && SHELL_PRODUCT_IDS.contains(&device.product_id())
 }
 
-pub fn list_devices(api: &hidapi::HidApi) -> Vec<DeviceInfo> {
+/// The list must be re-read, not just visited: hidapi caches what the bus looked like when the
+/// context was made, so a Shell that is plugged in - or powered on, which is how the Shell itself
+/// appears - after start-up stayed invisible until the app was restarted.
+pub fn list_devices(api: &mut hidapi::HidApi) -> Vec<DeviceInfo> {
+    let _ = api.refresh_devices();
     let mut devices: Vec<DeviceInfo> = api
         .device_list()
         .filter(|device| is_shell(device))
@@ -166,6 +201,10 @@ impl Shell {
     }
 
     pub fn exchange(&self, apdu: &[u8]) -> Result<Vec<u8>> {
+        self.exchange_with(apdu, READ_TIMEOUT)
+    }
+
+    fn exchange_with(&self, apdu: &[u8], timeout: i32) -> Result<Vec<u8>> {
         for packet in request_blocks(self.channel, apdu) {
             // The leading zero is the report id the HID report carries, not part of the frame.
             let mut out = Vec::with_capacity(PACKET_SIZE + 1);
@@ -186,7 +225,7 @@ impl Shell {
         loop {
             let read = self
                 .device
-                .read_timeout(&mut buf, 5_000)
+                .read_timeout(&mut buf, timeout)
                 .map_err(|e| ShellError::Open(e.to_string()))?;
             if read == 0 {
                 return Err(ShellError::Timeout);
@@ -212,7 +251,28 @@ impl Shell {
         if sw == 0x6100 {
             return self.exchange(&[CLA, INS_GET_RESPONSE, 0x00, 0x00]);
         }
-        Err(ShellError::StatusWord(format!("{sw:04x}")))
+        Err(ShellError::StatusWord(sw))
+    }
+
+    /// Write an image to the device. Every chunk is answered, and any status but 0x9000 stops the
+    /// transfer there rather than continuing to flash a rejected image.
+    /// `should_stop` is checked between chunks, so Cancel ends the transfer at a chunk boundary
+    /// rather than mid-image. A part-written firmware is why this is checked and not ignored.
+    pub fn load(
+        &self,
+        ins: u8,
+        data: &[u8],
+        mut progress: impl FnMut(usize),
+        mut should_stop: impl FnMut() -> bool,
+    ) -> Result<()> {
+        for offset in (0..data.len()).step_by(LOAD_CHUNK) {
+            if should_stop() {
+                return Err(ShellError::Cancelled);
+            }
+            self.exchange_with(&load_block(ins, data.len(), offset, data), LOAD_TIMEOUT)?;
+            progress((offset + LOAD_CHUNK).min(data.len()));
+        }
+        Ok(())
     }
 
     pub fn get_app_configuration(&self) -> Result<AppConfiguration> {
@@ -256,6 +316,49 @@ mod tests {
     /// Byte-for-byte reference from @choppu/shelljs 2.0.0:
     /// `hidFraming(0x5cb0, 64).makeBlocks(Buffer.from([0xe0, 0x06, 0x00, 0x00]))`
     const EXPECTED_SINGLE_BLOCK: &str = "5cb00500000004e00600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+
+    #[test]
+    fn only_the_first_load_chunk_carries_the_length() {
+        let data: Vec<u8> = (0..500u16).map(|i| (i % 251) as u8).collect();
+        let first = load_block(INS_LOAD_FIRMWARE, data.len(), 0, &data);
+        assert_eq!(&first[..4], &[0xe0, 0xf2, 0x00, 0x00]);
+        assert_eq!(
+            first[4] as usize,
+            4 + 240,
+            "the length byte covers its own header"
+        );
+        assert_eq!(&first[5..9], &500u32.to_be_bytes()[..]);
+        assert_eq!(&first[9..13], &data[..4]);
+
+        let second = load_block(INS_LOAD_FIRMWARE, data.len(), 240, &data);
+        assert_eq!(&second[..4], &[0xe0, 0xf2, 0x80, 0x00]);
+        assert_eq!(second[4] as usize, 240);
+        assert_eq!(&second[5..8], &data[240..243]);
+
+        let last = load_block(INS_LOAD_FIRMWARE, data.len(), 480, &data);
+        assert_eq!(last[4] as usize, 20, "the tail chunk is short");
+        assert_eq!(&last[5..], &data[480..]);
+    }
+
+    #[test]
+    fn a_load_chunk_needs_no_extended_length() {
+        // A length byte over 255 would mean an extended APDU, which this command does not use.
+        for total in [1usize, 240, 241, 8192 * 76] {
+            let data = vec![0u8; total];
+            for offset in (0..total).step_by(LOAD_CHUNK) {
+                let block = load_block(INS_LOAD_DATABASE, total, offset, &data);
+                assert!(block[4] <= 244, "Lc too big at {total}/{offset}");
+                assert_eq!(block.len(), 5 + block[4] as usize);
+            }
+        }
+    }
+
+    #[test]
+    fn a_firmware_image_is_2595_chunks() {
+        // What a full transfer costs, kept next to the chunk size on purpose: 622592 / 240.
+        assert_eq!(8192 * 76 - (8192 * 76 / LOAD_CHUNK) * LOAD_CHUNK, 32);
+        assert_eq!(8192 * 76 / LOAD_CHUNK + 1, 2595);
+    }
 
     fn reassembler(channel: u16) -> Reassembler {
         Reassembler {

@@ -1,105 +1,82 @@
 const invoke = window.__TAURI__.core.invoke;
 const listen = window.__TAURI__.event.listen;
 
-const el = (id) => document.getElementById(id);
-
 const KINDS = [
   {
     kind: 'firmware',
     title: 'Firmware',
-    hint: 'omni signs Bitcoin and Ethereum, btc-only signs Bitcoin only.',
+    hintSwitch: 'Same version, other build: switching replaces the firmware and its data.',
+    link: 'Release notes',
   },
   {
     kind: 'database',
     title: 'Database',
-    hint: 'Ethereum contract database, identified by its date.',
+    hintSwitch: null,
+    link: 'Version history',
   },
 ];
 
-const VARIANT = { 0: 'omni', 1: 'btc-only' };
+const VARIANT = { 0: 'omni', 1: 'btc' };
 
 const state = {
   device: null,
   config: null,
-  releases: { firmware: null, database: null },
+  // Only the newest release reaches the view, so nothing here can offer an older build.
+  files: { firmware: [], database: [] },
   mode: { firmware: 'online', database: 'online' },
-  // Image read from disk or downloaded, per kind: { info, fromFile }
+  include: { firmware: true, database: true },
+  variant: { firmware: 0, database: null },
+  // What has been read from disk or downloaded: { info, path } or { error }.
   ready: { firmware: null, database: null },
-  // Set by whatever happened last (a failed list, a finished verification) and cleared when the
-  // selection moves again, so the note is never both a status and a stale result.
-  note: null,
-  tone: 'info',
+  listError: null,
   busy: false,
+  scanning: false,
+  // Every offered file is downloaded and hash-checked at start-up, so the transfer only writes.
+  // `cache` and `prepared` are keyed by `Prepared.key` (the release URL, or file://<path>).
+  cache: {},
+  prepared: {},
+  preloading: true,
+  // The run in hand: what is queued, which one is moving, and what came back afterwards.
+  queue: [],
+  step: 0,
+  transfer: null,
+  transferError: null,
+  result: null,
+  configError: null,
+  screen: 'screen-home',
 };
 
-const TONE = { info: 'var(--white-40)', ok: 'var(--teal)', bad: 'var(--error)', warn: 'var(--orange)' };
-
-function setBadge(text, modifier) {
-  el('badge').textContent = text;
-  el('badge').className = `ksh__badge${modifier ? ` ksh__badge--${modifier}` : ''}`;
-}
-
-function showWaiting(message) {
-  el('card-empty').hidden = false;
-  el('card-device').hidden = true;
-  el('subtitle').textContent = message;
-  el('status-device').textContent = 'No device connected';
-  setBadge('No device', 'warn');
-}
-
-function showDevice(device) {
-  state.device = device;
-  el('card-empty').hidden = true;
-  el('card-device').hidden = false;
-  el('device-name').textContent = device.productName || 'Keycard Shell';
-  el('status-device').textContent = `${device.productName || 'Keycard Shell'} connected`;
-  setBadge('Device ready', 'ready');
-}
-
-function onDeviceText(config) {
-  if (!config) return null;
-  const variant = config.fwVariant ?? null;
-  return `on device: firmware ${config.fwVersion}${variant === null ? '' : `-${VARIANT[variant] ?? variant}`}, database ${config.dbVersion}`;
-}
-
-async function readConfiguration(device) {
-  state.config = null;
-  el('device-line').textContent = 'reading the app configuration…';
-  try {
-    state.config = await invoke('shell_app_configuration', { path: device.path });
-    el('device-line').textContent = `serial ${device.serialNumber ?? state.config.serialNumber}`;
-    el('device-line').title = `attestation key ${state.config.publicKey}`;
-    el('subtitle').textContent = onDeviceText(state.config);
-    renderRows();
-    updateNote();
-  } catch (error) {
-    el('subtitle').textContent = String(error);
-    setBadge('Read failed', 'error');
-  }
-}
+const el = (id) => document.getElementById(id);
+const label = (kind) => KINDS.find((entry) => entry.kind === kind);
 
 const rows = {};
 
 function buildRows() {
   const host = el('rows');
   host.textContent = '';
-  for (const { kind, title } of KINDS) {
+  for (const { kind, title, link } of KINDS) {
     const row = document.createElement('div');
     row.className = 'ksh__row';
     row.dataset.kind = kind;
     row.innerHTML = `
       <div class="ksh__row-top">
-        <div class="ksh__row-title"><h2 class="ksh__h2">${title}</h2></div>
-        <span class="ksh__status ksh__status--empty" data-slot="status">reading…</span>
+        <div class="ksh__row-title">
+          <input type="checkbox" data-slot="include" checked aria-label="Update ${title}" />
+          <h2 class="ksh__h2">${title}</h2>
+        </div>
+        <div class="ksh__row-side">
+          <span class="ksh__status" data-slot="status">Reading…</span>
+          <a class="ksh__link" data-slot="link" hidden><img src="img/external.svg" alt="" />${link}</a>
+        </div>
       </div>
       <div class="ksh__row-mid">
         <div class="ksh__segmented" data-slot="mode">
-          <button type="button" class="ksh__seg" data-mode="online">Release</button>
+          <button type="button" class="ksh__seg" data-mode="online">Online</button>
           <button type="button" class="ksh__seg" data-mode="file">From file</button>
         </div>
-        <select class="ksh__select" data-slot="select" disabled></select>
-        <button type="button" class="ksh__btn ksh__btn--file" data-slot="pick" hidden>
-          Choose file…
+        <div class="ksh__field" data-slot="field" hidden></div>
+        <button type="button" class="ksh__btn ksh__btn--file ksh__btn--pick" data-slot="pick" hidden>
+          Choose a .bin file
         </button>
       </div>
       <div class="ksh__row-foot">
@@ -110,8 +87,10 @@ function buildRows() {
 
     const refs = {
       row,
+      include: row.querySelector('[data-slot=include]'),
       status: row.querySelector('[data-slot=status]'),
-      select: row.querySelector('[data-slot=select]'),
+      link: row.querySelector('[data-slot=link]'),
+      field: row.querySelector('[data-slot=field]'),
       pick: row.querySelector('[data-slot=pick]'),
       hint: row.querySelector('[data-slot=hint]'),
       sha: row.querySelector('[data-slot=sha]'),
@@ -122,145 +101,490 @@ function buildRows() {
       const mode = event.target?.dataset?.mode;
       if (!mode || state.mode[kind] === mode) return;
       state.mode[kind] = mode;
-      state.note = null;
-      renderRow(kind);
-      updateAction();
+      render(kind);
     });
-    refs.select.addEventListener('change', () => {
-      state.ready[kind] = null;
-      state.note = null;
-      renderRow(kind);
-      updateAction();
+    refs.include.addEventListener('change', () => {
+      state.include[kind] = refs.include.checked;
+      render(kind);
     });
     refs.pick.addEventListener('click', () => chooseFile(kind));
   }
 }
 
-function optionsFor(kind) {
-  return (state.releases[kind]?.files ?? []).filter((file) =>
-    kind === 'database' ? true : file.variant !== null && file.variant !== undefined
-  );
+function filesFor(kind) {
+  return state.files[kind] ?? [];
 }
 
 function selectedFile(kind) {
-  const files = optionsFor(kind);
-  const url = rows[kind].select.value;
-  return files.find((file) => file.url === url) ?? null;
-}
-
-function defaultUrl(kind) {
-  const files = optionsFor(kind);
-  if (kind === 'firmware' && state.config?.fwVariant !== undefined) {
-    // Offer the variant already on the device first, so the default action is not a variant switch.
-    const matching = files.filter((file) => file.variant === state.config.fwVariant);
-    if (matching.length) return matching[0].url;
-  }
-  return files[0]?.url ?? '';
-}
-
-function shortHash(hash) {
-  return hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : '—';
+  const files = filesFor(kind);
+  if (kind === 'database') return files[0] ?? null;
+  return files.find((file) => file.variant === state.variant[kind]) ?? files[0] ?? null;
 }
 
 function versionOf(file) {
   return file?.version ?? file?.date ?? '';
 }
 
-function renderRow(kind) {
+function shortHash(hash) {
+  return hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : '';
+}
+
+/// Status text, and whether the row asks for work. 'Up to date' is the only state that does not: the
+/// checkbox, the badge and the action button all follow it, so nothing can be "selected" that has
+/// nowhere to go.
+function rowState(kind) {
+  if (state.mode[kind] === 'file') {
+    const picked = state.ready[kind]?.info;
+    if (!picked) return { status: 'No file', modifier: 'empty', wanted: false };
+    const variant = VARIANT[picked.fwVariant] ?? '';
+    return {
+      status: `${picked.version}${variant ? `-${variant}` : ''} from file`,
+      modifier: '',
+      wanted: true,
+    };
+  }
+
+  const file = selectedFile(kind);
+  if (!file) {
+    return state.listError
+      ? { status: 'No list', modifier: 'empty', wanted: false }
+      : { status: 'Reading…', modifier: 'empty', wanted: false };
+  }
+
+  const deviceVariant = state.config?.fwVariant ?? null;
+  if (kind === 'firmware' && deviceVariant !== null && file.variant !== deviceVariant) {
+    return { status: 'Variant switch', modifier: '', wanted: true };
+  }
+  const onDevice =
+    kind === 'firmware' ? state.config?.fwVersion : String(state.config?.dbVersion ?? '');
+  if (onDevice && onDevice === versionOf(file)) {
+    return { status: 'Up to date', modifier: 'latest', wanted: false };
+  }
+  return { status: 'New version', modifier: '', wanted: true };
+}
+
+function wantedKinds() {
+  return KINDS.map(({ kind }) => kind).filter(
+    (kind) => state.include[kind] && rowState(kind).wanted,
+  );
+}
+
+function render(kind) {
   const refs = rows[kind];
-  const catalogue = state.releases[kind];
   const mode = state.mode[kind];
   const ready = state.ready[kind];
+  const row = rowState(kind);
 
   for (const button of refs.row.querySelectorAll('[data-mode]')) {
     button.classList.toggle('ksh__seg--on', button.dataset.mode === mode);
   }
-  refs.select.hidden = mode !== 'online';
+  refs.status.textContent = row.status;
+  refs.status.className = `ksh__status${row.modifier ? ` ksh__status--${row.modifier}` : ''}`;
+  refs.row.classList.toggle('ksh__row--off', !state.include[kind]);
+  refs.include.checked = state.include[kind] && row.wanted;
+  // Nothing may be re-aimed while bytes are going to the device.
+  refs.include.disabled = !row.wanted || state.busy;
+  for (const button of refs.row.querySelectorAll('[data-mode]')) button.disabled = state.busy;
+
+  refs.field.hidden = mode !== 'online';
   refs.pick.hidden = mode !== 'file';
-  refs.hint.textContent = ready?.error ?? KINDS.find((k) => k.kind === kind).hint;
+  refs.link.hidden = mode !== 'online' || !selectedFile(kind);
 
+  if (mode === 'online') renderField(kind);
+
+  // Nothing to say most of the time: the slot carries problems, not descriptions of the two kinds.
+  refs.hint.textContent = ready?.error
+    ? ready.error
+    : row.status === 'Variant switch'
+      ? label(kind).hintSwitch
+      : state.listError
+        ? `${state.listError} Use From file to install something you already have.`
+        : preloadedState(kind) === 'failed'
+          ? `${preloadedNote(kind) ?? 'The file could not be verified.'} Use From file instead.`
+          : '';
+
+  refs.sha.innerHTML = shaMarkup(kind, mode, ready, row);
+  renderSummary();
+}
+
+function renderField(kind) {
+  const refs = rows[kind];
+  const files = filesFor(kind);
+  if (!files.length) {
+    refs.field.textContent = '';
+    return;
+  }
+  if (kind === 'database') {
+    const onDevice = state.config?.dbVersion ?? '—';
+    refs.field.innerHTML = `<span class="ksh__field-static"><span class="ksh__from">${onDevice}</span><span class="ksh__arrow">&rarr;</span><span class="ksh__to">${versionOf(files[0])}</span></span>`;
+    return;
+  }
+  // The choice is omni or btc, never an older build: the version is the same in both options.
+  const options = files
+    .map(
+      (file) =>
+        `<option value="${file.variant}"${file.variant === state.variant[kind] ? ' selected' : ''}>${versionOf(file)} - ${VARIANT[file.variant]}</option>`,
+    )
+    .join('');
+  const signature = files.map((file) => file.url).join('|');
+  if (refs.field.dataset.signature !== signature) {
+    refs.field.innerHTML = `<select class="ksh__select" data-slot="select">${options}</select>`;
+    refs.field.dataset.signature = signature;
+    refs.field
+      .querySelector('select')
+      .addEventListener('change', (event) => {
+        state.variant[kind] = Number(event.target.value);
+        state.ready[kind] = null;
+        render(kind);
+      });
+  }
+}
+
+function shaMarkup(kind, mode, ready, row) {
   if (mode === 'file') {
-    refs.select.disabled = true;
-    const picked = ready?.info;
-    refs.pick.textContent = picked ? `${shortName(ready.path)}` : 'Choose file…';
-    setStatus(refs.status, picked ? `${versionOf(picked)} from file` : 'nothing picked', picked ? '' : 'empty');
-    refs.sha.innerHTML = picked
-      ? `sha256 <b>${shortHash(picked.sha256)}</b><i class="ksh__sha-state">from file</i>`
-      : '';
-    return;
+    const info = ready?.info;
+    if (!info) return '';
+    const mark = ready.error
+      ? `<i class="ksh__sha-state ksh__sha-state--bad">unreadable</i>`
+      : info.matchesRelease
+        ? `<i class="ksh__sha-state ksh__sha-state--ok" title="${info.matchesRelease}">matches release</i>`
+        : `<i class="ksh__sha-state">from file</i>`;
+    return `sha256 <b>${shortHash(info.sha256)}</b>${mark}`;
   }
-
-  if (!catalogue) {
-    refs.select.disabled = true;
-    refs.select.innerHTML = '';
-    setStatus(refs.status, 'reading…', 'empty');
-    refs.sha.innerHTML = '';
-    return;
-  }
-
-  const files = optionsFor(kind);
-  // Rebuilt only when the list changes, so a re-render does not reset the person's selection.
-  if (refs.select.dataset.signature !== catalogueSignature(kind)) {
-    refs.select.innerHTML = files
-      .map((file) => {
-        const variant = VARIANT[file.variant] ?? '';
-        const date = file.version ? ` · ${file.date}` : '';
-        return `<option value="${file.url}">${versionOf(file)}${variant ? ` · ${variant}` : ''}${date}</option>`;
-      })
-      .join('');
-    refs.select.value = defaultUrl(kind);
-    refs.select.dataset.signature = catalogueSignature(kind);
-  }
-  refs.select.disabled = !files.length;
-
   const file = selectedFile(kind);
-  if (!file) {
-    setStatus(refs.status, 'nothing published', 'empty');
-    refs.sha.innerHTML = '';
+  if (!file) return '';
+  // A verified online file needs no badge: every file offered here is hash-checked before the
+  // screen is ready, so the plain hash is the normal case. Only a problem is worth a word.
+  const state_ = preloadedState(kind);
+  const mark =
+    state_ === 'failed'
+      ? `<i class="ksh__sha-state ksh__sha-state--bad">not verified</i>`
+      : state_ === 'pending'
+        ? `<i class="ksh__sha-state">checking…</i>`
+        : '';
+  return `sha256 <b>${shortHash(file.sha256)}</b>${mark}`;
+}
+
+/** Which of the prepared files this row currently points at: the chosen variant, or the picked file. */
+function keyFor(kind) {
+  return state.mode[kind] === 'file' ? state.ready[kind]?.key : selectedFile(kind)?.url;
+}
+
+const preloadedState = (kind) => {
+  const key = keyFor(kind);
+  if (!key) return null;
+  const entry = state.cache[key];
+  return entry ? (entry.ok ? 'ready' : 'failed') : 'pending';
+};
+
+const preloadedNote = (kind) => state.cache[keyFor(kind)]?.note;
+const isReadyToFlash = (kind) => preloadedState(kind) === 'ready';
+
+const SCREENS = ['screen-home', 'screen-ready', 'screen-transfer', 'screen-done'];
+
+/** One screen at a time. The status bar belongs to the screens that have nowhere else to say it. */
+function show(screen) {
+  state.screen = screen;
+  for (const id of SCREENS) el(id).hidden = id !== screen;
+  el('statusbar').hidden = screen === 'screen-ready' || screen === 'screen-transfer';
+}
+
+/**
+ * The landing screen's update card, in the words of mockups 01 and 02: what is on this Shell and
+ * what can be done about it. Saying it here is what makes pressing the card an informed press.
+ */
+function renderHome() {
+  const latest = { fw: versionOf(state.files.firmware[0]), db: versionOf(state.files.database[0]) };
+  const device = Boolean(state.device);
+  const readable = device && Boolean(state.config);
+  const parts = [];
+  if (readable) {
+    if (state.config.fwVersion !== latest.fw) parts.push(`Firmware ${state.config.fwVersion}`);
+    if (String(state.config.dbVersion) !== latest.db) parts.push(`database ${state.config.dbVersion}`);
+  }
+
+  el('home-badge').textContent = !device
+    ? 'USB-C required'
+    : !readable
+      ? 'Device not ready'
+      : parts.length
+        ? 'Device ready'
+        : 'Up to date';
+  el('home-badge').className = `ksh__badge${readable ? ' ksh__badge--ready' : ' ksh__badge--warn'}`;
+  el('home-text').textContent = !device
+    ? 'Unlock your Shell and connect it with a USB-C cable, then choose what to transfer: firmware, database or both.'
+    : !readable
+      ? state.configError ?? 'The Shell did not answer. Lock it and try again.'
+      : parts.length
+      ? `${parts.join(' and ')} on this Shell can ${parts.length > 1 ? 'both' : ''} be updated. You approve the flash on the device screen.`
+          .replace('can  be', 'can be')
+      : 'This Shell runs the newest firmware and database.';
+  el('home-sub').textContent = !device
+    ? 'Connect your Shell to start'
+    : !readable
+      ? 'Unplug the Shell and plug it back in if it stays like this.'
+      : state.listError
+      ? 'Offline · updates from file only'
+      : state.preloading
+        ? 'Checking the files…'
+        : 'Works with no internet connection, from files you already downloaded.';
+  el('home-img').src = device ? 'img/shell.png' : 'img/connect_shell.png';
+  el('card-update').disabled = !readable;
+  el('card-update').setAttribute('aria-disabled', String(!readable));
+}
+
+function renderSummary() {
+  const wanted = wantedKinds();
+  el('select-badge').textContent = wanted.length
+    ? `${wanted.length} update${wanted.length > 1 ? 's' : ''} selected`
+    : 'No updates';
+  el('select-badge').className = `ksh__badge${wanted.length ? ' ksh__badge--ready' : ''}`;
+  el('chip-second').classList.toggle('ksh__chip--dim', wanted.length < 2);
+
+  const waiting = wanted.filter((kind) => !isReadyToFlash(kind));
+  const button = el('btn-transfer');
+  button.disabled = state.busy || !wanted.length || waiting.length > 0;
+  button.textContent = state.busy
+    ? 'Transferring…'
+    : !wanted.length
+      ? 'Nothing to update'
+      : state.preloading
+        ? 'Preparing files…'
+        : waiting.length
+          ? 'File not verified'
+          : 'Transfer to device';
+}
+
+/**
+ * Fetch and hash-check every offered file at start-up, so pressing the button only ever writes.
+ *
+ * Both firmware variants are taken, not just the one the device reported: switching variant is a
+ * choice made on this screen, and waiting for a download after it is made is what this step exists
+ * to remove. Files already verified stay verified, so re-listing does not re-download.
+ */
+async function preload() {
+  const files = KINDS.flatMap(({ kind }) =>
+    filesFor(kind).map((file) => ({ kind, url: file.url })),
+  ).filter((file) => !state.cache[file.url]);
+  if (!files.length) {
+    state.preloading = false;
+    renderSummary();
     return;
   }
-
-  const onDevice = kind === 'firmware' ? state.config?.fwVersion : String(state.config?.dbVersion ?? '');
-  // Older firmware reports no variant at all, which is unknown rather than a difference.
-  const deviceVariant = state.config?.fwVariant ?? null;
-  const switching = kind === 'firmware' && deviceVariant !== null && file.variant !== deviceVariant;
-  if (switching) {
-    setStatus(refs.status, 'variant switch', '');
-  } else if (onDevice && onDevice === versionOf(file)) {
-    setStatus(refs.status, 'up to date', 'latest');
-  } else {
-    setStatus(refs.status, 'new version', '');
+  state.preloading = true;
+  renderSummary();
+  try {
+    for (const prepared of await invoke('preload_images', { files })) {
+      state.prepared[prepared.key] = prepared.info;
+      state.cache[prepared.key] = { ok: true };
+    }
+  } catch (error) {
+    state.listError = String(error);
   }
-
-  const mark = ready?.error
-    ? `<i class="ksh__sha-state ksh__sha-state--bad">${badState(ready.error)}</i>`
-    : ready
-      ? `<i class="ksh__sha-state ksh__sha-state--ok">verified</i>`
-      : `<i class="ksh__sha-state">expected</i>`;
-  refs.sha.innerHTML = `sha256 <b>${shortHash(file.sha256)}</b>${mark}`;
-  if (ready?.error) refs.hint.textContent = ready.error;
+  state.preloading = false;
+  render('firmware');
+  render('database');
 }
 
-// The download error says which check failed, in the words the Rust side uses.
-function badState(error) {
-  return error.includes('checksum mismatch') ? 'mismatch' : 'failed';
+const group = (value) => (value ?? 0).toLocaleString('en-US').replace(/,/g, ' ');
+
+/** 'Firmware 1.5.3-omni' / 'Database 20261111', as the transfer screen names them. */
+function itemLabel(kind) {
+  if (state.mode[kind] === 'file') {
+    const info = state.ready[kind]?.info;
+    return `${kind === 'firmware' ? 'Firmware' : 'Database'} ${info?.version ?? ''}`.trim();
+  }
+  const file = selectedFile(kind);
+  const variant = file?.variant === 1 ? '-btc' : file?.variant === 0 ? '-omni' : '';
+  return `${kind === 'firmware' ? 'Firmware' : 'Database'} ${versionOf(file) ?? ''}${variant}`;
 }
 
-function catalogueSignature(kind) {
-  return (state.releases[kind]?.files ?? []).map((file) => file.url).join('|');
+async function startTransfer() {
+  const wanted = wantedKinds();
+  if (state.busy || !wanted.length || wanted.some((kind) => !isReadyToFlash(kind))) return;
+
+  // Firmware first and the database second, whatever order the rows are in: a new token list on a
+  // firmware that cannot read it is worse than the other way round.
+  state.queue = wanted.map((kind) => {
+    const status = rowState(kind).status;
+    return {
+      kind,
+      key: keyFor(kind),
+      label: itemLabel(kind),
+      bytes: state.prepared[keyFor(kind)]?.bytes ?? 0,
+      done: false,
+      // Both of these destroy something, and the row says so in the same words the person clicked
+      // on. There is deliberately no dialog: the warning is on the screen, in the row.
+      allowVariantSwitch: status === 'Variant switch',
+      allowDowngrade: status === 'Downgrade',
+    };
+  });
+  state.step = 0;
+  state.transfer = null;
+  state.transferError = null;
+  state.result = null;
+  show('screen-transfer');
+  await runQueue();
 }
 
-function setStatus(node, text, modifier) {
-  node.textContent = text;
-  node.className = `ksh__status${modifier ? ` ksh__status--${modifier}` : ''}`;
+async function runQueue() {
+  state.busy = true;
+  for (const [index, item] of state.queue.entries()) {
+    state.step = index + 1;
+    state.transfer = { kind: item.kind, label: item.label, done: 0, total: item.bytes };
+    renderTransfer();
+    try {
+      // The device answers with the configuration it runs afterwards, which is the only proof that
+      // the write landed - and it costs nothing, since the firmware restarts the device anyway.
+      state.config = await invoke('flash_image', {
+        request: {
+          kind: item.kind,
+          key: item.key,
+          allowVariantSwitch: item.allowVariantSwitch,
+          allowDowngrade: item.allowDowngrade,
+        },
+      });
+      item.done = true;
+    } catch (error) {
+      state.transferError = String(error);
+      break;
+    }
+  }
+  state.busy = false;
+  if (state.transferError) {
+    renderTransfer();
+    return;
+  }
+  state.result = {
+    fw: state.config?.fwVersion ?? null,
+    db: state.config?.dbVersion ?? null,
+  };
+  el('done-summary').textContent =
+    `Your Shell now runs firmware ${state.result.fw} and database ${state.result.db}.`;
+  el('status-device').textContent = `Keycard Shell connected · SN ${state.device?.serialNumber ?? ''}`;
+  show('screen-done');
 }
 
-function shortName(path) {
-  return path.split('/').pop() || path;
+function renderTransfer() {
+  const current = state.transfer ?? { done: 0, total: 0 };
+  const failed = Boolean(state.transferError);
+  const cancelled = state.transferError === 'cancelled';
+  const percent = current.total ? Math.floor((current.done / current.total) * 100) : 0;
+
+  el('transfer-title').textContent = failed
+    ? cancelled
+      ? 'Transfer cancelled'
+      : 'Update failed'
+    : `Transferring ${current.label ?? ''}`;
+  el('transfer-sub').textContent = failed
+    ? 'The Shell has not been asked to restart.'
+    : 'Please do not disconnect the device.';
+  el('transfer-step').textContent = `${state.step} / ${Math.max(state.queue.length, 1)}`;
+  el('transfer-percent').textContent = `${percent}%`;
+  el('transfer-bytes').textContent = `${group(current.done)} / ${group(current.total)} bytes`;
+  el('transfer-bar').style.width = `${percent}%`;
+  el('transfer-caption').textContent = failed ? state.transferError : 'Transferring update';
+  el('transfer-note').textContent = failed
+    ? 'Nothing else was written to the Shell.'
+    : 'The device asks you to confirm the flash before it writes anything.';
+  el('btn-cancel').hidden = failed;
+  el('btn-transfer-back').hidden = !failed;
+
+  el('transfer-items').innerHTML = state.queue
+    .map((item, index) => {
+      const label = item.done
+        ? 'Done'
+        : failed && index + 1 === state.step
+          ? 'Failed'
+          : failed
+            ? 'Not started'
+            : index + 1 === state.step
+              ? 'Transferring'
+              : 'Queued';
+      const dim = label === 'Queued' || label === 'Not started';
+      const stateClass =
+        label === 'Done'
+          ? 'ksh__item-state ksh__item-state--latest'
+          : dim
+            ? 'ksh__item-state ksh__item-state--waiting'
+            : 'ksh__item-state';
+      return `<div class="ksh__item${dim ? ' ksh__item--waiting' : ''}">${item.label}<i class="${stateClass}">${label}</i></div>`;
+    })
+    .join('');
 }
 
-// The dialog plugin's own command. Its api-iife.js would have to be vendored into the frontend for
-// window.__TAURI__.dialog to exist, which is not worth a copy step to keep in sync.
+async function loadReleases() {
+  for (const { kind } of KINDS) {
+    try {
+      const catalogue = await invoke('list_releases', { kind });
+      state.files[kind] = catalogue.files;
+    } catch (error) {
+      state.listError = String(error);
+      state.files[kind] = [];
+    }
+    render(kind);
+  }
+  const fw = state.files.firmware[0];
+  const db = state.files.database[0];
+  el('status-note').textContent = state.listError
+    ? 'Offline · updates from file only'
+    : fw && db
+      ? `Online · latest firmware ${versionOf(fw)} · latest database ${versionOf(db)}`
+      : 'reading the release list…';
+  renderHome();
+}
+
+async function readConfiguration(device) {
+  state.config = null;
+  state.configError = null;
+  try {
+    state.config = await invoke('shell_app_configuration', { path: device.path });
+    const variant = state.config.fwVariant ?? null;
+    el('device-line').textContent =
+      `SN ${device.serialNumber ?? state.config.serialNumber} · on device: firmware ${state.config.fwVersion}` +
+      `${variant === null ? '' : `-${VARIANT[variant] ?? variant}`}, database ${state.config.dbVersion}`;
+    el('device-line').title = `attestation key ${state.config.publicKey}`;
+    // Default to the variant already on the device, so the plain action is not a variant switch.
+    if (variant !== null) state.variant.firmware = variant;
+  } catch (error) {
+    state.configError = String(error);
+    el('device-line').textContent = state.configError;
+  }
+  render('firmware');
+  render('database');
+  renderHome();
+}
+
+async function refresh() {
+  try {
+    const devices = await invoke('list_shells');
+    if (!devices.length) {
+      showWaiting('No device connected');
+      return;
+    }
+    const device = devices[0];
+    state.device = device;
+    el('device-name').textContent = `${device.productName || 'Keycard Shell'} connected`;
+    el('status-dot').className = 'ksh__dot';
+    el('status-device').textContent = `Keycard Shell connected · SN ${device.serialNumber ?? ''}`;
+    // Plugging in does not hijack the landing screen; it makes the card pressable, and pressing the
+    // card is what opens the update flow.
+    show(state.screen);
+    await readConfiguration(device);
+  } catch (error) {
+    el('device-line').textContent = String(error);
+  }
+}
+
+function showWaiting(message) {
+  state.device = null;
+  state.config = null;
+  show('screen-home');
+  renderHome();
+  el('status-device').textContent = message;
+  el('status-dot').className = 'ksh__dot ksh__dot--off';
+}
+
 async function chooseFile(kind) {
   try {
     const path = await invoke('plugin:dialog|open', {
@@ -271,138 +595,72 @@ async function chooseFile(kind) {
       },
     });
     if (!path) return;
-    const image = await invoke('pick_image_file', { file: { kind, path } });
-    state.ready[kind] = { info: image, path, fromFile: true };
-    state.note = `${kind} ${image.version} read from ${shortName(path)}; the file's own sha256 is ${shortHash(image.sha256)}.`;
-    state.tone = 'ok';
-    renderRow(kind);
+    const prepared = await invoke('pick_image_file', { file: { kind, path } });
+    state.ready[kind] = { info: prepared.info, key: prepared.key };
+    state.prepared[prepared.key] = prepared.info;
+    state.cache[prepared.key] = { ok: true };
+    state.include[kind] = true;
   } catch (error) {
-    state.ready[kind] = { error: String(error), path: '' };
-    state.note = String(error);
-    state.tone = 'bad';
-    renderRow(kind);
+    state.ready[kind] = { error: String(error) };
   }
-  updateAction();
-}
-
-function target(kind) {
-  if (state.mode[kind] === 'file') return state.ready[kind]?.path ? 'file' : null;
-  return selectedFile(kind) ? 'release' : null;
-}
-
-function selectionSummary() {
-  const parts = [];
-  for (const { kind } of KINDS) {
-    if (state.mode[kind] === 'file') {
-      const picked = state.ready[kind]?.info;
-      if (picked) parts.push(`${kind} ${versionOf(picked)} from file`);
-      continue;
-    }
-    const file = selectedFile(kind);
-    if (file) parts.push(`${kind} ${versionOf(file)}`);
-  }
-  if (!parts.length) return 'Nothing selected to download.';
-  return `${parts.join(' and ')} will be downloaded and checked against the sha256 published in the release.`;
-}
-
-function updateNote() {
-  const note = el('release-note');
-  note.textContent = state.note ?? selectionSummary();
-  note.style.color = TONE[state.note ? state.tone : 'info'];
-}
-
-function updateAction() {
-  updateNote();
-  const button = el('btn-download');
-  const any = KINDS.some(({ kind }) => target(kind));
-  button.disabled = state.busy || !any;
-  button.textContent = state.busy ? 'Working…' : 'Download and verify';
-}
-
-async function downloadAndVerify() {
-  state.busy = true;
-  updateAction();
-  const done = [];
-  const failures = [];
-  for (const { kind } of KINDS) {
-    const wanted = target(kind);
-    if (!wanted) continue;
-    if (wanted === 'file') {
-      done.push(`${kind} ${versionOf(state.ready[kind].info)} from file`);
-      continue;
-    }
-    const file = selectedFile(kind);
-    try {
-      const info = await invoke('download_release', { request: { kind, url: file.url } });
-      state.ready[kind] = { info, fromFile: false };
-      done.push(`${kind} ${info.version}`);
-    } catch (error) {
-      state.ready[kind] = { error: String(error) };
-      failures.push(String(error));
-    }
-    renderRow(kind);
-  }
-  state.busy = false;
-  if (failures.length) {
-    state.note = failures[0];
-    state.tone = 'bad';
-  } else if (done.length) {
-    state.note = `${done.join(' and ')} — sha256 matches the published release. Writing to the device is not in this build.`;
-    state.tone = 'ok';
-  }
-  updateAction();
-}
-
-async function loadReleases() {
-  for (const { kind } of KINDS) {
-    try {
-      const catalogue = await invoke('list_releases', { kind });
-      state.releases[kind] = catalogue;
-      if (catalogue.note) {
-        state.note = `some hash lists could not be read: ${catalogue.note}`;
-        state.tone = 'warn';
-      }
-    } catch (error) {
-      state.releases[kind] = { files: [], unofferable: 0, verified: false, note: String(error) };
-      state.note = `release list unavailable: ${error}`;
-      state.tone = 'bad';
-    }
-    renderRow(kind);
-  }
-  const fw = state.releases.firmware;
-  if (fw?.files.length) {
-    const hidden = fw.unofferable + state.releases.database?.unofferable;
-    el('status-note').textContent = hidden
-      ? `${fw.files.length} releases offered · ${hidden} without a published hash`
-      : `${fw.files.length} releases offered`;
-  }
-  updateAction();
-}
-
-async function refresh() {
-  try {
-    const devices = await invoke('list_shells');
-    if (!devices.length) {
-      showWaiting('No Keycard Shell on USB');
-      return;
-    }
-    showDevice(devices[0]);
-    renderRows();
-    await readConfiguration(devices[0]);
-  } catch (error) {
-    el('subtitle').textContent = String(error);
-    setBadge('USB unavailable', 'error');
-  }
-}
-
-function renderRows() {
-  for (const { kind } of KINDS) renderRow(kind);
+  render(kind);
 }
 
 buildRows();
-el('btn-download').addEventListener('click', downloadAndVerify);
+el('btn-transfer').addEventListener('click', startTransfer);
+el('btn-cancel').addEventListener('click', () => {
+  el('transfer-caption').textContent = 'Cancelling after the chunk in flight…';
+  invoke('cancel_flash');
+});
+el('btn-transfer-back').addEventListener('click', () => {
+  state.transferError = null;
+  show('screen-ready');
+  refresh();
+});
+el('card-update').addEventListener('click', () => {
+  if (!state.device || !state.config) return;
+  show('screen-ready');
+  refresh();
+});
+el('btn-done').addEventListener('click', () => {
+  show('screen-home');
+  refresh();
+});
 listen('shell://connected', () => refresh());
-listen('shell://disconnected', () => showWaiting('The Shell was unplugged'));
-showWaiting('Checking for a connected Shell…');
-loadReleases();
+listen('shell://disconnected', () => {
+  // Unplugged mid-transfer: the write cannot continue, and the transfer screen would sit there
+  // showing a percentage that will never move.
+  if (!el('screen-transfer').hidden && !state.transferError) state.transferError = 'The device was disconnected.';
+  renderTransfer();
+  showWaiting('No device connected');
+});
+listen('shell://flash-progress', ({ payload }) => {
+  state.transfer = { ...state.transfer, ...payload };
+  renderTransfer();
+});
+listen('shell://preloaded', ({ payload }) => {
+  state.cache[payload.key] = { ok: payload.ok, note: payload.note };
+  if (keyFor('firmware') === payload.key) render('firmware');
+  if (keyFor('database') === payload.key) render('database');
+});
+showWaiting('No device connected');
 refresh();
+loadReleases().then(preload);
+
+// Presence is polled as well as pushed: the Rust watcher's first `shell://connected` can fire before
+// this document has a listener, and a Shell that was already plugged in then stays invisible until
+// the cable is moved. The same tick retries a configuration read that failed on a device still
+// settling, which `readConfiguration` reports by leaving `state.config` null.
+setInterval(async () => {
+  if (state.scanning || state.busy) return;
+  state.scanning = true;
+  try {
+    const found = await invoke('list_shells');
+    const path = found.length ? found[0].path : null;
+    if (path !== state.device?.path || (path && !state.config)) await refresh();
+  } catch {
+    // Unreadable for a moment while USB settles; the next tick sees it.
+  } finally {
+    state.scanning = false;
+  }
+}, 1500);

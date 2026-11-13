@@ -21,7 +21,15 @@
   src: url("../fonts/schibsted-grotesk-700-latin.woff2") format("woff2");
 }
 
+/* One knob for the whole screen's size: every length in this file is `calc(<design px> * var(--scale))`.
+   The design px are the sizes the agreed mockups were drawn at, so 1 is the mockup and anything above
+   is the same screen bigger. The window in tauri.conf.json is round(720 * scale) wide and tall enough
+   for the tallest state, which is the checksum-mismatch screen with its message wrapped: at 1.3 that
+   is 936x774 (1.25 -> 900x744, 1.5 -> 1080x892). Chromium measures taller than WebKitGTK here, so
+   the window follows Chromium; shots/webkit-check.py and shots/frontend-check.mjs re-measure both. */
 :root {
+  --scale: 1.3;
+
   --orange: #ff7d46;
   --orange-progress: #ff6400;
   --teal: #23ada0;
@@ -36,12 +44,12 @@
   --white-8: #ffffff14;
   --white-4: #ffffff0a;
   --white-2: #ffffff05;
-  --border-radius-12: 12px;
-  --border-radius-16: 16px;
-  --border-radius-20: 20px;
-  --text-font-size: 16px;
-  --text-font-medium: 14px;
-  --text-font-small: 12px;
+  --border-radius-12: calc(12px * var(--scale));
+  --border-radius-16: calc(16px * var(--scale));
+  --border-radius-20: calc(20px * var(--scale));
+  --text-font-size: calc(16px * var(--scale));
+  --text-font-medium: calc(14px * var(--scale));
+  --text-font-small: calc(12px * var(--scale));
 }
 
 * {
@@ -59,7 +67,7 @@ body {
   font-family: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
   font-size: var(--text-font-size);
   font-weight: 400;
-  line-height: 24px;
+  line-height: calc(24px * var(--scale));
   letter-spacing: -0.02em;
   -webkit-font-smoothing: antialiased;
   user-select: none;
@@ -70,40 +78,47 @@ body {
 
 .ksh {
   height: 100%;
-  padding: 20px;
+  /* Never clip. The window is sized for the screens, but an error message that wraps must scroll
+     rather than disappear behind the frame - overflow: hidden once hid half the update flow. */
+  overflow-y: auto;
+  padding: calc(20px * var(--scale));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: calc(12px * var(--scale));
 }
 
 .ksh__h1 {
-  font-size: 24px;
+  font-size: calc(24px * var(--scale));
   font-weight: 600;
-  line-height: 32px;
+  line-height: calc(32px * var(--scale));
 }
 
 .ksh__h2 {
-  font-size: 18px;
+  font-size: calc(18px * var(--scale));
   font-weight: 600;
-  line-height: 26px;
+  line-height: calc(26px * var(--scale));
 }
 
 .ksh__hint {
   font-size: var(--text-font-small);
-  line-height: 18px;
+  line-height: calc(18px * var(--scale));
   color: var(--white-40);
 }
 
 .ksh__badge {
   display: inline-flex;
   align-items: center;
-  padding: 2px 12px;
+  padding: calc(2px * var(--scale)) calc(12px * var(--scale));
   border: solid 1px var(--white-20);
   border-radius: 100px;
   font-size: var(--text-font-small);
-  line-height: 20px;
+  line-height: calc(20px * var(--scale));
   color: var(--white-80);
   white-space: nowrap;
+}
+.ksh__badge--warn {
+  color: var(--orange);
+  border-color: var(--orange);
 }
 .ksh__badge--ready {
   color: var(--teal);
@@ -122,40 +137,80 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: calc(16px * var(--scale));
 }
 
 .ksh__card {
   flex: 1;
   min-height: 0;
-  padding: 20px;
+  padding: calc(20px * var(--scale));
   border: solid 1px var(--white-8);
   border-radius: var(--border-radius-20);
   background: var(--white-2);
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: calc(14px * var(--scale));
 }
 
-.ksh__empty {
+.ksh__home {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  text-align: center;
+  gap: calc(14px * var(--scale));
 }
-.ksh__empty img {
-  width: 220px;
+.ksh__card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(14px * var(--scale));
+  padding: calc(16px * var(--scale)) calc(20px * var(--scale));
+  background: var(--white-4);
+  border: solid 1px var(--white-12);
+  border-radius: var(--border-radius-20);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* The verify card is shown before it works, so it says so by not looking pressable. */
+.ksh__card--quiet {
+  cursor: default;
+}
+.ksh__card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--scale));
+}
+.ksh__card-head .ksh__badge {
+  margin-left: auto;
+}
+.ksh__card-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: calc(20px * var(--scale));
+}
+.ksh__card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(8px * var(--scale));
+}
+.ksh__card-img {
+  /* Bounded both ways: the two card pictures have very different aspect ratios, and either one being
+     its natural size pushes the second card out of the window. */
+  width: calc(190px * var(--scale));
+  height: calc(92px * var(--scale));
+  object-fit: contain;
+  flex: none;
 }
 
 .ksh__fields {
   display: grid;
-  grid-template-columns: 168px 1fr;
-  gap: 10px 16px;
+  grid-template-columns: calc(168px * var(--scale)) 1fr;
+  gap: calc(10px * var(--scale)) calc(16px * var(--scale));
   font-size: var(--text-font-medium);
-  line-height: 22px;
+  line-height: calc(22px * var(--scale));
 }
 .ksh__field-label {
   color: var(--white-40);
@@ -170,84 +225,96 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 11px;
-  line-height: 16px;
+  gap: calc(12px * var(--scale));
+  font-size: calc(11px * var(--scale));
+  line-height: calc(16px * var(--scale));
   color: var(--white-40);
 }
 
 /* Update screen: device line, release rows, action. */
 .ksh__device {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: calc(10px * var(--scale));
 }
-.ksh__device img {
-  width: 20px;
-  height: 20px;
+/* The title, not the title plus its serial line: centring on both reads as sinking next to the
+   heading. */
+.ksh__device-icon {
+  /* as tall as the heading's line box, so centering in it is centering on the words */
+  height: calc(30px * var(--scale));
   flex: none;
+  display: flex;
+  align-items: center;
+}
+.ksh__device-icon img {
+  width: calc(20px * var(--scale));
+  height: calc(20px * var(--scale));
+  display: block;
 }
 .ksh__device .ksh__badge {
+  /* the heading line again, since the block below the icon no longer centres the row */
+  margin-top: calc(4px * var(--scale));
   margin-left: auto;
 }
 
 .ksh__rows {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 0;
-}
-
-/* The one place long failure text goes; clamped so it cannot push the footer across the status bar. */
-#release-note {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  /* `flex: none`, and no `min-height: 0`: either lets this box squash to less than the cards need,
+     and the cards then keep their height and paint over the step chips. WebKitGTK did exactly that
+     at a window size Chromium called a fit; shots/webkit-check.py watches for the overlap. */
+  flex: none;
+  gap: calc(10px * var(--scale));
 }
 
 .ksh__row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: calc(8px * var(--scale));
+  padding: calc(14px * var(--scale)) calc(20px * var(--scale));
   background: var(--white-4);
   border: solid 1px var(--white-12);
   border-radius: var(--border-radius-20);
 }
 .ksh__row-top {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  /* flex-start, not center: centring put the checkbox opposite the whole block, so it floated
+     between the title and the controls under it */
+  align-items: flex-start;
+  gap: calc(12px * var(--scale));
 }
 .ksh__row-title {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  /* center, not baseline: a checkbox has no baseline of its own (its bottom edge is used), which
+     lifted it a few px off the word. Both children are 20 design px tall, so centering is exact. */
+  align-items: center;
+  gap: calc(10px * var(--scale));
   flex: 1;
   min-width: 0;
 }
 .ksh__row-title .ksh__h2 {
-  font-size: 16px;
-  line-height: 22px;
+  font-size: calc(18px * var(--scale));
+  /* the checkbox's own height, so the two boxes coincide when top-aligned instead of needing an
+     optical offset, which sat differently in each engine */
+  line-height: calc(20px * var(--scale));
 }
 .ksh__row-side {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 2px;
+  gap: calc(2px * var(--scale));
   text-align: right;
 }
 .ksh__row-mid {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: calc(14px * var(--scale));
 }
 .ksh__row-foot {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  gap: calc(12px * var(--scale));
 }
 .ksh__row-foot .ksh__hint {
   max-width: 62%;
@@ -278,22 +345,22 @@ body {
 .ksh__segmented {
   display: inline-flex;
   flex: none;
-  gap: 3px;
-  padding: 3px;
+  gap: calc(3px * var(--scale));
+  padding: calc(3px * var(--scale));
   background: var(--white-8);
   border: solid 1px var(--white-12);
   border-radius: var(--border-radius-12);
 }
 .ksh__seg {
-  padding: 4px 12px;
+  padding: calc(4px * var(--scale)) calc(12px * var(--scale));
   border: 0;
-  border-radius: 9px;
+  border-radius: calc(9px * var(--scale));
   background: transparent;
   color: var(--white-60);
   font-family: inherit;
   font-size: var(--text-font-small);
   font-weight: 600;
-  line-height: 18px;
+  line-height: calc(18px * var(--scale));
   cursor: pointer;
 }
 .ksh__seg--on {
@@ -306,18 +373,19 @@ select.ksh__select {
   -webkit-appearance: none;
   flex: 1;
   min-width: 0;
-  padding: 5px 28px 5px 10px;
+  padding: calc(5px * var(--scale)) calc(28px * var(--scale)) calc(5px * var(--scale)) calc(10px * var(--scale));
   background-color: var(--white-4);
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ffccbb' stroke-width='1.6'><path d='M5.5 8l4.5 4.5L14.5 8'/></svg>");
-  background-size: 16px;
-  background-position: right 6px center;
+  background-size: calc(16px * var(--scale));
+  background-position: right calc(6px * var(--scale)) center;
   background-repeat: no-repeat;
   border: solid 1px var(--white-20);
-  border-radius: var(--border-radius-12);
+  /* as round as the card it sits in */
+  border-radius: var(--border-radius-20);
   color: var(--white-95);
   font-family: inherit;
   font-size: var(--text-font-small);
-  line-height: 18px;
+  line-height: calc(18px * var(--scale));
   outline: none;
 }
 select.ksh__select:disabled {
@@ -330,7 +398,7 @@ select.ksh__select option {
 }
 
 .ksh__btn {
-  padding: 12px 16px;
+  padding: calc(12px * var(--scale)) calc(16px * var(--scale));
   background: var(--white-4);
   border: solid 1px var(--white-12);
   border-radius: var(--border-radius-12);
@@ -338,7 +406,7 @@ select.ksh__select option {
   font-family: inherit;
   font-size: var(--text-font-medium);
   font-weight: 600;
-  line-height: 20px;
+  line-height: calc(20px * var(--scale));
   text-align: center;
   cursor: pointer;
 }
@@ -351,7 +419,7 @@ select.ksh__select option {
 .ksh__btn--file {
   flex: 1;
   min-width: 0;
-  padding: 8px 12px;
+  padding: calc(8px * var(--scale)) calc(12px * var(--scale));
   border-style: dashed;
   border-color: var(--white-20);
   color: var(--white-95);
@@ -361,13 +429,19 @@ select.ksh__select option {
   text-overflow: ellipsis;
 }
 .ksh__btn:disabled {
-  opacity: 0.45;
   cursor: default;
+}
+/* Not faded orange: an inactive primary action goes neutral, so it cannot be read as a dimmed call
+   to action. */
+.ksh__btn--primary:disabled {
+  background: var(--white-4);
+  border-color: var(--white-12);
+  color: var(--white-40);
 }
 
 .ksh__sha {
-  font-size: 11px;
-  line-height: 16px;
+  font-size: calc(11px * var(--scale));
+  line-height: calc(16px * var(--scale));
   color: var(--white-40);
   white-space: nowrap;
 }
@@ -377,7 +451,7 @@ select.ksh__select option {
 }
 .ksh__sha-state {
   font-style: normal;
-  margin-left: 6px;
+  margin-left: calc(6px * var(--scale));
 }
 .ksh__sha-state--ok {
   color: var(--teal);
@@ -386,12 +460,332 @@ select.ksh__select option {
   color: var(--error);
 }
 
-/* centred, 300px: agreed for the update flow (docs/ui-proposal.md) */
+/* centred, calc(300px * var(--scale)): agreed for the update flow (docs/ui-proposal.md) */
 .ksh__footer {
   display: flex;
-  justify-content: center;
-  margin-top: auto;
+  /* under the content, not pinned to the bottom of the window: the gap reads as part of the screen
+     at any scale */
+  margin-top: calc(14px * var(--scale));
 }
-.ksh__footer .ksh__btn {
-  width: 300px;
+.ksh__flowfoot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--scale));
+}
+.ksh__flowfoot .ksh__btn {
+  width: calc(300px * var(--scale));
+}
+
+.ksh__ready {
+  /* content-sized for the same reason `.ksh__rows` is: a box shorter than its children lets them
+     wander onto what comes after them */
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--scale));
+}
+
+.ksh__h1--device {
+  font-size: calc(22px * var(--scale));
+  line-height: calc(30px * var(--scale));
+}
+
+.ksh__prompt {
+  font-size: var(--text-font-size);
+  line-height: calc(24px * var(--scale));
+  color: var(--white-60);
+  max-width: calc(420px * var(--scale));
+}
+
+.ksh__device-serial {
+  font-size: var(--text-font-small);
+  line-height: calc(18px * var(--scale));
+  color: var(--white-60);
+  overflow-wrap: anywhere;
+}
+
+.ksh__dot {
+  display: inline-block;
+  width: calc(6px * var(--scale));
+  height: calc(6px * var(--scale));
+  margin-right: calc(6px * var(--scale));
+  border-radius: 50%;
+  background: var(--teal);
+}
+.ksh__dot--off {
+  background: var(--white-40);
+}
+
+.ksh__row--off {
+  opacity: 0.5;
+}
+
+.ksh__link {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px * var(--scale));
+  color: var(--orange);
+  font-size: var(--text-font-small);
+  line-height: calc(18px * var(--scale));
+  border-bottom: solid calc(2px * var(--scale)) currentColor;
+  padding-bottom: calc(2px * var(--scale));
+  cursor: pointer;
+}
+.ksh__link img {
+  width: calc(13px * var(--scale));
+  height: calc(13px * var(--scale));
+  opacity: 0.55;
+  flex: none;
+}
+
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: calc(20px * var(--scale));
+  height: calc(20px * var(--scale));
+  border: solid 1px var(--white-40);
+  border-radius: calc(5px * var(--scale));
+  background: transparent;
+  cursor: pointer;
+}
+input[type='checkbox']:checked {
+  background: var(--orange);
+  border-color: var(--orange);
+}
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: calc(6px * var(--scale));
+  top: calc(2px * var(--scale));
+  width: calc(5px * var(--scale));
+  height: calc(10px * var(--scale));
+  border: solid #010101;
+  border-width: 0 calc(2px * var(--scale)) calc(2px * var(--scale)) 0;
+  transform: rotate(45deg);
+}
+/* A row with nothing to do cannot be selected, and says so by not looking pressable. */
+input[type='checkbox']:disabled {
+  border-color: var(--white-20);
+  cursor: default;
+}
+
+.ksh__field {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  min-width: 0;
+}
+/* Same box as the variant selector, but nothing to pick: the release decided it. */
+.ksh__field-static {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  padding: calc(5px * var(--scale)) calc(12px * var(--scale));
+  background: var(--white-4);
+  border: solid 1px var(--white-20);
+  border-radius: var(--border-radius-20);
+  color: var(--white-95);
+  font-size: var(--text-font-small);
+  line-height: calc(18px * var(--scale));
+}
+.ksh__field-static .ksh__arrow {
+  color: var(--white-40);
+  line-height: 1;
+}
+.ksh__from {
+  color: var(--white-40);
+}
+.ksh__to {
+  color: var(--orange);
+  font-weight: 600;
+}
+
+.ksh__next {
+  display: flex;
+  gap: calc(10px * var(--scale));
+}
+.ksh__chip {
+  flex: 1;
+  padding: calc(12px * var(--scale)) calc(14px * var(--scale));
+  background: var(--white-4);
+  border: solid 1px var(--white-8);
+  border-radius: var(--border-radius-16);
+  font-size: calc(11px * var(--scale));
+  line-height: calc(16px * var(--scale));
+  color: var(--white-60);
+}
+/* The number leads the title rather than standing in a column of its own, so the explanation below
+   starts at the same left edge as both. */
+.ksh__chip-title {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  color: var(--white-95);
+  font-weight: 600;
+  font-size: var(--text-font-small);
+  line-height: calc(18px * var(--scale));
+}
+.ksh__chip-text {
+  display: block;
+  margin-top: calc(5px * var(--scale));
+}
+/* Only the words recede. Fading the whole chip made its background disappear against the screen. */
+.ksh__chip--dim .ksh__chip-title {
+  opacity: 0.5;
+}
+.ksh__chip--dim .ksh__chip-text {
+  opacity: 0.35;
+}
+.ksh__step-num {
+  flex: none;
+  width: calc(22px * var(--scale));
+  height: calc(22px * var(--scale));
+  border: solid 1px var(--white-20);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(11px * var(--scale));
+  color: var(--white-80);
+}
+
+.ksh__btn--pick {
+  color: var(--orange);
+}
+
+.ksh__sha-state--bad {
+  color: var(--error);
+}
+
+/* Transferring: one screen, the numbers and the item list carry the difference between the two
+   images. */
+.ksh__transfer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--scale));
+}
+.ksh__transfer-head {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--scale));
+}
+.ksh__paginator {
+  margin-left: auto;
+  font-size: var(--text-font-medium);
+  color: var(--white-40);
+}
+.ksh__progress-top {
+  display: flex;
+  align-items: baseline;
+  gap: calc(12px * var(--scale));
+  margin-top: calc(10px * var(--scale));
+}
+.ksh__percent {
+  font-size: calc(56px * var(--scale));
+  line-height: calc(60px * var(--scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ksh__bytes {
+  margin-left: auto;
+  font-size: var(--text-font-medium);
+  color: var(--white-80);
+  font-variant-numeric: tabular-nums;
+}
+.ksh__progress {
+  height: calc(12px * var(--scale));
+  background: var(--white-8);
+  border-radius: 100px;
+  overflow: hidden;
+}
+.ksh__progress-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--orange);
+  border-radius: 100px;
+}
+.ksh__progress-caption {
+  font-size: var(--text-font-medium);
+  color: var(--white-80);
+}
+.ksh__checkline {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--scale));
+  font-size: calc(18px * var(--scale));
+  line-height: calc(26px * var(--scale));
+}
+.ksh__checkline img {
+  width: calc(22px * var(--scale));
+  flex: none;
+}
+.ksh__items {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--scale));
+  margin-top: calc(6px * var(--scale));
+}
+.ksh__item {
+  display: flex;
+  align-items: center;
+  gap: calc(12px * var(--scale));
+  padding: calc(14px * var(--scale)) calc(20px * var(--scale));
+  border: solid 1px var(--white-12);
+  border-radius: var(--border-radius-20);
+  font-size: var(--text-font-size);
+}
+/* The queued image is readable but recedes: the point is which one is moving now. */
+.ksh__item--waiting {
+  border-color: var(--white-8);
+  color: var(--white-40);
+}
+.ksh__item-state {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--orange);
+}
+.ksh__item-state--waiting {
+  color: var(--white-40);
+}
+.ksh__item-state--latest {
+  color: var(--teal);
+}
+.ksh__footer--split {
+  align-items: center;
+  /* the footnote and the button are the screen's last line, so they keep their distance from the
+     list rather than from the frame */
+  margin-top: calc(18px * var(--scale));
+}
+.ksh__footnote {
+  font-size: var(--text-font-medium);
+  color: var(--white-60);
+}
+.ksh__actions {
+  margin-left: auto;
+  display: flex;
+  gap: calc(10px * var(--scale));
+}
+
+/* Update complete: the same centred shape as the empty screen. */
+.ksh__done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(16px * var(--scale));
+  text-align: center;
+}
+.ksh__done img {
+  width: calc(200px * var(--scale));
+}
+.ksh__done .ksh__btn {
+  width: calc(260px * var(--scale));
+  margin-top: calc(8px * var(--scale));
 }
