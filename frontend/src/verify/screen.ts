@@ -5,6 +5,7 @@ import {
   unitsStatus,
   unitsUseFile,
 } from '../base/bridge.js';
+import { state } from '../base/state.js';
 import { show } from '../base/screens.js';
 import { human } from '../errors.js';
 import * as text from '../strings.js';
@@ -98,6 +99,8 @@ export const renderVerify = (): void => {
   el('verify-qr-note').hidden = loaded;
   el('verify-note').hidden = !verify.problem;
   el('verify-note-text').textContent = verify.problem ?? '';
+ el('btn-verify-update').textContent =
+    state.device && state.config ? text.verify.updateShell : text.verify.goHome;
 
   const button = el<HTMLButtonElement>('btn-camera');
   button.textContent = loaded

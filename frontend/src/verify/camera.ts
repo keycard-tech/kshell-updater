@@ -33,15 +33,20 @@ export const stopCamera = (): void => {
   el<HTMLVideoElement>('scan-video').srcObject = null;
 };
 
-/** WebKit satisfies a request as a whole or not at all: a size a 4K-only webcam does not offer, or a
-    frame rate the driver does not publish, is not ignored but means no camera at all - and the failed
-    opens are what wedge PipeWire, after which every attempt times out. Nothing is asked for but the
-    device picked, and the decode window is a centred square crop, so any mode reads. A smaller mode is
-    not chased either: on a UVC webcam the low resolutions are uncompressed and give fewer frames over
-    USB 2 than the high-resolution MJPEG the driver defaults to. The chosen camera is asked for twice
-    before loosening to any camera, because the refusal here is usually a device still settling. */
-const cameraAttempts = (deviceId?: string): MediaTrackConstraints[] =>
-  deviceId ? [{ deviceId: { exact: deviceId } }, { deviceId: { exact: deviceId } }, {}] : [{}];
+const cameraAttempts = (deviceId?: string): MediaTrackConstraints[] => {
+  const chosen = (extra: MediaTrackConstraints): MediaTrackConstraints => ({
+    ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
+    ...extra,
+  });
+  
+  return [
+    chosen({}),
+    ...(deviceId ? [chosen({})] : []),
+    chosen({ width: { ideal: 1280 }, height: { ideal: 720 } }),
+    chosen({ width: { ideal: 640 }, height: { ideal: 480 } }),
+    ...(deviceId ? [{}] : []),
+  ];
+};
 
 const wait = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
@@ -60,10 +65,9 @@ const openCamera = async (
 ): Promise<MediaStream | null> => {
   const attempts = cameraAttempts(deviceId);
   let last: unknown = new Error('no camera offered');
+  const refusals: string[] = [];
   for (const [index, video] of attempts.entries()) {
-    // A camera that refused once usually opens a moment later; hammering it is how PipeWire gets
-    // wedged, and a wedged PipeWire answers 'Timeout was reached' for every camera after it.
-    if (index) await wait(cameraRetryPauseMs * index);
+    if (index) await wait(cameraRetryPauseMs * Math.min(index, 2));
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
       if (generation !== verify.generation) {
@@ -71,18 +75,19 @@ const openCamera = async (
         return null;
       }
       if (deviceId) verify.broken.delete(deviceId);
-      if (index > 0) {
+      const settings = stream.getVideoTracks()[0]?.getSettings() ?? null;
+      
+      console.info('camera opened:', JSON.stringify({ rung: index, asked: video, settings }));
+      if (index && deviceId) {
         console.warn(
-          'the chosen camera did not open, any camera did:',
-          JSON.stringify({
-            asked: attempts[0],
-            settings: stream.getVideoTracks()[0]?.getSettings() ?? null,
-          }),
+          `the chosen camera needed rung ${index} of ${attempts.length}:`,
+          JSON.stringify({ first: attempts[0], refusals }),
         );
       }
       return stream;
     } catch (error) {
       last = error;
+      refusals.push(reason(error));
       if (deviceId) markBroken(deviceId, 'open');
       console.warn('camera attempt refused:', JSON.stringify({ video, error: reason(error) }));
     }

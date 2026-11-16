@@ -1,4 +1,6 @@
 node_modules/
+__pycache__/
+
 out/
 dist/
 .DS_Store
@@ -7,7 +9,7 @@ dist/
 src-tauri/target/
 src-tauri/gen/schemas/
 
-# local-only working notes and UI screenshots
+# local-only working notes and pictures of the screens
 docs/
 shots/
 

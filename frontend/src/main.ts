@@ -25,7 +25,7 @@ import {
   useOwnList,
 } from './verify/screen.js';
 import { renderScan, verify } from './verify/state.js';
-import { answer, verdictButton } from './verify/verdict.js';
+import { answer, verdictButton, verdictGuide } from './verify/verdict.js';
 
 buildRows();
 
@@ -44,7 +44,15 @@ el<HTMLButtonElement>('btn-done').addEventListener('click', () => {
 });
 
 el<HTMLButtonElement>('card-verify').addEventListener('click', () => void openVerify());
-el<HTMLButtonElement>('btn-verify-update').addEventListener('click', openUpdate);
+el<HTMLButtonElement>('btn-verdict-guide').addEventListener('click', verdictGuide);
+el<HTMLButtonElement>('btn-verify-update').addEventListener('click', () => {
+  if (state.device && state.config) {
+    openUpdate();
+    return;
+  }
+  show('screen-home');
+  void refresh();
+});
 el<HTMLButtonElement>('verify-list-online').addEventListener('click', () => void useOnlineList());
 el<HTMLButtonElement>('verify-list-file').addEventListener('click', () => void useOwnList());
 el<HTMLButtonElement>('btn-camera').addEventListener('click', () => void startCamera());
@@ -58,13 +66,16 @@ el<HTMLSelectElement>('scan-camera').addEventListener('change', (event) =>
 el<HTMLButtonElement>('btn-verdict').addEventListener('click', verdictButton);
 
 
+// Whether a Shell is attached decides what the verify screen calls its way out, so both presence
+// events re-render it - a person watching a camera screen should not have to leave and return.
 listen(events.connected, () => {
-  if (!state.busy) void refresh();
+  if (!state.busy) void refresh().then(renderVerify);
 });
 
 listen(events.disconnected, () => {
   if (state.busy) return;
   showWaiting();
+  renderVerify();
 });
 
 listen<FlashProgress>(events.flashProgress, (progress) => {
@@ -110,7 +121,7 @@ async function poll(): Promise<void> {
     const found = await listShells();
     const path = found.length ? found[0].path : null;
     const seen = state.device?.path ?? null;
-    if (path !== seen || (path && !state.config)) await refresh();
+    if (path !== seen || (path && !state.config)) await refresh().then(renderVerify);
   } catch {
   } finally {
     state.scanning = false;

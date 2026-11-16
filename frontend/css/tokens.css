@@ -42,9 +42,7 @@
 }
 
 :root {
-  /* 936x750: the tallest screen plus one padding, re-measured by the checks in shots/ */
   --scale: 1.2;
-
   --orange: #ff7d46;
   --orange-deep: #ff6400;
   --teal: #23ada0;

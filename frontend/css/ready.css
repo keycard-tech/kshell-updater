@@ -52,7 +52,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: calc(115px * var(--scale));
+  min-height: calc(104px * var(--scale));
   gap: calc(5px * var(--scale));
   padding: calc(11px * var(--scale)) calc(20px * var(--scale));
   background: var(--surface);
@@ -121,8 +121,7 @@
 
 .ksh__footer {
   display: flex;
-  /* under the content, not pinned to the window bottom */
-  margin-top: calc(14px * var(--scale));
+  margin-top: calc(8px * var(--scale));
 }
 
 .ksh__flowfoot {
@@ -141,7 +140,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: calc(16px * var(--scale));
+  gap: calc(15px * var(--scale));
   padding-top: calc(16px * var(--scale));
 }
 

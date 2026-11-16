@@ -245,7 +245,7 @@ input[type='checkbox']:disabled {
 
 .ksh__chip {
   flex: 1;
-  padding: calc(14px * var(--scale)) calc(13px * var(--scale));
+  padding: calc(11px * var(--scale)) calc(13px * var(--scale));
   background: var(--surface);
   border: solid 1px var(--line-quiet);
   border-radius: var(--radius-chip);

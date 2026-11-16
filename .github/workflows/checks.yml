@@ -17,7 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run ui
-      - run: python3 shots/dead-code.py
+      - run: python3 checks/dead-code.py
       # The version is written in three files because three tools read it; a release where they
       # disagree ships an installer that says something other than the window does.
       - name: one version
@@ -60,7 +60,7 @@ jobs:
         working-directory: src-tauri
 
   layout:
-    name: every state at 936x750
+    name: every state at 936x712
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
             xvfb python3-gi gir1.2-gtk-3.0 gir1.2-webkit2-4.1
       - run: npm ci
       - run: npm run ui
-      - run: xvfb-run -a python3 shots/webkit-check.py
+      - run: xvfb-run -a python3 checks/webkit-check.py
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

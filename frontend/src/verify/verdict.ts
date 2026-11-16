@@ -49,15 +49,15 @@ const renderVerdict = (): void => {
   sub.hidden = !result.sub;
   sub.textContent = result.sub ?? '';
   el<HTMLButtonElement>('btn-verdict').textContent = result.button;
+  el('btn-verdict-guide').hidden = verify.verdict?.outcome !== 'notRegistered';
 };
 
 export const verdictButton = (): void => {
-  const outcome = verify.verdict?.outcome;
-  if (outcome !== 'notRegistered') {
-    if (outcome !== 'authentic') void openVerify();
-    else show('screen-home');
-    return;
-  }
+  if (verify.verdict?.outcome === 'refused') void openVerify();
+  else show('screen-home');
+};
+
+export const verdictGuide = (): void => {
   openExternal(text.links.verifyHelp).catch((error: unknown) =>
     console.warn(`could not open ${text.links.verifyHelp}: ${reason(error)}`),
   );

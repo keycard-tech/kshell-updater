@@ -123,6 +123,8 @@ export const verify = {
   fromFile: (name: string): string => `Units list from ${name}`,
   noList: 'Load own list to verify offline.',
   enableCamera: 'Enable camera',
+  updateShell: 'Update Shell',
+  goHome: 'Home',
   fetchingList: 'Fetching units list…',
   loadList: 'Fetch units list',
 };
@@ -146,6 +148,7 @@ export interface Shown {
 
 export const verdict = {
   nothingScanned: 'nothing was scanned',
+  guide: 'Learn more',
   authentic: (): Shown => ({
     title: 'Your Shell is authentic',
     text: 'The verification is completed successfully. Your Shell is in the list of produced units.',
@@ -155,7 +158,7 @@ export const verdict = {
     title: `No device ${uid} is in the produced units list`,
     text: 'Contact our team to check it.',
     sub: uid,
-    button: 'Learn more',
+    button: 'Home',
   }),
   refused: (reason: string): Shown => ({
     title: 'Shell could not be verified',
