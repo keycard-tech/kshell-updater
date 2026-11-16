@@ -8,7 +8,7 @@ import type {
 } from '../types.js';
 import type { Screen } from './screens.js';
 
-export type Mode = 'online' | 'file';
+type Mode = 'online' | 'file';
 
 export type ByKind<T> = Record<ImageKind, T>;
 
@@ -20,7 +20,7 @@ export interface ReadyFile {
   error?: string;
 }
 
-export interface QueueItem {
+interface QueueItem {
   kind: ImageKind;
   key: string;
   label: string;
@@ -30,7 +30,7 @@ export interface QueueItem {
   allowDowngrade: boolean;
 }
 
-export interface State {
+interface State {
   device: DeviceInfo | null;
   config: AppConfiguration | null;
   files: ByKind<ReleaseFile[]>;

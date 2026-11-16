@@ -42,7 +42,7 @@
 }
 
 :root {
-  /* 936x670: the tallest screen plus one padding, re-measured by the checks in shots/ */
+  /* 936x750: the tallest screen plus one padding, re-measured by the checks in shots/ */
   --scale: 1.2;
 
   --orange: #ff7d46;
@@ -65,6 +65,7 @@
   --accent-bar: var(--orange-deep);
   --ok: var(--teal);
   --danger: var(--error);
+  --ink-white: white;
   --ink: var(--white-95);
   --ink-soft: var(--white-80);
   --ink-mid: var(--white-60);
@@ -80,6 +81,14 @@
 
   /* Derived once, from the --scale of the element that declares them: a screen that sets its own
      --scale (transfer, verify) only re-scales lengths written as calc(Npx * var(--scale)). */
+  /* The segmented list switch appears on the update screen and on the verify screen, where a person
+     compares it with itself; its geometry is derived here, at the scale this file declares, so a flow
+     that sets its own --scale cannot make the same control a different size. */
+  --seg-gap: calc(3px * var(--scale));
+  --seg-pad: calc(4px * var(--scale));
+  --seg-pad-inline: calc(12px * var(--scale));
+  --seg-line: calc(18px * var(--scale));
+
   --fs-sm: calc(12px * var(--scale));
   --fs-md: calc(14px * var(--scale));
   --fs-lg: calc(16px * var(--scale));

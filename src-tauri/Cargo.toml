@@ -19,7 +19,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 sha2 = "0.10"
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+# `system-proxy` is a reqwest default that `default-features = false` drops, and it is the one
+# that matters here: a computer that reaches GitHub only through $HTTPS_PROXY lists releases
+# with it and sits offline without it, while its browser works.
+reqwest = {
+  version = "0.13",
+  default-features = false,
+  features = ["json", "rustls", "system-proxy"],
+}
 hidapi = { version = "2", features = ["linux-static-hidraw"] }
 k256 = { version = "0.13", features = ["ecdsa"] }
 getrandom = "0.3"

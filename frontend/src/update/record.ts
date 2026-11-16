@@ -7,9 +7,9 @@ import { state } from '../base/state.js';
 import * as text from '../strings.js';
 import type { AppConfiguration, ImageKind, UpdateRecord } from '../types.js';
 
-export type Versions = Record<ImageKind, string | null>;
+type Versions = Record<ImageKind, string | null>;
 
-export type DeviceVersions = Record<ImageKind, string>;
+type DeviceVersions = Record<ImageKind, string>;
 
 export const onDeviceVersions = (config: AppConfiguration | null): DeviceVersions | null =>
   config

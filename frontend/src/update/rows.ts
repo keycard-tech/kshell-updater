@@ -30,7 +30,7 @@ interface RowRefs {
 
 const rows = {} as ByKind<RowRefs>;
 
-export interface RowStatus {
+interface RowStatus {
   status: string;
   modifier: '' | 'empty' | 'latest';
   wanted: boolean;
@@ -204,7 +204,6 @@ const rowProblem = (
   const onDevice = deviceVersion(kind);
   if (ready?.info && state.mode[kind] === 'file' && onDevice && olderThan(ready.info.version, onDevice))
     return { text: text.row.older(text.title(kind).toLowerCase(), onDevice), detail: '', bad: true };
-  // Offline needs no line here: the status word says `No list` and the status bar says why.
   if (checkedOf(kind) === 'failed')
     return { text: noteOf(kind) ?? text.row.unreadable, detail: '', bad: true };
   return { text: '', detail: '', bad: false };

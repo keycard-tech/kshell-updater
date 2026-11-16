@@ -6,7 +6,7 @@ import { presencePollMs } from './config.js';
 import { el } from './utils.js';
 import { refresh, showWaiting } from './update/device.js';
 import { keyFor } from './update/files.js';
-import { loadReleases, preload } from './update/releases.js';
+import { loadReleases, preload, retryListing } from './update/releases.js';
 import { readRecord } from './update/record.js';
 import { buildRows, render } from './update/rows.js';
 import {
@@ -37,18 +37,15 @@ el<HTMLButtonElement>('btn-failed-back').addEventListener('click', () => {
   void refresh();
 });
 el<HTMLButtonElement>('btn-ready-verify').addEventListener('click', () => void openVerify());
-el<HTMLButtonElement>('card-update').addEventListener('click', () => {
-  if (!state.device || !state.config) return;
-  show('screen-ready');
-  void refresh();
-});
+el<HTMLButtonElement>('card-update').addEventListener('click', openUpdate);
 el<HTMLButtonElement>('btn-done').addEventListener('click', () => {
   show('screen-home');
   void refresh();
 });
 
 el<HTMLButtonElement>('card-verify').addEventListener('click', () => void openVerify());
-el<HTMLButtonElement>('btn-verify-back').addEventListener('click', () => show('screen-home'));
+el<HTMLButtonElement>('btn-verify-update').addEventListener('click', openUpdate);
+el<HTMLButtonElement>('btn-list-retry').addEventListener('click', () => void retryListing(true));
 el<HTMLButtonElement>('verify-list-online').addEventListener('click', () => void useOnlineList());
 el<HTMLButtonElement>('verify-list-file').addEventListener('click', () => void useOwnList());
 el<HTMLButtonElement>('btn-camera').addEventListener('click', () => void startCamera());
@@ -110,6 +107,7 @@ async function poll(): Promise<void> {
   if (state.scanning || state.busy) return;
   state.scanning = true;
   try {
+    void retryListing(false);
     const found = await listShells();
     const path = found.length ? found[0].path : null;
     const seen = state.device?.path ?? null;
@@ -120,6 +118,16 @@ async function poll(): Promise<void> {
   }
 }
 
+function openUpdate(): void {
+  if (!state.device || !state.config) {
+    showWaiting();
+    return;
+  }
+  show('screen-ready');
+  void refresh();
+  void retryListing(true);
+}
+
 showWaiting();
 void readRecord()
   .then(refresh)
@@ -127,5 +135,6 @@ void readRecord()
   .then(preload);
 
 setInterval(() => void poll(), presencePollMs);
+addEventListener('online', () => void retryListing(true));
 
 window.kshell = { scanAnswer: answer, renderScan, verify };

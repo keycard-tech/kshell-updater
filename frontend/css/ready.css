@@ -4,9 +4,25 @@
   align-items: center;
   justify-content: space-between;
   gap: calc(12px * var(--scale));
-  font-size: calc(11px * var(--scale));
-  line-height: calc(16px * var(--scale));
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
   color: var(--ink-faint);
+}
+
+/* A reason that does not fit the line stays reachable on hover, which is the only place a long
+   `could not reach https://…` can go without pushing the device out of the window. */
+.ksh__statusbar-note {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: calc(8px * var(--scale));
+}
+
+#status-note {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* Update screen: device line, release rows, action. */
@@ -17,7 +33,7 @@
 }
 
 .ksh__device-icon {
-  height: calc(30px * var(--scale));
+  height: calc(32px * var(--scale));
   flex: none;
   display: flex;
   align-items: center;
@@ -65,11 +81,6 @@
   gap: calc(10px * var(--scale));
   flex: 1;
   min-width: 0;
-}
-
-.ksh__row-title .ksh__h2 {
-  font-size: calc(18px * var(--scale));
-  line-height: calc(20px * var(--scale));
 }
 
 .ksh__row-top > .ksh__status {
@@ -139,19 +150,8 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: calc(5px * var(--scale));
-}
-
-.ksh__h1--device {
-  font-size: calc(22px * var(--scale));
-  line-height: calc(30px * var(--scale));
-}
-
-.ksh__device-serial {
-  font-size: var(--fs-sm);
-  line-height: calc(18px * var(--scale));
-  color: var(--ink-mid);
-  overflow-wrap: anywhere;
+  gap: calc(16px * var(--scale));
+  padding-top: calc(16px * var(--scale));
 }
 
 .ksh__dot {

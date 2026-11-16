@@ -30,7 +30,7 @@ export const refresh = async (): Promise<void> => {
   }
 };
 
-export const readConfiguration = async (device: DeviceInfo): Promise<void> => {
+const readConfiguration = async (device: DeviceInfo): Promise<void> => {
   state.config = null;
   state.configError = null;
   try {

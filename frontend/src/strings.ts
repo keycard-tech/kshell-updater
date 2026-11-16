@@ -42,11 +42,11 @@ export const home = {
   badgeUpToDate: 'Up to date',
   badgeOwed: 'Update owed',
   badgeUpdates: (count: number): string => `${count} update${count > 1 ? 's' : ''}`,
-  connect: 'Connect the Shell with a USB-C cable and unlock it to choose what to write.',
+  connect: 'Connect your Shell with a USB-C cable and unlock it to upgrade firmware / database.',
   connectHint: 'Nothing to choose until the Shell is connected',
   prompt: 'Write the newest firmware and the newest Ethereum database to the Shell.',
   runs: (firmware: string, variant: string, database: string): string =>
-    `It runs firmware ${firmware}${variant} and database ${database}`,
+    `Firmware - ${firmware}${variant}, Database - ${database}`,
   silentDevice: 'The Shell did not answer. Lock it and try again.',
   replug: 'Unplug the Shell and plug it back in if it stays like this.',
   owed: (versions: string): string =>
@@ -65,9 +65,6 @@ export const summary = {
 };
 
 export const row = {
-  includeLabel: (title: string): string => `Update ${title}`,
-  online: 'Online',
-  fromFile: 'From file',
   choose: 'Choose a .bin file',
   fromFileVersion: (version: string, variant: string): string =>
     `${version}${variant ? `-${variant}` : ''} from file`,
@@ -112,9 +109,6 @@ export const record = {
 export const done = {
   versions: (firmware: string, database: string): string =>
     `Your Shell now runs firmware ${firmware} and database ${database}.`,
-  checked: 'Checked against the Shell after it restarted.',
-  noVersion: 'The transfer finished, but the Shell did not report its version.',
-  replug: 'Unplug the Shell and plug it back in to see what it runs now.',
 };
 
 export const device = {
@@ -122,18 +116,18 @@ export const device = {
   productName: 'Keycard Shell',
   connected: (serial: string): string => `Keycard Shell connected · SN ${serial}`,
   onDevice: (firmware: string, variant: string, database: string): string =>
-    `on device: firmware ${firmware}${variant} · database ${database}`,
+    `Installed on Shell · firmware ${firmware}${variant} · database ${database}`,
   keyTitle: (key: string): string => `attestation key ${key}`,
   absent: 'No device connected',
 };
 
-export const releases = { offline: 'Offline · updates from file only' };
+export const releases = { offline: 'Offline · air-gapped update only' };
 
 export const verify = {
   fetching: 'Fetching the produced units list…',
   fetched: (date: string): string => `Units list fetched ${date}`,
   fromFile: (name: string): string => `Units list from ${name}`,
-  noList: 'Load one with Own list to verify offline.',
+  noList: 'Load own list to verify offline.',
   enableCamera: 'Enable camera',
   fetchingList: 'Fetching units list…',
   loadList: 'Fetch units list',
@@ -141,12 +135,12 @@ export const verify = {
 
 export const camera = {
   none: (error: string): string =>
-    `This computer has no camera the app could open: ${error}`,
+    `No camera available on this device: ${error}`,
   noPictureShown: (error: string): string =>
-    `The camera is open but its picture cannot be shown here: ${error}`,
-  silent: 'This camera opened but sent no picture. Try another one below.',
+    `The camera is open but no picture available: ${error}`,
+  silent: 'Selected camera opened but sent no picture. Try another one below.',
   slow: (rate: string): string =>
-    `This camera manages about ${rate} pictures a second, too slow to read a code. Try another one below.`,
+    `Selected camera manages about ${rate} pictures a second, too slow to read a code. Try another one below.`,
   stopped: 'This camera stopped by itself. Pick another one below.',
   didNotWork: 'did not open',
   sentNothing: 'sent no picture',
@@ -156,7 +150,7 @@ export const camera = {
 export interface Shown {
   title: string;
   text: string;
-  sub: string;
+  sub?: string;
   button: string;
 }
 
@@ -164,19 +158,18 @@ export const verdict = {
   nothingScanned: 'nothing was scanned',
   authentic: (): Shown => ({
     title: 'Your Shell is authentic',
-    text: 'It is in the list of produced units, and it signed this challenge itself.',
-    sub: '',
+    text: 'The verification is completed successfully. Your Shell is in the list of produced units.',
     button: 'Done',
   }),
   notRegistered: (uid: string): Shown => ({
-    title: 'No device with this id is in the produced units list',
+    title: `No device ${uid} is in the produced units list`,
     text: 'Contact our team to check it.',
     sub: uid,
     button: 'Learn more',
   }),
   refused: (reason: string): Shown => ({
-    title: 'This Shell could not be verified',
-    text: 'Go to Settings/Shell/Verify on the Shell and try again.',
+    title: 'Shell could not be verified',
+    text: 'Go to Settings/Shell/Verify on your Shell and try again.',
     sub: reason,
     button: 'Try again',
   }),

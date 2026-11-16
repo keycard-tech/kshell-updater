@@ -23,24 +23,28 @@
 .ksh__segmented {
   display: inline-flex;
   flex: none;
-  gap: calc(3px * var(--scale));
-  padding: calc(3px * var(--scale));
+  gap: var(--seg-gap);
+  padding: var(--seg-gap);
   background: var(--line-quiet);
   border: solid 1px var(--line);
   border-radius: var(--radius-control);
 }
 
 .ksh__seg {
-  padding: calc(4px * var(--scale)) calc(12px * var(--scale));
+  padding: var(--seg-pad) var(--seg-pad-inline);
   border: 0;
-  border-radius: calc(var(--radius-control) - 3px);
+  border-radius: calc(var(--radius-control) - var(--seg-gap));
   background: transparent;
   color: var(--ink-mid);
   font-family: inherit;
   font-size: var(--fs-sm);
   font-weight: 600;
-  line-height: calc(18px * var(--scale));
+  line-height: var(--seg-line);
   cursor: pointer;
+}
+
+.ksh__seg:disabled {
+  color: var(--ink-faint);
 }
 
 .ksh__seg--on {
@@ -100,13 +104,13 @@ select.ksh__select option {
 }
 
 .ksh__btn--file {
-  flex: 1;
   min-width: 0;
-  padding: calc(8px * var(--scale)) calc(12px * var(--scale));
+  padding: calc(6px * var(--scale)) calc(12px * var(--scale));
   border-style: dashed;
   border-color: var(--line-strong);
   color: var(--ink);
   font-size: var(--fs-sm);
+  font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -240,12 +244,12 @@ input[type='checkbox']:disabled {
 
 .ksh__chip {
   flex: 1;
-  padding: calc(9px * var(--scale)) calc(13px * var(--scale));
+  padding: calc(14px * var(--scale)) calc(13px * var(--scale));
   background: var(--surface);
   border: solid 1px var(--line-quiet);
   border-radius: var(--radius-chip);
-  font-size: calc(11px * var(--scale));
-  line-height: calc(16px * var(--scale));
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
   color: var(--ink-mid);
 }
 
@@ -352,7 +356,7 @@ input[type='checkbox']:disabled {
 
 .ksh__link--button {
   padding: 0;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-sm) !important;
   border: none;
   border-bottom: 2px solid var(--accent);
   background: none;

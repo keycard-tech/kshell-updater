@@ -35,14 +35,14 @@ const shown = (): { icon: string } & text.Shown => {
     : { icon: images.failed, ...text.verdict.refused(verdict.reason) };
 };
 
-export const renderVerdict = (): void => {
+const renderVerdict = (): void => {
   const result = shown();
   el<HTMLImageElement>('verdict-icon').src = result.icon;
   el('verdict-title').textContent = result.title;
   el('verdict-text').textContent = result.text;
   const sub = el('verdict-sub');
   sub.hidden = !result.sub;
-  sub.textContent = result.sub;
+  sub.textContent = result.sub ?? '';
   el<HTMLButtonElement>('btn-verdict').textContent = result.button;
 };
 

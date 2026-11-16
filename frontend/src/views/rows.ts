@@ -6,7 +6,7 @@ import type { ReleaseFile } from '../types.js';
 
 export type Checked = 'ready' | 'failed' | 'pending' | null;
 
-export interface ShaView {
+interface ShaView {
   content: Markup;
   verified: boolean;
 }

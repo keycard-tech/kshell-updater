@@ -1,7 +1,7 @@
 import { el } from '../utils.js';
 import { state } from './state.js';
 
-export const SCREENS = [
+const SCREENS = [
   'screen-home',
   'screen-ready',
   'screen-transfer',

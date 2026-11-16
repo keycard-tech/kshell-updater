@@ -48,6 +48,7 @@ body {
   font-size: var(--fs-sm);
   line-height: calc(18px * var(--scale));
   color: var(--ink-faint);
+  overflow-wrap: anywhere;
 }
 
 .ksh__prompt {

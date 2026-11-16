@@ -4,7 +4,7 @@ import { state } from '../base/state.js';
 import * as text from '../strings.js';
 import type { ImageKind } from '../types.js';
 import { el, reason, slot } from '../utils.js';
-import { reportConnected, showWaiting } from './device.js';
+import { refresh, reportConnected, showWaiting } from './device.js';
 import { isReadyToFlash, keyFor, selectedFile, versionOf } from './files.js';
 import {
   dropRecord,
@@ -16,7 +16,7 @@ import { rowState, wantedKinds } from './rows.js';
 
 const kinds = text.kinds.map((entry) => entry.kind);
 
-export const itemLabel = (kind: ImageKind): string => {
+const itemLabel = (kind: ImageKind): string => {
   const name = text.title(kind);
   if (state.mode[kind] === 'file') {
     return `${name} ${state.ready[kind]?.info?.version ?? ''}`.trim();
@@ -106,21 +106,20 @@ const runQueue = async (): Promise<void> => {
 
     reportConnected();
     if (!now) {
-      el('done-summary').textContent = text.done.noVersion;
-      el('done-verify').textContent = text.done.replug;
-      show('screen-done');
+      await writeRecord();
+      backToUpdates();
+      void refresh();
       return;
     }
     await dropRecord();
     el('done-summary').textContent = text.done.versions(now.firmware, now.database);
-    el('done-verify').textContent = text.done.checked;
     show('screen-done');
   } finally {
     state.busy = false;
   }
 };
 
-export const showFailed = (error: string): void => {
+const showFailed = (error: string): void => {
   const cut = error.indexOf('. ');
   el('failed-title').textContent = cut < 0 ? (error || text.failed.nothing) : error.slice(0, cut + 1);
   el('failed-detail').textContent = cut < 0 ? '' : error.slice(cut + 2);

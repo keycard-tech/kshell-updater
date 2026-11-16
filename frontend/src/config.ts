@@ -8,6 +8,8 @@ export const images = {
 
 export const presencePollMs = 1500;
 
+export const listRetryMs = 30000;
+
 export const cameraRetryPauseMs = 400;
 
 export const decodeWindowPx = 340;

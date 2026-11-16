@@ -50,14 +50,8 @@ export const el = <T extends HTMLElement = HTMLElement>(id: string): T =>
 
 export const reason = (error: unknown): string => String(error);
 
-export const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
 export const shortHash = (hash: string | null): string =>
   hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : '';
 
 export const dayDate = (days: number): string =>
   new Date(days * 86_400_000).toISOString().slice(0, 10);
-
-export const listDate = (build: number | string): string =>
-  `${build}`.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');

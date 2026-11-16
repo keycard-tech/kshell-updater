@@ -57,8 +57,8 @@
 }
 
 .ksh__card-img--qr {
-  width: calc(104px * var(--scale));
-  height: calc(104px * var(--scale));
+  width: calc(100px * var(--scale));
+  height: calc(100px * var(--scale));
   padding: calc(14px * var(--scale));
   background: var(--ink);
   border-radius: var(--radius-card);

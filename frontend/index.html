@@ -17,7 +17,7 @@
       <div class="ksh__home" id="screen-home">
         <button class="ksh__card" id="card-update" type="button">
           <div class="ksh__card-head">
-            <h1 class="ksh__h1">Update firmware and database</h1>
+            <h1 class="ksh__h1">Update Shell</h1>
             <span class="ksh__badge ksh__badge--warn" id="home-badge">USB-C required</span>
           </div>
           <div class="ksh__card-body">
@@ -53,16 +53,13 @@
         <div class="ksh__head">
           <div>
             <h1 class="ksh__h1">Verify authenticity of Shell</h1>
-            <p class="ksh__prompt" id="verify-sub">
-              Nothing is uploaded: this computer checks the answer against the pinned key.
-            </p>
           </div>
           <span class="ksh__badge">Camera only</span>
         </div>
 
         <div class="ksh__verify-body">
           <div class="ksh__verify-side">
-            <ol class="ksh__steps">
+            <ol class="ksh__steps ksh__prompt">
               <li>
                 <span class="ksh__step-num">1</span>
                 <span>Open <b>Settings/Shell/Verify</b> and scan this code.</span>
@@ -93,9 +90,9 @@
             <button
               class="ksh__link ksh__link--button ksh__link--block"
               type="button"
-              id="btn-verify-back"
+              id="btn-verify-update"
             >
-              Update firmware and database
+              Update Shell
             </button>
           </div>
 
@@ -104,7 +101,7 @@
               <div id="verify-qr"></div>
               <span class="ksh__qr-note" id="verify-qr-note" hidden>No units list available</span>
             </div>
-            <figcaption id="verify-qr-caption">Scan this code on the Shell</figcaption>
+            <figcaption>Scan this code on the Shell</figcaption>
           </figure>
         </div>
       </div>
@@ -113,18 +110,14 @@
       <div class="ksh__verify" id="screen-scan" hidden>
         <div class="ksh__head">
           <div>
-            <h1 class="ksh__h1" id="scan-title">Now scan the Shell QR code</h1>
-            <p class="ksh__prompt" id="scan-sub">Point the camera at the Shell screen.</p>
+            <h1 class="ksh__h1">Now scan the Shell QR code</h1>
           </div>
-          <span class="ksh__badge" id="scan-badge">Scanning…</span>
+          <span class="ksh__badge">Scanning…</span>
         </div>
 
         <div class="ksh__verify-body">
           <div class="ksh__verify-side">
-            <p class="ksh__prompt">
-              Nothing is uploaded. The code is read here and checked against the list of produced
-              units.
-            </p>
+            <p class="ksh__prompt">Point the camera at the Shell screen to complete verification.</p>
             <p class="ksh__hint ksh__hint--bad" id="scan-problem" hidden></p>
             <p class="ksh__hint">
               Hold it flat and steady. If it will not focus, move closer or turn the brightness up.
@@ -156,8 +149,8 @@
         <div class="ksh__device">
           <span class="ksh__device-icon"><img src="img/check.svg" alt="" /></span>
           <div>
-            <h1 class="ksh__h1 ksh__h1--device" id="device-name">Keycard Shell connected</h1>
-            <span class="ksh__device-serial" id="device-line">serial –</span>
+            <h1 class="ksh__h1" id="device-name">Keycard Shell connected</h1>
+            <span class="ksh__hint" id="device-line">serial –</span>
           </div>
           <span class="ksh__badge ksh__badge--ready" id="select-badge">Reading…</span>
         </div>
@@ -270,7 +263,7 @@
             >Please do not disconnect the device.</span
           >
 
-          <div class="ksh__checkline" id="transfer-checkline">
+          <div class="ksh__checkline">
             <img src="img/check.svg" alt="" />
             <span>Check the Keycard Shell screen for instructions</span>
           </div>
@@ -296,7 +289,7 @@
         <img src="img/success.svg" alt="" />
         <h1 class="ksh__h1">Update complete</h1>
         <p class="ksh__prompt" id="done-summary">Your Shell is up to date.</p>
-        <span class="ksh__hint" id="done-verify">You can disconnect the device.</span>
+        <span class="ksh__hint">You can disconnect the device.</span>
         <button class="ksh__btn ksh__btn--primary" id="btn-done">Done</button>
       </section>
 
@@ -305,7 +298,10 @@
           ><i class="ksh__dot ksh__dot--off" id="status-dot"></i
           ><span id="status-device">No device connected</span></span
         >
-        <span id="status-note">reading the release list…</span>
+        <span class="ksh__statusbar-note">
+          <span id="status-note">reading the release list…</span
+          ><button class="ksh__link" type="button" id="btn-list-retry" hidden>Try again</button>
+        </span>
       </div>
     </div>
     <!-- https://github.com/cozmo/jsQR (Apache-2.0), vendored: the CSP allows no remote script -->

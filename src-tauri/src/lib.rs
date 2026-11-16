@@ -164,7 +164,9 @@ fn asset_name(url: &str) -> String {
 
 #[tauri::command]
 async fn list_releases(app: AppHandle, kind: String) -> Result<Catalogue, String> {
-    let listing = catalogue_for(Kind::parse(&kind)?).await?;
+    let listing = catalogue_for(Kind::parse(&kind)?)
+        .await
+        .inspect_err(|error| eprintln!("{kind} release list refused: {error}"))?;
     app.state::<PreparedImages>().remember_hashes(listing.index);
     Ok(catalogue(listing.files, listing.failures))
 }
@@ -254,7 +256,7 @@ async fn flash_image(app: AppHandle, request: FlashRequest) -> Result<AppConfigu
         .bytes_of(&request.key)
         .ok_or_else(|| {
             format!(
-                "{} was never prepared, so there is nothing to flash",
+                "{} was never prepared, so there is nothing to transfer",
                 kind.name()
             )
         })?;
@@ -350,7 +352,7 @@ fn report_back(usb: &SharedUsb) -> Result<AppConfiguration, String> {
         }
         std::thread::sleep(RECONNECT_PAUSE);
     }
-    eprintln!("no configuration after the flash: {last}");
+    eprintln!("no configuration after the transfer: {last}");
     Err(String::from(
         "The Shell did not report its version after restarting.",
     ))
@@ -360,7 +362,7 @@ fn explain(error: shell::ShellError) -> String {
     use shell::ShellError;
     match error {
         ShellError::StatusWord(code) if code == shell::SW_USER_DECLINED => {
-            String::from("The flash was declined on the Shell's screen.")
+            String::from("The transfer was declined on the Shell's screen.")
         }
         ShellError::StatusWord(code) => {
             eprintln!("shell rejected the command: SW {code:#06x}");
@@ -521,6 +523,9 @@ pub fn run() {
             app.manage(CancelFlag::default());
             app.manage(PreparedImages::default());
             app.manage(verify::Units::default());
+            if let Ok(dir) = app.path().app_config_dir() {
+                net::keep_reads_in(dir.join("reads"));
+            }
             watch_presence(app.handle().clone());
             let config = app.config().clone();
             let window = config
