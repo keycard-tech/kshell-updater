@@ -1,7 +1,3 @@
-//! The verifier checked against vectors produced by the site's own TypeScript implementation, so the
-//! two agree on the same bytes rather than on each author's reading of the format.
-//! Regenerate with `gen-vectors.mts` in a checkout of keycard-tech/shell-update-site.
-
 use kshell_updater_lib::units::{self, UnitsError};
 use kshell_updater_lib::ur;
 use serde::Deserialize;
@@ -61,7 +57,6 @@ fn the_list_from_the_site_loads() {
     let vectors = vectors();
     let list = units::load_list_with_key(&bytes(&vectors.list), &vectors.verify_key).unwrap();
     assert_eq!(list.build, vectors.build);
-    // Rows are padded to a power of two, so the count is a bound rather than a device total.
     assert!(list.row_count >= vectors.rows);
     assert_eq!(list.row_count, list.row_count.next_power_of_two());
 }
@@ -141,18 +136,23 @@ fn the_challenge_text_is_the_ones_the_site_writes() {
     assert_eq!(ur::ur_decode(&vectors.challenge_text).unwrap(), payload);
 }
 
+fn units_fixture() -> Vec<u8> {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .expect("src-tauri is under the repository")
+        .join("tests/fixtures/units-latest.bin");
+    std::fs::read(&path).unwrap_or_else(|error| {
+        panic!(
+            "run `cargo run --example units` to write {}: {error}",
+            path.display()
+        )
+    })
+}
+
 #[test]
 fn the_list_keycard_publishes_verifies() {
-    // The file the factory published, kept out of the repository because it is 131 KB: run
-    // `curl -L -o ~/scratch/units.bin <release asset>` to have this check do anything.
-    let Ok(bytes) = std::fs::read(format!(
-        "{}/scratch/units-20261112.bin",
-        std::env::var("HOME").unwrap_or_default()
-    )) else {
-        return;
-    };
-    let list =
-        units::load_list(&bytes).expect("the published list must verify against the pinned key");
+    let list = units::load_list(&units_fixture())
+        .expect("the published list must verify against the pinned key");
     assert_eq!(list.build, 20261112);
     assert_eq!(list.row_count, 4096);
 }

@@ -1,4 +1,3 @@
-// cargo run --example list — proves HID initialisation and enumeration outside the GUI.
 fn main() {
     match hidapi::HidApi::new() {
         Ok(api) => {

@@ -1,6 +1,3 @@
-// cargo run --example units — the verify flow's half that needs no device and no window: fetch the
-// newest produced units list, check it against the pinned key, and write the challenge the app would
-// put in the QR code. What it prints is what keycard-tech/shell-units published, not a fixture.
 use kshell_updater_lib::ur::ur_decode;
 use kshell_updater_lib::{units, ur, verify};
 
@@ -24,18 +21,14 @@ fn main() {
         );
 
         let svg = verify::challenge_svg(&text).expect("a QR code for the challenge");
-        // One home for fixtures, and it is the one shots/frontend-check.mjs already reads from.
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        let fixtures = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
             .expect("src-tauri is under the repository")
-            .join("tests/fixtures/challenge.svg");
-        std::fs::create_dir_all(path.parent().expect("the fixtures directory"))
-            .expect("the fixtures directory exists");
-        std::fs::write(&path, &svg).expect("the challenge svg is written");
-        println!(
-            "qr:         {} bytes of svg at {}",
-            svg.len(),
-            path.display()
-        );
+            .join("tests/fixtures");
+        std::fs::create_dir_all(&fixtures).expect("the fixtures directory exists");
+        std::fs::write(fixtures.join("challenge.svg"), &svg).expect("the challenge svg is written");
+        std::fs::write(fixtures.join("units-latest.bin"), &bytes)
+            .expect("the published units list is kept as a test fixture");
+        println!("qr:         {} bytes of svg", svg.len());
     });
 }

@@ -1,8 +1,3 @@
-//! The produced units list: get it, keep it, ask a Shell to sign for itself.
-//!
-//! The list is cached under the app's own directory because verify has to work with no network, and a
-//! cached list is only as good as the signature checked again on every read.
-
 use crate::net;
 use crate::units::{self, UnitList, UnitsError, LIST_ASSET_NAME};
 use crate::ur;
@@ -13,13 +8,11 @@ use tauri::{AppHandle, Manager};
 
 const UNITS_REPO: &str = "keycard-tech/shell-units";
 
-/// Where the list the screen is describing came from.
 const ORIGIN_ONLINE: &str = "online";
 const ORIGIN_FILE: &str = "file";
 const ORIGIN_CACHED: &str = "cached";
 
-/// The one way to reach the session, so no command can hold the lock across a download.
-fn session<T>(
+fn with_session<T>(
     units: &Units,
     run: impl FnOnce(&mut Session) -> Result<T, String>,
 ) -> Result<T, String> {
@@ -36,10 +29,8 @@ pub struct Units(Mutex<Session>);
 #[derive(Default, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UnitsStatus {
-    /// Build date the list header carries, which is how the site names a list.
     build: Option<u32>,
     origin: Option<String>,
-    /// The day the app last downloaded it, not the day it was built.
     fetched_at: Option<i64>,
     file: Option<String>,
 }
@@ -47,7 +38,6 @@ pub struct UnitsStatus {
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Challenge {
-    /// What the QR says, so a person reading it over someone's shoulder can compare.
     text: String,
     svg: String,
 }
@@ -55,11 +45,8 @@ pub struct Challenge {
 #[derive(Serialize)]
 #[serde(tag = "outcome", rename_all = "camelCase")]
 pub enum Verdict {
-    /// The signature came from a unit on the list.
     Authentic,
-    /// Well-formed and correctly signed, by a unit that never left the factory.
     NotRegistered { uid: String },
-    /// Something that is not an answer to this session's challenge.
     Refused { reason: String },
 }
 
@@ -84,16 +71,14 @@ fn list_path(dir: &Path, build: u32) -> PathBuf {
     dir.join(format!("units-{build}.bin"))
 }
 
-/// Days since the epoch: the view turns it into `2026-11-13`, so no calendar code lives here.
-fn today() -> i64 {
+fn days_since_epoch() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|since| since.as_secs() / 86_400)
         .unwrap_or_default() as i64
 }
 
-/// A cached list is read again rather than trusted: an edited file says so rather than being believed.
-fn restore(app: &AppHandle, held: &mut Session) -> Result<(), String> {
+fn restore_cached_list(app: &AppHandle, held: &mut Session) -> Result<(), String> {
     let directory = dir(app)?;
     let Ok(body) = std::fs::read(cache_path(&directory)) else {
         return Ok(());
@@ -116,18 +101,11 @@ struct Session {
     list: Option<UnitList>,
     state: UnitsStatus,
     challenge: Option<[u8; 32]>,
-    /// The challenge a screen was drawn for: an answer is checked against it and nothing else.
     answered: bool,
 }
 
 impl Session {
-    /// A list has been loaded, from a download or from a file the person chose.
-    ///
-    /// It does not touch `challenge`: the verify screen draws its QR before the list is even asked
-    /// for, so a list that arrives afterwards is the normal case, and clearing the challenge there
-    /// left the code on screen belonging to nothing -- every scan then answered "this verify session
-    /// has no challenge to check against" against a genuine Shell (2026-11-13).
-    fn note_list(&mut self, list: UnitList, state: UnitsStatus) {
+    fn use_list(&mut self, list: UnitList, state: UnitsStatus) {
         self.list = Some(list);
         self.state = state;
     }
@@ -135,17 +113,14 @@ impl Session {
 
 #[tauri::command]
 pub fn units_status(app: AppHandle, units: tauri::State<'_, Units>) -> Result<UnitsStatus, String> {
-    session(&units, |session| {
+    with_session(&units, |session| {
         if session.list.is_none() {
-            restore(&app, session)?;
+            restore_cached_list(&app, session)?;
         }
         Ok(session.state.clone())
     })
 }
 
-/// The newest list, downloaded and verified; absence is a refusal like any other. The API names the
-/// release and its rate limit is not a reason to have no list, so the same file is also tried at the
-/// release's stable download path. Both are verified by signature, so falling back asks no trust.
 pub async fn newest_list() -> Result<(Vec<u8>, UnitList), String> {
     let mut urls = Vec::with_capacity(2);
     let api = format!("https://api.github.com/repos/{UNITS_REPO}/releases/latest");
@@ -180,7 +155,6 @@ pub async fn newest_list() -> Result<(Vec<u8>, UnitList), String> {
     Err(problem)
 }
 
-/// Download the newest list and keep it; a failure leaves the loaded list in place.
 #[tauri::command]
 pub async fn units_fetch(
     app: AppHandle,
@@ -196,7 +170,7 @@ pub async fn units_fetch(
     let state = UnitsStatus {
         build: Some(build),
         origin: Some(ORIGIN_ONLINE.to_string()),
-        fetched_at: Some(today()),
+        fetched_at: Some(days_since_epoch()),
         file: None,
     };
     let cache = Cache {
@@ -211,13 +185,12 @@ pub async fn units_fetch(
     )
     .map_err(|e| e.to_string())?;
 
-    session(&units, |session| {
-        session.note_list(list, state.clone());
+    with_session(&units, |session| {
+        session.use_list(list, state.clone());
         Ok(state)
     })
 }
 
-/// A chosen file, checked with the same pinned key: the source changes, the rules do not.
 #[tauri::command]
 pub fn units_use_file(units: tauri::State<'_, Units>, path: String) -> Result<UnitsStatus, String> {
     let bytes = std::fs::read(&path).map_err(|e| format!("could not read {path}: {e}"))?;
@@ -228,13 +201,13 @@ pub fn units_use_file(units: tauri::State<'_, Units>, path: String) -> Result<Un
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or(path);
 
-    session(&units, |session| {
-        session.note_list(
+    with_session(&units, |session| {
+        session.use_list(
             list,
             UnitsStatus {
                 build: Some(build),
                 origin: Some(ORIGIN_FILE.to_string()),
-                fetched_at: Some(today()),
+                fetched_at: Some(days_since_epoch()),
                 file: Some(file),
             },
         );
@@ -242,23 +215,21 @@ pub fn units_use_file(units: tauri::State<'_, Units>, path: String) -> Result<Un
     })
 }
 
-/// A fresh challenge, and the QR the Shell will read it from.
 #[tauri::command]
 pub fn units_challenge(units: tauri::State<'_, Units>) -> Result<Challenge, String> {
     let challenge = units::new_challenge();
     let text = ur::ur_encode(&units::encode_init(&challenge));
     let svg = challenge_svg(&text)?;
-    session(&units, |session| {
+    with_session(&units, |session| {
         session.challenge = Some(challenge);
         session.answered = false;
         Ok(Challenge { text, svg })
     })
 }
 
-/// Read a scanned answer; the challenge is spent once, so a scan cannot be a second guess.
 #[tauri::command]
 pub fn units_check(units: tauri::State<'_, Units>, text: String) -> Result<Verdict, String> {
-    session(&units, |session| {
+    with_session(&units, |session| {
         let challenge = session
             .challenge
             .ok_or("this verify session has no challenge to check against")?;
@@ -287,7 +258,6 @@ pub fn units_check(units: tauri::State<'_, Units>, text: String) -> Result<Verdi
     })
 }
 
-/// The QR code as inline SVG: the CSP allows no remote image, and an SVG string needs none.
 pub fn challenge_svg(text: &str) -> Result<String, String> {
     use fast_qr::convert::svg::SvgBuilder;
     use fast_qr::convert::{Builder, Shape};
@@ -306,25 +276,21 @@ pub fn challenge_svg(text: &str) -> Result<String, String> {
 mod tests {
     use super::*;
 
-    /// The order `openVerify` runs in: a challenge first, so the screen is never a blank tile, and
-    /// the list behind it. Wiping the challenge when the list landed was enough to fail every real
-    /// Shell, because by the time the answer was scanned the code it answered was gone.
     #[test]
     fn a_list_arriving_after_the_challenge_leaves_the_challenge_alone() {
         let mut session = Session::default();
         let challenge = units::new_challenge();
         session.challenge = Some(challenge);
 
-        let bytes = std::fs::read(format!(
-            "{}/scratch/units-20261112.bin",
-            std::env::var("HOME").unwrap_or_default()
-        ));
-        let Ok(bytes) = bytes else {
-            // Same reason the vector test skips: the factory list is not in the repository.
-            return;
-        };
+        let bytes = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .expect("src-tauri is under the repository")
+                .join("tests/fixtures/units-latest.bin"),
+        )
+        .expect("run `cargo run --example units` to write tests/fixtures/units-latest.bin");
         let list = units::load_list(&bytes).expect("the published list loads");
-        session.note_list(list, UnitsStatus::default());
+        session.use_list(list, UnitsStatus::default());
 
         assert_eq!(
             session.challenge,

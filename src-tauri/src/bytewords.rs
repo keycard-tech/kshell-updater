@@ -1,5 +1,3 @@
-/// Bytewords (BCR-2020-012). Wire data: a device spells its UR with these, so a
-/// different word list is a different protocol, not a style choice.
 pub const BYTEWORDS: [&str; 256] = [
     "able", "acid", "also", "apex", "aqua", "arch", "atom", "aunt", "away", "axis", "back", "bald",
     "barn", "belt", "beta", "bias", "blue", "body", "brag", "brew", "bulb", "buzz", "calm", "cash",

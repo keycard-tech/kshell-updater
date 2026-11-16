@@ -26,16 +26,63 @@ export const stopCamera = (): void => {
   el<HTMLVideoElement>('scan-video').srcObject = null;
 };
 
+/** A camera that refuses a request refuses the whole of it, so the request is loosened one piece at
+    a time: the device, then the frame rate, then anything at all. A 4K webcam that publishes no
+    usable frame-rate list, or a device id spelled differently by the enumerator, still opens. */
+const cameraAttempts = (
+  preferred: MediaTrackConstraints,
+  deviceId?: string,
+): MediaTrackConstraints[] => {
+  const chosen = deviceId ? { deviceId: { exact: deviceId } } : {};
+  const sized: MediaTrackConstraints = { width: preferred.width, height: preferred.height };
+  const shapes = [
+    { ...preferred, ...chosen },
+    { ...sized, ...chosen },
+    chosen,
+    preferred,
+    sized,
+    {},
+  ];
+  const seen = new Set<string>();
+  return shapes.filter((shape) => {
+    const spelled = JSON.stringify(shape);
+    if (seen.has(spelled)) return false;
+    seen.add(spelled);
+    return true;
+  });
+};
+
+const openCamera = async (deviceId?: string): Promise<MediaStream> => {
+  const attempts = cameraAttempts(cameraMode, deviceId);
+  let last: unknown = new Error('no camera offered');
+  for (const [index, video] of attempts.entries()) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video, audio: false });
+      if (index > 0) {
+        console.warn(
+          'camera needed a looser request:',
+          JSON.stringify({
+            asked: attempts[0],
+            accepted: video,
+            settings: stream.getVideoTracks()[0]?.getSettings() ?? null,
+          }),
+        );
+      }
+      return stream;
+    } catch (error) {
+      last = error;
+    }
+  }
+  throw last;
+};
+
 export const cameraStart = async (
   onCode: (text: string) => void,
   deviceId?: string,
 ): Promise<void> => {
   const generation = ++verify.generation;
   try {
-    verify.stream = await navigator.mediaDevices.getUserMedia({
-      video: { ...cameraMode, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) },
-      audio: false,
-    });
+    verify.stream = await openCamera(deviceId);
   } catch (error) {
     verify.problem = text.camera.none(reason(error));
     renderVerify();
@@ -69,6 +116,8 @@ const listCameras = async (): Promise<void> => {
   select.innerHTML = asHtml(cameraOptions(devices, current));
   select.disabled = devices.length < 2;
 };
+
+let lastFrameDrawn = -1;
 
 const startDecoding = (onCode: (text: string) => void): void => {
   const video = el<HTMLVideoElement>('scan-video');
@@ -109,6 +158,12 @@ const startDecoding = (onCode: (text: string) => void): void => {
       say(null);
     }
   
+    const nothingNewArrived = verify.frames > 0 && verify.frames === lastFrameDrawn;
+    if (nothingNewArrived) return;
+    lastFrameDrawn = verify.frames;
+    const square = Math.min(video.videoWidth, video.videoHeight);
+    if (!square) return;
+
     if (performance.now() - verify.rate.at > slowCamera.windowMs) {
       const seconds = (performance.now() - verify.rate.at) / 1000;
       const fps = (verify.frames - verify.rate.frames) / seconds;
@@ -120,7 +175,17 @@ const startDecoding = (onCode: (text: string) => void): void => {
         if (slow) console.warn('camera is too slow to scan:', videoState(video));
       }
     }
-    context.drawImage(video, 0, 0, decodeWindowPx, decodeWindowPx);
+    context.drawImage(
+      video,
+      (video.videoWidth - square) / 2,
+      (video.videoHeight - square) / 2,
+      square,
+      square,
+      0,
+      0,
+      decodeWindowPx,
+      decodeWindowPx,
+    );
     const code = window.jsQR?.(
       context.getImageData(0, 0, decodeWindowPx, decodeWindowPx).data,
       decodeWindowPx,

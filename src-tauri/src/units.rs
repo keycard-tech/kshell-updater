@@ -1,26 +1,16 @@
-//! The device allowlist: which Shell units left the factory, and the signed answer to a challenge.
-//!
-//! A list is verified by the secp256k1 signature inside it, over everything before the trailing 64
-//! bytes, against the pinned key - not against where it was downloaded from. A device answers a
-//! 32-byte challenge with a signature over `uid || challenge`, and its row is
-//! `sha256(salt || "ShellUID" || uid || "ShellPubKey" || recovered pubkey)`, so a list holds no
-//! identifier that can be matched without the device signing for it.
-
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-/// The one asset the units release carries.
 pub const LIST_ASSET_NAME: &str = "shell-verification-db.bin";
 
-/// Published by `keycard-tech/shell-units`; this key is what says a list came from them.
 pub const UNITS_VERIFY_KEY: &str =
     "032ac68f2b2a500ebf1bc31f0c36e4645b24530ce6d1460e92c2d94e9a47ba550e";
 
 const MAGIC: &[u8; 4] = b"SHVR";
-const FORMAT: u16 = 1;
+const LIST_FORMAT_VERSION: u16 = 1;
 const HEADER_SIZE: usize = 64;
-const SIG_SIZE: usize = 64;
+const LIST_SIGNATURE_SIZE: usize = 64;
 const ROW_LEN: usize = 32;
 const UID_LEN: usize = 16;
 const SALT_LEN: usize = 16;
@@ -32,15 +22,18 @@ const BUILD_OFFSET: usize = 28;
 const TAG_UID: &[u8] = b"ShellUID";
 const TAG_PUBKEY: &[u8] = b"ShellPubKey";
 
-/// Fields a device answer must carry and nothing else: version, uid, challenge, signature.
-const ANSWER_FIELDS: [usize; 4] = [1, 2, 6, 7];
+const FIELD_STEP: usize = 1;
+const FIELD_UID: usize = 2;
+const FIELD_CHALLENGE: usize = 6;
+const FIELD_SIGNATURE: usize = 7;
+const ANSWER_FIELDS: [usize; 4] = [FIELD_STEP, FIELD_UID, FIELD_CHALLENGE, FIELD_SIGNATURE];
+const TAG_POSITIVE_BIGNUM: usize = 37;
+const STEP_ANSWERED: usize = 2;
 
 #[derive(Debug, Error)]
 pub enum UnitsError {
-    /// Refused by the rules of the format, whichever file or answer it was.
     #[error("{0}")]
     Refusal(String),
-    /// A well-formed answer from a unit that is not on the list: not a mistake, and not authentic.
     #[error("this Shell is not on the produced units list")]
     NotRegistered { uid: String },
 }
@@ -57,7 +50,6 @@ fn u32le(bytes: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]])
 }
 
-/// A list this key signed. One buffer, so no row can outlive the signature that authorised it.
 pub struct UnitList {
     bytes: Vec<u8>,
     pub build: u32,
@@ -70,11 +62,10 @@ impl UnitList {
     }
 
     fn rows(&self) -> &[u8] {
-        &self.bytes[HEADER_SIZE..self.bytes.len() - SIG_SIZE]
+        &self.bytes[HEADER_SIZE..self.bytes.len() - LIST_SIGNATURE_SIZE]
     }
 
-    /// The row whose digest matches `hash`, or none. Rows are sorted, so this is a binary search.
-    fn find(&self, hash: &[u8]) -> Option<usize> {
+    fn row_holding(&self, hash: &[u8]) -> Option<usize> {
         let rows = self.rows();
         let (mut lo, mut hi) = (0, self.row_count);
         while lo < hi {
@@ -105,21 +96,21 @@ fn row_hash(salt: &[u8], uid: &[u8], pubkey: &[u8]) -> [u8; ROW_LEN] {
     hasher.finalize().into()
 }
 
-/// Read a list and decide whether this key signed it, refusing what must not be reinterpreted.
 pub fn load_list(bytes: &[u8]) -> Result<UnitList, UnitsError> {
     load_list_with_key(bytes, UNITS_VERIFY_KEY)
 }
 
-/// `verify_key` is a parameter so a test can sign its own list and exercise the other rules.
 pub fn load_list_with_key(bytes: &[u8], verify_key: &str) -> Result<UnitList, UnitsError> {
-    if bytes.len() < HEADER_SIZE + SIG_SIZE {
+    if bytes.len() < HEADER_SIZE + LIST_SIGNATURE_SIZE {
         return refuse("file too short to be a units list");
     }
     if &bytes[..MAGIC.len()] != MAGIC {
         return refuse("not a units list");
     }
-    if u16le(bytes, FORMAT_OFFSET) != FORMAT {
-        return refuse(format!("units list format is not version {FORMAT}"));
+    if u16le(bytes, FORMAT_OFFSET) != LIST_FORMAT_VERSION {
+        return refuse(format!(
+            "units list format is not version {LIST_FORMAT_VERSION}"
+        ));
     }
     let uid_len = bytes[UID_LEN_OFFSET] as usize;
     if uid_len != UID_LEN {
@@ -137,7 +128,7 @@ pub fn load_list_with_key(bytes: &[u8], verify_key: &str) -> Result<UnitList, Un
     if row_count == 0 {
         return refuse("units list has no rows");
     }
-    let expected = HEADER_SIZE + row_count * ROW_LEN + SIG_SIZE;
+    let expected = HEADER_SIZE + row_count * ROW_LEN + LIST_SIGNATURE_SIZE;
     if bytes.len() != expected {
         return refuse(format!(
             "units list is {} bytes, its header describes {expected}",
@@ -145,12 +136,11 @@ pub fn load_list_with_key(bytes: &[u8], verify_key: &str) -> Result<UnitList, Un
         ));
     }
 
-    let (prefix, signature) = bytes.split_at(bytes.len() - SIG_SIZE);
+    let (prefix, signature) = bytes.split_at(bytes.len() - LIST_SIGNATURE_SIZE);
     let key = VerifyingKey::from_sec1_bytes(&unhex(verify_key)?)
         .map_err(|err| UnitsError::Refusal(format!("pinned key could not be read: {err}")))?;
     let sig = Signature::from_slice(signature)
         .map_err(|err| UnitsError::Refusal(format!("signature could not be read: {err}")))?;
-    // Recovery is the same check with one API, and it takes a high-s signature as it comes.
     let digest = Sha256::digest(prefix);
     if !(0..2)
         .filter_map(|id| recover(&sig, &digest, id).ok())
@@ -159,8 +149,7 @@ pub fn load_list_with_key(bytes: &[u8], verify_key: &str) -> Result<UnitList, Un
         return refuse("signature does not match the pinned key");
     }
 
-    // Sorted, with repeats allowed: the padding rows are copies of one row.
-    let rows = &bytes[HEADER_SIZE..bytes.len() - SIG_SIZE];
+    let rows = &bytes[HEADER_SIZE..bytes.len() - LIST_SIGNATURE_SIZE];
     for row in 1..row_count {
         let prev = &rows[(row - 1) * ROW_LEN..row * ROW_LEN];
         let next = &rows[row * ROW_LEN..(row + 1) * ROW_LEN];
@@ -179,7 +168,6 @@ pub fn load_list_with_key(bytes: &[u8], verify_key: &str) -> Result<UnitList, Un
 struct Cbor<'a> {
     bytes: &'a [u8],
     at: usize,
-    /// Which fields the map carried, in the order they came.
     keys: Vec<usize>,
     step: Option<usize>,
     uid: Option<Vec<u8>>,
@@ -196,7 +184,6 @@ impl Cbor<'_> {
         Ok(byte)
     }
 
-    /// Head of `major`: a number, or the length after it. Canonical only, so one answer has one spelling.
     fn head(&mut self, major: u8) -> Result<usize, UnitsError> {
         let byte = self.byte()?;
         if byte >> 5 != major {
@@ -233,7 +220,6 @@ impl Cbor<'_> {
         Ok(out)
     }
 
-    /// `{1: step, 2: #6.37(uid), 3..5: other steps, 6: challenge, 7: signature}`.
     fn dev_auth(&mut self) -> Result<(), UnitsError> {
         let count = self.head(5)?;
         for _ in 0..count {
@@ -243,15 +229,17 @@ impl Cbor<'_> {
             }
             self.keys.push(key);
             match key {
-                1 => self.step = Some(self.head(0)?),
-                2 => {
+                FIELD_STEP => self.step = Some(self.head(0)?),
+                FIELD_UID => {
                     if self.bytes.get(self.at).map(|head| head >> 5) != Some(6) {
-                        return refuse("the unit id is not a tagged value, expected tag 37");
+                        return refuse(format!(
+                            "the unit id is not a tagged value, expected tag {TAG_POSITIVE_BIGNUM}"
+                        ));
                     }
                     let tag = self.head(6)?;
-                    if tag != 37 {
+                    if tag != TAG_POSITIVE_BIGNUM {
                         return refuse(format!(
-                            "device answer tags its unit id {tag}, expected 37 (a positive bignum)"
+                            "device answer tags its unit id {tag}, expected {TAG_POSITIVE_BIGNUM} (a positive bignum)"
                         ));
                     }
                     self.uid = Some(self.byte_string()?);
@@ -259,8 +247,8 @@ impl Cbor<'_> {
                 3..=5 => {
                     self.head(0)?;
                 }
-                6 => self.challenge = Some(self.byte_string()?),
-                7 => self.signature = Some(self.byte_string()?),
+                FIELD_CHALLENGE => self.challenge = Some(self.byte_string()?),
+                FIELD_SIGNATURE => self.signature = Some(self.byte_string()?),
                 other => return refuse(format!("device answer has an unexpected field {other}")),
             }
         }
@@ -271,14 +259,12 @@ impl Cbor<'_> {
     }
 }
 
-/// The init the challenge QR carries: `{1: 1, 6: challenge}` with the challenge as a byte string.
 pub fn encode_init(challenge: &[u8; 32]) -> Vec<u8> {
     let mut out = vec![0xa2, 0x01, 0x01, 0x06, 0x58, 0x20];
     out.extend_from_slice(challenge);
     out
 }
 
-/// The row of the list this answer matches, or why it proves nothing.
 pub fn check_answer(
     list: &UnitList,
     challenge: &[u8; 32],
@@ -307,8 +293,12 @@ pub fn check_answer(
         ));
     }
     match answer.step {
-        Some(2) => {}
-        Some(other) => return refuse(format!("device answered step {other}, expected 2")),
+        Some(STEP_ANSWERED) => {}
+        Some(other) => {
+            return refuse(format!(
+                "device answered step {other}, expected {STEP_ANSWERED}"
+            ))
+        }
         None => return refuse("device answer has no step"),
     }
     let uid = answer
@@ -326,26 +316,24 @@ pub fn check_answer(
             uid.len()
         ));
     }
-    if signature.len() != SIG_SIZE {
+    if signature.len() != LIST_SIGNATURE_SIZE {
         return refuse(format!(
-            "signature is {} bytes, expected {SIG_SIZE}",
+            "signature is {} bytes, expected {LIST_SIGNATURE_SIZE}",
             signature.len()
         ));
     }
 
     let sig = Signature::from_slice(&signature)
         .map_err(|err| UnitsError::Refusal(format!("signature could not be read: {err}")))?;
-    // A high-s signature says the same thing; the row digest is built from one spelling of it.
     let sig = sig.normalize_s().unwrap_or(sig);
     let digest = Sha256::digest([uid.as_slice(), challenge.as_slice()].concat());
 
-    // RecIds 2 and 3 need x above the curve order, about 2^-128 of them: both parities is the set.
     for id in 0..2 {
         let Ok(key) = recover(&sig, &digest, id) else {
             continue;
         };
         let point = key.to_encoded_point(true);
-        if let Some(row) = list.find(&row_hash(list.salt(), &uid, point.as_bytes())) {
+        if let Some(row) = list.row_holding(&row_hash(list.salt(), &uid, point.as_bytes())) {
             return Ok(row);
         }
     }
@@ -353,10 +341,8 @@ pub fn check_answer(
     Err(UnitsError::NotRegistered { uid: hex(&uid) })
 }
 
-/// A 32-byte challenge for one verify session.
 pub fn new_challenge() -> [u8; 32] {
     let mut bytes = [0u8; 32];
-    // A challenge of zeros would verify a device that never signed anything, so this cannot continue.
     getrandom::fill(&mut bytes).expect("the operating system offered no random bytes");
     bytes
 }

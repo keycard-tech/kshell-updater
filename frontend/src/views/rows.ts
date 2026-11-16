@@ -41,11 +41,9 @@ export const shaFromRelease = (file: ReleaseFile | null, checked: Checked): ShaV
 };
 
 export const versionOptions = (files: ReleaseFile[], selected: number | null): Markup =>
-  html`${files
-    .map(
-      (file) => html`<option value="${file.variant}"${file.variant === selected ? ' selected' : ''}>${text.row.variantOption(
-        file.version ?? file.date,
-        text.variants[file.variant ?? -1] ?? '',
-      )}</option>`,
-    )
-    .join('')}`;
+  html`${files.map(
+    (file) => html`<option value="${file.variant}"${file.variant === selected ? ' selected' : ''}>${text.row.variantOption(
+      file.version ?? file.date,
+      text.variants[file.variant ?? -1] ?? '',
+    )}</option>`,
+  )}`;

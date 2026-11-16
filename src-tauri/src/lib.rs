@@ -15,65 +15,57 @@ use std::sync::Mutex;
 use tauri::webview::{PermissionKind, PermissionResponse, WebviewWindowBuilder};
 use tauri::{AppHandle, Emitter, Manager};
 
-/// `HidApi` is Send but not Sync, and opening one device twice confuses the platform drivers: one
-/// instance is shared and every access takes the lock.
-struct Usb(Mutex<hidapi::HidApi>);
+struct SharedUsb(Mutex<hidapi::HidApi>);
 
-/// Set by `cancel_flash`, read between chunks. An `Arc` because the transfer loop holds one after
-/// the command that sets it has returned.
-#[derive(Clone, Default)]
-struct Cancel(std::sync::Arc<std::sync::atomic::AtomicBool>);
-
-/// Images that passed their checks and are waiting to be flashed, plus the published hashes read
-/// alongside the release listing. Bytes stay on this side of the bridge: a round trip through the
-/// renderer would only offer a chance to change what gets flashed.
-#[derive(Default)]
-struct Loaded(Mutex<LoadedState>);
-
-#[derive(Default)]
-struct LoadedState {
-    /// By key: the release URL for a download, `file://<path>` for a file picked from disk. Per file
-    /// rather than per kind, because both firmware variants are held at once.
-    images: HashMap<String, Vec<u8>>,
-    hashes: HashMap<String, String>,
+impl SharedUsb {
+    fn locked(&self) -> Result<std::sync::MutexGuard<'_, hidapi::HidApi>, String> {
+        self.0.lock().map_err(|e| e.to_string())
+    }
 }
 
-impl Loaded {
-    fn held(&self) -> std::sync::MutexGuard<'_, LoadedState> {
-        self.0.lock().expect("loaded state poisoned")
+#[derive(Clone, Default)]
+struct CancelFlag(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+#[derive(Default)]
+struct PreparedImages(Mutex<PreparedImageStore>);
+
+#[derive(Default)]
+struct PreparedImageStore {
+    bytes_by_key: HashMap<String, Vec<u8>>,
+    published_hash_by_release: HashMap<String, String>,
+}
+
+impl PreparedImages {
+    fn store(&self) -> std::sync::MutexGuard<'_, PreparedImageStore> {
+        self.0.lock().expect("prepared image store poisoned")
     }
 
-    /// A copy, not a take: a cancelled or declined transfer must not throw away bytes a retry needs.
-    fn image_bytes(&self, key: &str) -> Option<Vec<u8>> {
-        self.held().images.get(key).cloned()
+    fn bytes_of(&self, key: &str) -> Option<Vec<u8>> {
+        self.store().bytes_by_key.get(key).cloned()
     }
 
-    fn put_image(&self, key: &str, bytes: Vec<u8>) {
-        self.held().images.insert(key.to_string(), bytes);
+    fn remember(&self, key: &str, bytes: Vec<u8>) {
+        self.store().bytes_by_key.insert(key.to_string(), bytes);
     }
 
-    fn merge_hashes(&self, index: HashMap<String, String>) {
-        self.held().hashes.extend(index);
+    fn remember_hashes(&self, index: HashMap<String, String>) {
+        self.store().published_hash_by_release.extend(index);
     }
 
-    fn hashes(&self) -> HashMap<String, String> {
-        self.held().hashes.clone()
+    fn published_hashes(&self) -> HashMap<String, String> {
+        self.store().published_hash_by_release.clone()
     }
 
-    /// The release a file from disk came from, when its hash is a published one. Names in the hash
-    /// lists differ from asset names, so this reads as the list wrote it.
-    fn release_for_hash(&self, hash: &str) -> Option<String> {
-        let inner = self.held();
+    fn release_publishing(&self, hash: &str) -> Option<String> {
+        let inner = self.store();
         inner
-            .hashes
+            .published_hash_by_release
             .iter()
             .find(|(_, published)| published.as_str() == hash)
-            .map(|(name, _)| name.clone())
+            .map(|(release, _)| release.clone())
     }
 }
 
-/// The picker's listing. `verified` is false when a release's hash list could not be read, which is
-/// said once rather than leaving every row to look independently broken.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Catalogue {
@@ -90,14 +82,12 @@ fn catalogue(files: Vec<releases::ReleaseFile>, failures: Vec<String>) -> Catalo
     }
 }
 
-/// Files offered to the view, the hash index behind them, and any hash list that could not be read.
 pub struct Listing {
     pub files: Vec<releases::ReleaseFile>,
     pub index: HashMap<String, String>,
     pub failures: Vec<String>,
 }
 
-/// The API's default of 30 would truncate: keycard-shell has 32 releases.
 fn endpoint(kind: Kind) -> &'static str {
     match kind {
         Kind::Firmware => {
@@ -109,8 +99,6 @@ fn endpoint(kind: Kind) -> &'static str {
     }
 }
 
-/// Listing for one kind, with the published hash of each file. Public so `examples/releases.rs` runs
-/// the same code as the command without a window.
 pub async fn catalogue_for(kind: Kind) -> Result<Listing, String> {
     let json = net::get_json(endpoint(kind))
         .await
@@ -120,52 +108,41 @@ pub async fn catalogue_for(kind: Kind) -> Result<Listing, String> {
     let mut failures = Vec::new();
     for hash_url in releases::sha256_urls(&json) {
         match net::get_text(&hash_url).await {
-            // One unreachable list should not blank the picker: its files arrive hashless and are
-            // then refused at download time.
             Ok(text) => index.extend(releases::parse_sha256_index(&text)),
             Err(e) => failures.push(e.to_string()),
         }
     }
     releases::attach_sha256(&mut files, &index);
-    // Older builds are dropped here rather than hidden in the view. The full hash index is kept: it
-    // is what identifies a file picked from disk.
-    let (all, dropped) = releases::offerable(files);
-    if dropped > 0 {
+    let offered = releases::offerable(files);
+    if offered.dropped_without_hash > 0 {
         eprintln!(
             "{} {kind} files offer nothing, for want of a published hash",
-            dropped
+            offered.dropped_without_hash
         );
     }
     Ok(Listing {
-        files: releases::latest(&all),
+        files: releases::latest(&offered.files),
         index,
         failures,
     })
 }
 
-/// The listing the command returns, exposed so `examples/releases.rs --fixtures` writes the JSON the
-/// renderer actually receives rather than an approximation of it.
 pub async fn build_catalogue(kind: &str) -> Result<Catalogue, String> {
     let listing = catalogue_for(Kind::parse(kind)?).await?;
     Ok(catalogue(listing.files, listing.failures))
 }
 
-/// Downloads an image and confirms it is the published bytes. The rule is in [`image`]: neither
-/// image hashes as a plain `sha256sum`. A file no list covers is refused rather than flashed
-/// unchecked.
 pub async fn download_verified(
     kind: Kind,
     url: &str,
     index: &HashMap<String, String>,
 ) -> Result<(image::ImageInfo, Vec<u8>), String> {
-    let name = filename(url);
+    let name = asset_name(url);
     let expected = releases::lookup_sha256(index, &name)
         .ok_or_else(|| format!("no published hash for {name}, so it cannot be verified"))?;
     let bytes = net::get_image(url).await.map_err(|e| e.to_string())?;
-    let actual = kind.hash(&bytes).map_err(|e| e.to_string())?;
+    let actual = kind.published_hash(&bytes).map_err(|e| e.to_string())?;
     if actual != expected {
-        // Two 64-character hashes are what a developer wants and what a person updating a device
-        // cannot use, so they go to the log and the row gets one sentence.
         eprintln!("checksum mismatch for {name}: published {expected}, downloaded {actual}");
         return Err(String::from(
             "This file does not match its published checksum.",
@@ -175,7 +152,7 @@ pub async fn download_verified(
     Ok((info, bytes))
 }
 
-fn filename(url: &str) -> String {
+fn asset_name(url: &str) -> String {
     url.rsplit('/')
         .next()
         .unwrap_or_default()
@@ -188,11 +165,10 @@ fn filename(url: &str) -> String {
 #[tauri::command]
 async fn list_releases(app: AppHandle, kind: String) -> Result<Catalogue, String> {
     let listing = catalogue_for(Kind::parse(&kind)?).await?;
-    app.state::<Loaded>().merge_hashes(listing.index);
+    app.state::<PreparedImages>().remember_hashes(listing.index);
     Ok(catalogue(listing.files, listing.failures))
 }
 
-/// One file the view wants prepared: the same URL the listing gave it.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct FileRef {
@@ -200,8 +176,6 @@ struct FileRef {
     url: String,
 }
 
-/// Verified bytes plus the key `flash_image` needs to reach them. The bytes do not travel to the
-/// renderer; the key is only a name.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Prepared {
@@ -211,18 +185,16 @@ pub struct Prepared {
 
 pub const EVENT_PRELOADED: &str = "shell://preloaded";
 
-/// Fetch and check every offered file at start-up, so pressing Transfer only ever writes and never
-/// waits. One failing file does not stop the others: its row says so and From file still works.
 #[tauri::command]
 async fn preload_images(app: AppHandle, files: Vec<FileRef>) -> Result<Vec<Prepared>, String> {
-    let index = app.state::<Loaded>().hashes();
+    let index = app.state::<PreparedImages>().published_hashes();
     let mut prepared = Vec::new();
     for file in files {
         let outcome = download_verified(Kind::parse(&file.kind)?, &file.url, &index).await;
         let (key, ok, note, entry) = match outcome {
             Ok((mut info, bytes)) => {
-                info.matches_release = Some(filename(&file.url));
-                app.state::<Loaded>().put_image(&file.url, bytes);
+                info.matches_release = Some(asset_name(&file.url));
+                app.state::<PreparedImages>().remember(&file.url, bytes);
                 let entry = Prepared {
                     info,
                     key: file.url.clone(),
@@ -253,17 +225,13 @@ struct PickedFile {
 }
 
 pub const EVENT_FLASH_PROGRESS: &str = "shell://flash-progress";
-/// A destructive choice the view has to ask about first. A command's error is a String, so the
-/// prefix is the contract: `confirm:variant-switch`, `confirm:downgrade`.
 pub const NEEDS_CONFIRM: &str = "confirm:";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FlashRequest {
     kind: String,
-    /// Which prepared file to write, from `Prepared.key`.
     key: String,
-    /// omni and btc-only hold different signing keys; switching wipes what the other build stored.
     #[serde(default)]
     allow_variant_switch: bool,
     #[serde(default)]
@@ -282,15 +250,14 @@ pub struct FlashProgress {
 async fn flash_image(app: AppHandle, request: FlashRequest) -> Result<AppConfiguration, String> {
     let kind = Kind::parse(&request.kind)?;
     let bytes = app
-        .state::<Loaded>()
-        .image_bytes(&request.key)
+        .state::<PreparedImages>()
+        .bytes_of(&request.key)
         .ok_or_else(|| {
             format!(
                 "{} was never prepared, so there is nothing to flash",
                 kind.name()
             )
         })?;
-    // Re-read from the bytes rather than trusting what the view believes it picked.
     let info = kind.inspect(&bytes)?;
     tauri::async_runtime::spawn_blocking(move || flash(app, kind, bytes, info, request))
         .await
@@ -304,8 +271,8 @@ fn flash(
     info: image::ImageInfo,
     request: FlashRequest,
 ) -> Result<AppConfiguration, String> {
-    let usb = app.state::<Usb>();
-    let stopping = app.state::<Cancel>().0.clone();
+    let usb = app.state::<SharedUsb>();
+    let stopping = app.state::<CancelFlag>().0.clone();
     stopping.store(false, std::sync::atomic::Ordering::Relaxed);
     let on_device = read_configuration(&usb)?;
 
@@ -321,9 +288,8 @@ fn flash(
             return Err(format!("{NEEDS_CONFIRM}downgrade"));
         }
     } else if !request.allow_downgrade {
-        // A database version is its date; an older list would drop tokens the device already has.
-        let candidate = info.version.parse::<u32>().unwrap_or(u32::MAX);
-        if candidate < on_device.db_version {
+        let arriving_database = info.version.parse::<u32>().unwrap_or(u32::MAX);
+        if arriving_database < on_device.db_version {
             return Err(format!("{NEEDS_CONFIRM}downgrade"));
         }
     }
@@ -336,7 +302,7 @@ fn flash(
     let progress_kind = kind.name().to_string();
     let mut reported = 0usize;
     {
-        let mut api = usb.0.lock().map_err(|e| e.to_string())?;
+        let mut api = usb.locked()?;
         let device = shell::only_device(&mut api).ok_or("no Keycard Shell connected")?;
         let opened = Shell::open(&api, &device.path).map_err(|e| e.to_string())?;
         opened
@@ -344,9 +310,7 @@ fn flash(
                 ins,
                 &bytes,
                 |done| {
-                    // One event per percent: a firmware is 2595 chunks and the bridge has better
-                    // things to carry than all of them.
-                    if done == total || done - reported >= total / 100 {
+                    if progress_worth_sending(done, total, reported) {
                         reported = done;
                         let _ = app.emit(
                             EVENT_FLASH_PROGRESS,
@@ -362,12 +326,11 @@ fn flash(
             )
             .map_err(explain)?;
     }
-    // A flashed firmware reboots, so "did it work" is only answerable by connecting again.
     report_back(&usb)
 }
 
-fn read_configuration(usb: &Usb) -> Result<AppConfiguration, String> {
-    let mut api = usb.0.lock().map_err(|e| e.to_string())?;
+fn read_configuration(usb: &SharedUsb) -> Result<AppConfiguration, String> {
+    let mut api = usb.locked()?;
     let device = shell::only_device(&mut api).ok_or("no Keycard Shell connected")?;
     Shell::open(&api, &device.path)
         .map_err(|e| e.to_string())?
@@ -375,15 +338,17 @@ fn read_configuration(usb: &Usb) -> Result<AppConfiguration, String> {
         .map_err(explain)
 }
 
-fn report_back(usb: &Usb) -> Result<AppConfiguration, String> {
-    // The device is gone while it restarts, so a failure here is expected until the wait is over.
+const RECONNECT_TRIES: usize = 40;
+const RECONNECT_PAUSE: std::time::Duration = std::time::Duration::from_millis(500);
+
+fn report_back(usb: &SharedUsb) -> Result<AppConfiguration, String> {
     let mut last = String::from("no answer");
-    for _ in 0..40 {
+    for _ in 0..RECONNECT_TRIES {
         match read_configuration(usb) {
             Ok(config) => return Ok(config),
             Err(error) => last = error,
         }
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        std::thread::sleep(RECONNECT_PAUSE);
     }
     eprintln!("no configuration after the flash: {last}");
     Err(String::from(
@@ -391,7 +356,6 @@ fn report_back(usb: &Usb) -> Result<AppConfiguration, String> {
     ))
 }
 
-/// What the person sees: status words and OS numbers go to the log, not to the screen.
 fn explain(error: shell::ShellError) -> String {
     use shell::ShellError;
     match error {
@@ -417,8 +381,6 @@ fn explain(error: shell::ShellError) -> String {
     }
 }
 
-/// An update that has not finished: written before the first byte, so a half-written Shell is known
-/// later.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateRecord {
@@ -455,7 +417,6 @@ fn load_update_record(app: AppHandle) -> Result<Option<UpdateRecord>, String> {
     match std::fs::read(&path) {
         Ok(body) => serde_json::from_slice(&body)
             .map(Some)
-            // A record this process cannot read would claim an update history it cannot substantiate.
             .map_err(|e| format!("could not read {}: {e}", path.display())),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(io_error("read", &path, &error)),
@@ -471,10 +432,8 @@ fn clear_update_record(app: AppHandle) -> Result<(), String> {
     }
 }
 
-/// Stop after the chunk in flight: stopping mid-chunk would leave the image half written with no way
-/// to tell the Shell so, and it answers the next command as a broken firmware.
 #[tauri::command]
-fn cancel_flash(state: tauri::State<'_, Cancel>) {
+fn cancel_flash(state: tauri::State<'_, CancelFlag>) {
     state.0.store(true, std::sync::atomic::Ordering::Relaxed);
 }
 
@@ -487,19 +446,19 @@ async fn pick_image_file(app: AppHandle, file: PickedFile) -> Result<Prepared, S
         .map_err(|e| e.to_string())?
         .map_err(|e| io_error("read", std::path::Path::new(&message), &e))?;
     let mut info = Kind::parse(&kind)?.inspect(&bytes)?;
-    // A file from disk is recognised by its hash alone: it may have been renamed, and the download
-    // list is the only thing that knows what a published image hashes to.
-    info.matches_release = app.state::<Loaded>().release_for_hash(&info.sha256);
+    info.matches_release = app
+        .state::<PreparedImages>()
+        .release_publishing(&info.sha256);
     let key = format!("file://{message}");
-    app.state::<Loaded>().put_image(&key, bytes);
+    app.state::<PreparedImages>().remember(&key, bytes);
     Ok(Prepared { info, key })
 }
 
 #[tauri::command]
 async fn list_shells(app: AppHandle) -> Result<Vec<DeviceInfo>, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let usb = app.state::<Usb>();
-        let mut api = usb.0.lock().map_err(|e| e.to_string())?;
+        let usb = app.state::<SharedUsb>();
+        let mut api = usb.locked()?;
         Ok(shell::list_devices(&mut api))
     })
     .await
@@ -509,8 +468,8 @@ async fn list_shells(app: AppHandle) -> Result<Vec<DeviceInfo>, String> {
 #[tauri::command]
 async fn shell_app_configuration(app: AppHandle, path: String) -> Result<AppConfiguration, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let usb = app.state::<Usb>();
-        let api = usb.0.lock().map_err(|e| e.to_string())?;
+        let usb = app.state::<SharedUsb>();
+        let api = usb.locked()?;
         let shell = Shell::open(&api, &path).map_err(|e| e.to_string())?;
         shell.get_app_configuration().map_err(explain)
     })
@@ -521,17 +480,21 @@ async fn shell_app_configuration(app: AppHandle, path: String) -> Result<AppConf
 pub const EVENT_CONNECTED: &str = "shell://connected";
 pub const EVENT_DISCONNECTED: &str = "shell://disconnected";
 
-/// Hotplug is polled: hidapi 2.x has no portable hotplug callback, and a re-scan costs milliseconds
-/// against the half second a person waits to see "connected".
+const PRESENCE_POLL: std::time::Duration = std::time::Duration::from_millis(500);
+const PROGRESS_STEPS: usize = 100;
+
+fn progress_worth_sending(done: usize, total: usize, reported: usize) -> bool {
+    done == total || done - reported >= total / PROGRESS_STEPS
+}
+
 fn watch_presence(app: AppHandle) {
     std::thread::spawn(move || {
         let mut present: Vec<DeviceInfo> = Vec::new();
         loop {
             let now = {
-                let usb = app.state::<Usb>();
-                let mut api = match usb.0.lock() {
-                    Ok(api) => api,
-                    Err(_) => return,
+                let usb = app.state::<SharedUsb>();
+                let Ok(mut api) = usb.locked() else {
+                    return;
                 };
                 shell::list_devices(&mut api)
             };
@@ -543,7 +506,7 @@ fn watch_presence(app: AppHandle) {
                 }
                 present = now;
             }
-            std::thread::sleep(std::time::Duration::from_millis(500));
+            std::thread::sleep(PRESENCE_POLL);
         }
     });
 }
@@ -551,18 +514,14 @@ fn watch_presence(app: AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        // The renderer calls `plugin:dialog|open` through `invoke` rather than the plugin's JS API,
-        // which would mean vendoring its api-iife.js into the frontend.
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            app.manage(Usb(Mutex::new(hidapi::HidApi::new()?)));
-            app.manage(Cancel::default());
-            app.manage(Loaded::default());
+            app.manage(SharedUsb(Mutex::new(hidapi::HidApi::new()?)));
+            app.manage(CancelFlag::default());
+            app.manage(PreparedImages::default());
             app.manage(verify::Units::default());
             watch_presence(app.handle().clone());
-            // `"create": false` in tauri.conf.json: the camera handler can only be attached while the
-            // window is being built. Everything else still comes from the config.
             let config = app.config().clone();
             let window = config
                 .app

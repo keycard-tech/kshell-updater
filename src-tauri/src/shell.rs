@@ -5,24 +5,26 @@ pub const SHELL_VENDOR_ID: u16 = 0x1209;
 pub const SHELL_PRODUCT_IDS: [u16; 2] = [0x0001, 0x21f7];
 
 const PACKET_SIZE: usize = 64;
-const BLOCK_SIZE: usize = PACKET_SIZE - 5;
+const PAYLOAD_PER_PACKET: usize = PACKET_SIZE - 5;
 const TAG: u8 = 0x05;
+const CHANNEL_XOR_MASK: u16 = 0x5cb0;
 
 const CLA: u8 = 0xe0;
 const INS_GET_APP_CONFIGURATION: u8 = 0x06;
 const INS_GET_RESPONSE: u8 = 0xc0;
-/// Flashing: both take the image in the same chunked form `load_block` builds.
 pub const INS_LOAD_FIRMWARE: u8 = 0xf2;
 pub const INS_LOAD_DATABASE: u8 = 0xf4;
 const LOAD_CHUNK: usize = 240;
-/// The flash declined on the device's own screen.
+const P1_FIRST_CHUNK: u8 = 0x00;
+const P1_CONTINUATION: u8 = 0x80;
 pub const SW_USER_DECLINED: u16 = 0x6982;
-/// A command answers in milliseconds; a chunk write erases flash.
+const SW_OK: u16 = 0x9000;
+const SW_MORE_DATA: u16 = 0x6100;
+const RESPONSE_HEADER_LEN: usize = 5;
+const FIRST_RESPONSE_HEADER_LEN: usize = 7;
 const READ_TIMEOUT: i32 = 5_000;
 const LOAD_TIMEOUT: i32 = 30_000;
 
-/// One chunk of a `load`. Only the first carries the image's total length, and that header counts
-/// towards the command's own length byte.
 pub fn load_block(ins: u8, total: usize, offset: usize, data: &[u8]) -> Vec<u8> {
     let chunk = &data[offset..(offset + LOAD_CHUNK).min(data.len())];
     let header = if offset == 0 {
@@ -31,15 +33,22 @@ pub fn load_block(ins: u8, total: usize, offset: usize, data: &[u8]) -> Vec<u8> 
         Vec::new()
     };
     let mut apdu = Vec::with_capacity(chunk.len() + header.len() + 5);
-    apdu.extend_from_slice(&[CLA, ins, if offset == 0 { 0x00 } else { 0x80 }, 0x00]);
-    // Covers the total-length header too.
+    apdu.extend_from_slice(&[
+        CLA,
+        ins,
+        if offset == 0 {
+            P1_FIRST_CHUNK
+        } else {
+            P1_CONTINUATION
+        },
+        0x00,
+    ]);
     apdu.push((header.len() + chunk.len()) as u8);
     apdu.extend_from_slice(&header);
     apdu.extend_from_slice(chunk);
     apdu
 }
 
-/// 56 payload + 2 status word; firmware 1.5 and later append variant and beta flags.
 const APP_CONFIG_LEN: usize = 58;
 const APP_CONFIG_EXTENDED_LEN: usize = 60;
 
@@ -53,8 +62,6 @@ pub enum ShellError {
     Timeout,
     #[error("the Shell sent an unexpected packet ({0})")]
     Framing(&'static str),
-    /// The number rather than its text: 0x6982 is a decline on the device, shown differently from a
-    /// genuine rejection.
     #[error("the Shell rejected the command (SW {0:#06x})")]
     StatusWord(u16),
     #[error("the transfer was cancelled")]
@@ -75,13 +82,10 @@ type Result<T> = std::result::Result<T, ShellError>;
 #[serde(rename_all = "camelCase")]
 pub struct DeviceInfo {
     pub product_name: String,
-    /// The path HID uses to open the device; the UI hands it back unchanged.
     pub path: String,
     pub serial_number: Option<String>,
 }
 
-/// The one device to talk to. Commands take the first, because a second interface on the same Shell
-/// answers the same APDUs and the person only ever updates one.
 pub fn only_device(api: &mut hidapi::HidApi) -> Option<DeviceInfo> {
     list_devices(api).into_iter().next()
 }
@@ -101,9 +105,6 @@ fn is_shell(device: &hidapi::DeviceInfo) -> bool {
     device.vendor_id() == SHELL_VENDOR_ID && SHELL_PRODUCT_IDS.contains(&device.product_id())
 }
 
-/// hidapi caches the bus as it looked when the context was made, so the list must be re-read:
-/// otherwise a Shell plugged in after start-up - or powered on, which is how it appears - stays
-/// invisible until the app restarts.
 pub fn list_devices(api: &mut hidapi::HidApi) -> Vec<DeviceInfo> {
     let _ = api.refresh_devices();
     let mut devices: Vec<DeviceInfo> = api
@@ -122,8 +123,6 @@ pub fn list_devices(api: &mut hidapi::HidApi) -> Vec<DeviceInfo> {
     devices
 }
 
-/// Ledger framing: 5 byte header (channel, tag, sequence) then 59 bytes of payload. The APDU is
-/// prefixed with its own length and the last block is zero padded.
 fn write_block(buf: &mut [u8; PACKET_SIZE], channel: u16, sequence: u16, payload: &[u8]) {
     buf[0..2].copy_from_slice(&channel.to_be_bytes());
     buf[2] = TAG;
@@ -131,16 +130,15 @@ fn write_block(buf: &mut [u8; PACKET_SIZE], channel: u16, sequence: u16, payload
     buf[5..5 + payload.len()].copy_from_slice(payload);
 }
 
-/// Must stay byte-identical to `hidFraming(channel, 64).makeBlocks` in @choppu/shelljs.
 pub fn request_blocks(channel: u16, apdu: &[u8]) -> Vec<[u8; PACKET_SIZE]> {
     let mut payload = Vec::with_capacity(apdu.len() + 2);
     payload.extend_from_slice(&(apdu.len() as u16).to_be_bytes());
     payload.extend_from_slice(apdu);
 
-    (0..payload.len().div_ceil(BLOCK_SIZE))
+    (0..payload.len().div_ceil(PAYLOAD_PER_PACKET))
         .map(|sequence| {
-            let start = sequence * BLOCK_SIZE;
-            let chunk = &payload[start..start + BLOCK_SIZE.min(payload.len() - start)];
+            let start = sequence * PAYLOAD_PER_PACKET;
+            let chunk = &payload[start..start + PAYLOAD_PER_PACKET.min(payload.len() - start)];
             let mut packet = [0u8; PACKET_SIZE];
             write_block(&mut packet, channel, sequence as u16, chunk);
             packet
@@ -156,7 +154,6 @@ struct Reassembler {
 }
 
 impl Reassembler {
-    /// The first packet carries the total length; later ones use the whole block.
     fn push(&mut self, packet: &[u8]) -> Result<Option<Vec<u8>>> {
         if packet.len() < 7 {
             return Err(ShellError::Framing("short packet"));
@@ -170,13 +167,16 @@ impl Reassembler {
         if u16::from_be_bytes([packet[3], packet[4]]) != self.sequence {
             return Err(ShellError::Framing("sequence mismatch"));
         }
-        let header = if self.sequence == 0 { 7 } else { 5 };
+        let header = if self.sequence == 0 {
+            FIRST_RESPONSE_HEADER_LEN
+        } else {
+            RESPONSE_HEADER_LEN
+        };
         if self.sequence == 0 {
             self.expected = u16::from_be_bytes([packet[5], packet[6]]) as usize;
         }
         self.data.extend_from_slice(&packet[header..]);
         self.sequence += 1;
-        // The tail of the last packet is padding, so reaching the length ends the response.
         if self.data.len() >= self.expected {
             self.data.truncate(self.expected);
             return Ok(Some(std::mem::take(&mut self.data)));
@@ -197,8 +197,7 @@ impl Shell {
         let device = api
             .open_path(&c_path)
             .map_err(|e| ShellError::Open(e.to_string()))?;
-        // A fixed-ish channel makes a stale response from a previous session identifiable.
-        let channel = (std::process::id() as u16) ^ 0x5cb0;
+        let channel = (std::process::id() as u16) ^ CHANNEL_XOR_MASK;
         Ok(Self { device, channel })
     }
 
@@ -208,7 +207,6 @@ impl Shell {
 
     fn exchange_with(&self, apdu: &[u8], timeout: i32) -> Result<Vec<u8>> {
         for packet in request_blocks(self.channel, apdu) {
-            // The leading zero is the HID report id, not part of the frame.
             let mut out = Vec::with_capacity(PACKET_SIZE + 1);
             out.push(0);
             out.extend_from_slice(&packet);
@@ -238,7 +236,6 @@ impl Shell {
         }
     }
 
-    /// 0x6100 means "ask again", and the answer comes from INS_GET_RESPONSE.
     fn finish(&self, data: Vec<u8>) -> Result<Vec<u8>> {
         if data.len() < 2 {
             return Err(ShellError::Malformed {
@@ -247,18 +244,15 @@ impl Shell {
             });
         }
         let sw = u16::from_be_bytes([data[data.len() - 2], data[data.len() - 1]]);
-        if sw == 0x9000 {
+        if sw == SW_OK {
             return Ok(data);
         }
-        if sw == 0x6100 {
+        if sw == SW_MORE_DATA {
             return self.exchange(&[CLA, INS_GET_RESPONSE, 0x00, 0x00]);
         }
         Err(ShellError::StatusWord(sw))
     }
 
-    /// Write an image. Any status but 0x9000 stops the transfer rather than flashing an image the
-    /// device has refused. `should_stop` is checked between chunks, because a part-written firmware
-    /// is what a cancel mid-chunk leaves behind.
     pub fn load(
         &self,
         ins: u8,
@@ -282,9 +276,6 @@ impl Shell {
     }
 }
 
-/// Offsets are fixed by the firmware: version 0..3, database 3..7, serial 7..23, key 23..56, with
-/// variant and beta appended by firmware 1.5. The status word stays in the buffer unread, as shelljs
-/// leaves it.
 fn parse_app_configuration(response: &[u8]) -> Result<AppConfiguration> {
     let extended = match response.len() {
         APP_CONFIG_LEN => false,
@@ -314,8 +305,6 @@ fn hex(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
-    /// Byte-for-byte reference from @choppu/shelljs 2.0.0:
-    /// `hidFraming(0x5cb0, 64).makeBlocks(Buffer.from([0xe0, 0x06, 0x00, 0x00]))`
     const EXPECTED_SINGLE_BLOCK: &str = "5cb00500000004e00600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
     #[test]
@@ -343,7 +332,6 @@ mod tests {
 
     #[test]
     fn a_load_chunk_needs_no_extended_length() {
-        // A length byte over 255 would mean an extended APDU, which this command does not use.
         for total in [1usize, 240, 241, 8192 * 76] {
             let data = vec![0u8; total];
             for offset in (0..total).step_by(LOAD_CHUNK) {
@@ -356,7 +344,6 @@ mod tests {
 
     #[test]
     fn a_firmware_image_is_2595_chunks() {
-        // What a full transfer costs, kept next to the chunk size on purpose: 622592 / 240.
         assert_eq!(8192 * 76 - (8192 * 76 / LOAD_CHUNK) * LOAD_CHUNK, 32);
         assert_eq!(8192 * 76 / LOAD_CHUNK + 1, 2595);
     }
@@ -397,7 +384,6 @@ mod tests {
     fn long_apdu_spans_four_blocks_and_zero_pads() {
         let blocks = request_blocks(0x5cb0, &[0xab; 200]);
         assert_eq!(blocks.len(), 4);
-        // 2 byte length prefix plus the APDU, five bytes of header per block.
         assert_eq!(&blocks[0][5..7], &[0x00, 0xc8]);
         assert_eq!(&blocks[1][0..5], &[0x5c, 0xb0, 0x05, 0x00, 0x01]);
         assert_eq!(&blocks[3][5..30], &[0xab; 25]);
@@ -419,7 +405,6 @@ mod tests {
             .unwrap()
             .is_none());
 
-        // One byte completes the 58; the rest of the packet is padding the device does not mean.
         let last = packet(0x9000, 1, None, &[0x42]);
         let data = reassembler.push(&last).unwrap().expect("complete");
         assert_eq!(data.len(), 58);

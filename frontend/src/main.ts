@@ -9,7 +9,13 @@ import { keyFor } from './update/files.js';
 import { loadReleases, preload } from './update/releases.js';
 import { readRecord } from './update/record.js';
 import { buildRows, render } from './update/rows.js';
-import { cancelTransfer, renderTransfer, retryTransfer, startTransfer } from './update/transfer.js';
+import {
+  backToUpdates,
+  cancelTransfer,
+  renderTransfer,
+  retryTransfer,
+  startTransfer,
+} from './update/transfer.js';
 import { cameraStart, stopCamera } from './verify/camera.js';
 import { fetchList, openVerify, renderVerify, useOwnList } from './verify/screen.js';
 import { renderScan, verify } from './verify/state.js';
@@ -20,6 +26,10 @@ buildRows();
 el<HTMLButtonElement>('btn-transfer').addEventListener('click', () => void startTransfer());
 el<HTMLButtonElement>('btn-cancel').addEventListener('click', cancelTransfer);
 el<HTMLButtonElement>('btn-retry').addEventListener('click', () => void retryTransfer());
+el<HTMLButtonElement>('btn-failed-back').addEventListener('click', () => {
+  backToUpdates();
+  void refresh();
+});
 el<HTMLButtonElement>('btn-ready-verify').addEventListener('click', () => void openVerify());
 el<HTMLButtonElement>('card-update').addEventListener('click', () => {
   if (!state.device || !state.config) return;

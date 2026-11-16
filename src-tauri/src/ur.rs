@@ -1,11 +1,6 @@
-//! UR (Blockchain Commons) as the Shell spells it: `UR:DEV-AUTH/<bytewords>`, single part, minimal
-//! style - two letters per byte over a trailing CRC-32. Base32 bodies and multi-part sequences are
-//! what other wallets use; a device that sent one would not be answering this app.
-
 use crate::bytewords::BYTEWORDS;
 use thiserror::Error;
 
-/// The one UR type this app writes and reads.
 pub const DEV_AUTH_TYPE: &str = "DEV-AUTH";
 
 #[derive(Debug, Error)]
@@ -16,7 +11,6 @@ fn refuse<T>(reason: impl Into<String>) -> Result<T, UrError> {
     Err(UrError(reason.into()))
 }
 
-/// Two letters per byte, then the CRC-32 of the payload spelled the same way.
 pub fn encode_minimal(payload: &[u8]) -> String {
     let mut out = String::with_capacity((payload.len() + 4) * 2);
     let crc = crc32(payload);
@@ -28,7 +22,6 @@ pub fn encode_minimal(payload: &[u8]) -> String {
     out
 }
 
-/// The payload, once the spelling and its CRC-32 have been checked. Lowercase, as a scanner writes.
 pub fn decode_minimal(text: &str) -> Result<Vec<u8>, UrError> {
     if !text.is_ascii() {
         return refuse("bytewords contain characters outside ASCII");
@@ -55,19 +48,16 @@ pub fn decode_minimal(text: &str) -> Result<Vec<u8>, UrError> {
 }
 
 fn minimal_index(first: u8, last: u8) -> Option<u8> {
-    // First and last letters are a unique pair per word, so the words are the lookup table.
     BYTEWORDS
         .iter()
         .position(|word| word.as_bytes()[0] == first && word.as_bytes()[3] == last)
         .map(|index| index as u8)
 }
 
-/// The text of the challenge QR, and of a scanned answer.
 pub fn ur_encode(payload: &[u8]) -> String {
     format!("UR:{DEV_AUTH_TYPE}/{}", encode_minimal(payload))
 }
 
-/// The payload of a scanned `UR:DEV-AUTH/...`, lower-cased first because a scanner folds case.
 pub fn ur_decode(text: &str) -> Result<Vec<u8>, UrError> {
     let lowered = text.trim().to_lowercase();
     let Some(rest) = lowered.strip_prefix("ur:") else {
@@ -90,7 +80,6 @@ pub fn ur_decode(text: &str) -> Result<Vec<u8>, UrError> {
     decode_minimal(body)
 }
 
-/// CRC-32 (IEEE 802.3): the checksum Bytewords carries, not the one zlib's `adler32` would give.
 fn crc32(bytes: &[u8]) -> u32 {
     let mut crc = !0u32;
     for byte in bytes {
@@ -114,7 +103,6 @@ mod tests {
 
     #[test]
     fn minimal_codes_are_the_devices_table() {
-        // Spelled out by the vendor bundle the firmware ships, so a table edit shows up here.
         assert_eq!(
             [0x00u8, 0x01, 0x02, 0x03]
                 .iter()
@@ -164,7 +152,6 @@ mod tests {
 
     #[test]
     fn a_body_that_is_not_bytewords_is_refused() {
-        // Base32, as another wallet would write it.
         assert!(ur_decode("UR:DEV-AUTH/IBSGAYTBOJSXG42PNRSGK5DBN5ZGK5DUPBSXG2DB").is_err());
         assert!(ur_decode("UR:DEV-AUTH/1-3/oeadadamhdcx").is_err());
         assert!(ur_decode("UR:crypto-account/aeadaoax").is_err());

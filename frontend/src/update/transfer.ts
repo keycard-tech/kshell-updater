@@ -4,7 +4,7 @@ import { state } from '../base/state.js';
 import * as text from '../strings.js';
 import type { ImageKind } from '../types.js';
 import { el, reason, slot } from '../utils.js';
-import { reportConnected } from './device.js';
+import { reportConnected, showWaiting } from './device.js';
 import { isReadyToFlash, keyFor, selectedFile, versionOf } from './files.js';
 import {
   dropRecord,
@@ -127,7 +127,19 @@ export const showFailed = (error: string): void => {
   show('screen-failed');
 };
 
+export const backToUpdates = (): void => {
+  state.transferError = null;
+  state.queue = [];
+  state.step = 0;
+  state.transfer = null;
+  show('screen-ready');
+};
+
 export const retryTransfer = async (): Promise<void> => {
+  if (!state.device) {
+    showWaiting();
+    return;
+  }
   state.transferError = null;
   el<HTMLButtonElement>('btn-cancel').disabled = false;
   show('screen-transfer');
