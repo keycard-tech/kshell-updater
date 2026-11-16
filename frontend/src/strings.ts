@@ -47,15 +47,13 @@ export const home = {
   prompt: 'Write the newest firmware and the newest Ethereum database to the Shell.',
   runs: (firmware: string, variant: string, database: string): string =>
     `Firmware - ${firmware}${variant}, Database - ${database}`,
-  silentDevice: 'The Shell did not answer. Lock it and try again.',
-  replug: 'Unplug the Shell and plug it back in if it stays like this.',
-  owed: (versions: string): string =>
-    `An update did not finish: this Shell still runs ${versions}.`,
+  silentDevice: 'The Shell did not answer. Unlock it and try again.',
+  replug: 'Unplug the Shell and plug it back in.',
+  owed: (versions: string): string => `Update failed: Shell still runs ${versions}.`,
 };
 
 export const summary = {
-  selected: (count: number): string =>
-    `${count} update${count > 1 ? 's' : ''} selected`,
+  selected: (count: number): string => `${count} update${count > 1 ? 's' : ''} selected`,
   none: 'No updates',
   transferring: 'Transferring…',
   transfer: 'Transfer',
@@ -69,8 +67,8 @@ export const row = {
   fromFileVersion: (version: string, variant: string): string =>
     `${version}${variant ? `-${variant}` : ''} from file`,
   older: (kind: string, onDevice: string): string =>
-    `The file you loaded is older than the ${kind} ${onDevice} on this Shell.`,
-  unreadable: 'The file could not be read.',
+    `The file you loaded is older than the ${kind} ${onDevice} on your Shell.`,
+  unreadable: 'File could not be read.',
   unknownVersion: '—',
   variantOption: (version: string, variant: string): string => `${version} - ${variant}`,
 };
@@ -89,14 +87,12 @@ export const transfer = {
   titleBusy: 'Transferring',
   percent: (percent: number): string => `${percent}%`,
   keepConnected: 'Please do not disconnect the device.',
-  // The two words a queue line can hold: the one moving shows the loader, the rest wait their turn.
   item: { done: 'Done', queued: 'Queued' },
 };
 
 export const failed = {
   nothing: 'The transfer failed.',
-  cameBack: (differences: string): string =>
-    `The Shell came back with ${differences}.`,
+  cameBack: (differences: string): string => `Shell came back with ${differences}.`,
   cameBackItem: (kind: string, now: string, wanted: string): string =>
     `${kind} ${now} instead of ${wanted}`,
 };
@@ -108,7 +104,7 @@ export const record = {
 
 export const done = {
   versions: (firmware: string, database: string): string =>
-    `Your Shell now runs firmware ${firmware} and database ${database}.`,
+    `Shell now runs firmware ${firmware} and database ${database}.`,
 };
 
 export const device = {
@@ -121,8 +117,6 @@ export const device = {
   absent: 'No device connected',
 };
 
-export const releases = { offline: 'Offline · air-gapped update only' };
-
 export const verify = {
   fetching: 'Fetching the produced units list…',
   fetched: (date: string): string => `Units list fetched ${date}`,
@@ -134,10 +128,6 @@ export const verify = {
 };
 
 export const camera = {
-  none: (error: string): string =>
-    `No camera available on this device: ${error}`,
-  noPictureShown: (error: string): string =>
-    `The camera is open but no picture available: ${error}`,
   silent: 'Selected camera opened but sent no picture. Try another one below.',
   slow: (rate: string): string =>
     `Selected camera manages about ${rate} pictures a second, too slow to read a code. Try another one below.`,

@@ -1,6 +1,7 @@
 import { openExternal, unitsCheck } from '../base/bridge.js';
 import { show } from '../base/screens.js';
 import { images } from '../config.js';
+import { human } from '../errors.js';
 import * as text from '../strings.js';
 import type { Verdict } from '../types.js';
 import { el, reason } from '../utils.js';
@@ -14,7 +15,8 @@ export const answer = async (code: string): Promise<void> => {
   try {
     verdict = await unitsCheck(code);
   } catch (error) {
-    verdict = { outcome: 'refused', reason: reason(error) };
+    console.warn('the scanned answer was refused:', reason(error));
+    verdict = { outcome: 'refused', reason: human(reason(error), 'answer') };
   }
   verify.verdict = verdict;
   verify.answered = true;
@@ -32,7 +34,10 @@ const shown = (): { icon: string } & text.Shown => {
   }
   return verdict.outcome === 'notRegistered'
     ? { icon: images.untrustworthy, ...text.verdict.notRegistered(verdict.uid) }
-    : { icon: images.failed, ...text.verdict.refused(verdict.reason) };
+    : {
+        icon: images.failed,
+        ...text.verdict.refused(verify.verdict ? human(verdict.reason, 'answer') : verdict.reason),
+      };
 };
 
 const renderVerdict = (): void => {

@@ -1,5 +1,6 @@
 import { chooseFile, openExternal, pickImageFile } from '../base/bridge.js';
 import { state, type ByKind, type ReadyFile } from '../base/state.js';
+import { human } from '../errors.js';
 import * as text from '../strings.js';
 import type { ImageKind } from '../types.js';
 import { asHtml, el, reason, slot } from '../utils.js';
@@ -91,10 +92,7 @@ export const rowState = (kind: ImageKind): RowStatus => {
     if (onDevice && olderThan(picked.version, onDevice))
       return { status: text.status.older, modifier: 'empty', wanted: false };
     return {
-      status: text.row.fromFileVersion(
-        picked.version,
-        text.variants[picked.fwVariant ?? -1] ?? '',
-      ),
+      status: text.row.fromFileVersion(picked.version, text.variants[picked.fwVariant ?? -1] ?? ''),
       modifier: '',
       wanted: true,
     };
@@ -114,7 +112,7 @@ export const rowState = (kind: ImageKind): RowStatus => {
   if (deviceVariant !== null && file.variant !== deviceVariant) {
     return { status: text.status.variantSwitch, modifier: '', wanted: true };
   }
- 
+
   if (state.config?.fwBeta) return { status: text.status.newVersion, modifier: '', wanted: true };
   return sameOrNew(state.config?.fwVersion ?? '', versionOf(file));
 };
@@ -202,8 +200,17 @@ const rowProblem = (
 ): { text: string; detail: string; bad: boolean } => {
   if (ready?.error) return { text: ready.error, detail: '', bad: true };
   const onDevice = deviceVersion(kind);
-  if (ready?.info && state.mode[kind] === 'file' && onDevice && olderThan(ready.info.version, onDevice))
-    return { text: text.row.older(text.title(kind).toLowerCase(), onDevice), detail: '', bad: true };
+  if (
+    ready?.info &&
+    state.mode[kind] === 'file' &&
+    onDevice &&
+    olderThan(ready.info.version, onDevice)
+  )
+    return {
+      text: text.row.older(text.title(kind).toLowerCase(), onDevice),
+      detail: '',
+      bad: true,
+    };
   if (checkedOf(kind) === 'failed')
     return { text: noteOf(kind) ?? text.row.unreadable, detail: '', bad: true };
   return { text: '', detail: '', bad: false };
@@ -212,9 +219,7 @@ const rowProblem = (
 export const renderSummary = (): void => {
   const wanted = wantedKinds();
   const badge = el('select-badge');
-  badge.textContent = wanted.length
-    ? text.summary.selected(wanted.length)
-    : text.summary.none;
+  badge.textContent = wanted.length ? text.summary.selected(wanted.length) : text.summary.none;
   badge.className = `ksh__badge${wanted.length ? ' ksh__badge--ready' : ''}`;
 
   const waiting = wanted.filter((kind) => !isReadyToFlash(kind));
@@ -246,7 +251,8 @@ const chooseImage = async (kind: ImageKind): Promise<void> => {
     state.cache[prepared.key] = { ok: true };
     state.include[kind] = true;
   } catch (error) {
-    state.ready[kind] = { error: reason(error) };
+    console.warn(`could not prepare the ${kind} image:`, reason(error));
+    state.ready[kind] = { error: human(reason(error)) };
   }
   render(kind);
 };

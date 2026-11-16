@@ -21,7 +21,28 @@ npm run dev      # window with hot reload
 npm run build    # platform installer in src-tauri/target/release/bundle/
 ```
 
-Build each platform on its own OS: macOS artefacts need macOS, Windows artefacts need Windows.
+Build each platform on its own OS, or let the CI do it - see Installers.
+
+## Checks
+
+```sh
+npm run ui                          # the frontend compiles
+python3 shots/dead-code.py          # no leftovers: exports, strings, ids, classes
+(cd src-tauri && cargo test)
+xvfb-run -a python3 shots/webkit-check.py   # every state, measured at 936x750
+```
+
+`.github/workflows/checks.yml` runs these on every push and pull request. When the measurement
+fails, the run carries the pictures of the states that went wrong.
+
+## Installers
+
+`.github/workflows/installers.yml` builds the app on all three systems - a deb and an AppImage for
+Linux, one universal disk image for Apple silicon and Intel Macs, an msi and an installer for
+Windows - and puts them on a GitHub release when a `v*` tag is pushed. It also starts by hand from
+the Actions tab, for a build that is not a release yet.
+
+Nothing signs the results. The first time one is opened on macOS, right-click it and choose Open.
 
 ## Linux device permissions
 

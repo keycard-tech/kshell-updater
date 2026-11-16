@@ -1,5 +1,6 @@
 import { listShells, shellConfiguration } from '../base/bridge.js';
 import { show } from '../base/screens.js';
+import { human } from '../errors.js';
 import * as text from '../strings.js';
 import type { DeviceInfo } from '../types.js';
 import { el, reason } from '../utils.js';
@@ -18,21 +19,19 @@ export const refresh = async (): Promise<void> => {
     const device = devices[0];
     if (!device) return;
     state.device = device;
-    el('device-name').textContent = text.device.name(
-      device.productName || text.device.productName,
-    );
+    el('device-name').textContent = text.device.name(device.productName || text.device.productName);
     el('status-dot').className = 'ksh__dot';
     el('status-device').textContent = text.device.connected(device.serialNumber ?? '');
     show(state.screen);
     await readConfiguration(device);
   } catch (error) {
-    el('device-line').textContent = reason(error);
+    console.warn('the Shell would not be read:', reason(error));
+    el('device-line').textContent = human(reason(error));
   }
 };
 
 const readConfiguration = async (device: DeviceInfo): Promise<void> => {
   state.config = null;
-  state.configError = null;
   try {
     const config = await shellConfiguration(device.path);
     state.config = config;
@@ -47,8 +46,8 @@ const readConfiguration = async (device: DeviceInfo): Promise<void> => {
     if (variant !== null) state.variant.firmware = variant;
     if (state.record && !owedVersions()) void dropRecord();
   } catch (error) {
-    state.configError = reason(error);
-    el('device-line').textContent = state.configError;
+    console.warn('the Shell configuration would not be read:', reason(error));
+    el('device-line').textContent = human(reason(error));
   }
   renderRows();
   renderHome();

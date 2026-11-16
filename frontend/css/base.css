@@ -33,15 +33,15 @@ body {
 }
 
 .ksh__h1 {
-  font-size: calc(24px * var(--scale));
+  font-size: var(--fs-h1);
   font-weight: 600;
-  line-height: calc(32px * var(--scale));
+  line-height: var(--fs-h1-line);
 }
 
 .ksh__h2 {
-  font-size: calc(18px * var(--scale));
+  font-size: var(--fs-h2);
   font-weight: 600;
-  line-height: calc(26px * var(--scale));
+  line-height: var(--fs-h2-line);
 }
 
 .ksh__hint {

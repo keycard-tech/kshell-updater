@@ -6,6 +6,7 @@ import {
   unitsUseFile,
 } from '../base/bridge.js';
 import { show } from '../base/screens.js';
+import { human } from '../errors.js';
 import * as text from '../strings.js';
 import { el, reason } from '../utils.js';
 import { listLine } from '../views/verify.js';
@@ -36,7 +37,8 @@ export const ensureChallenge = async (renew: boolean): Promise<void> => {
       el('verify-qr').innerHTML = challenge.svg;
       if (renew) verify.answered = false;
     } catch (error) {
-      verify.problem = reason(error);
+      console.warn('the challenge would not be drawn:', reason(error));
+      verify.problem = human(reason(error));
     } finally {
       verify.drawing = null;
     }
@@ -56,7 +58,8 @@ export const fetchList = async (): Promise<void> => {
   } catch (error) {
     verify.net = 'offline';
     verify.status = (await unitsStatus().catch(() => null)) ?? verify.status;
-    verify.problem = reason(error);
+    console.warn('the units list would not be fetched:', reason(error));
+    verify.problem = human(reason(error));
     verify.listProblem = true;
   }
   verify.fetching = false;
@@ -76,7 +79,8 @@ export const useOwnList = async (): Promise<void> => {
       verify.listProblem = false;
     }
   } catch (error) {
-    verify.problem = reason(error);
+    console.warn('the own list would not be read:', reason(error));
+    verify.problem = human(reason(error));
     verify.listProblem = true;
   }
   renderVerify();

@@ -1,17 +1,13 @@
 import { cancelFlash, flashImage } from '../base/bridge.js';
 import { show } from '../base/screens.js';
 import { state } from '../base/state.js';
+import { human } from '../errors.js';
 import * as text from '../strings.js';
 import type { ImageKind } from '../types.js';
 import { el, reason, slot } from '../utils.js';
 import { refresh, reportConnected, showWaiting } from './device.js';
 import { isReadyToFlash, keyFor, selectedFile, versionOf } from './files.js';
-import {
-  dropRecord,
-  intendedVersions,
-  onDeviceVersions,
-  writeRecord,
-} from './record.js';
+import { dropRecord, intendedVersions, onDeviceVersions, writeRecord } from './record.js';
 import { rowState, wantedKinds } from './rows.js';
 
 const kinds = text.kinds.map((entry) => entry.kind);
@@ -23,7 +19,9 @@ const itemLabel = (kind: ImageKind): string => {
   }
   const file = selectedFile(kind);
   const variant =
-    file?.variant === null || file?.variant === undefined ? '' : `-${text.variants[file.variant] ?? ''}`;
+    file?.variant === null || file?.variant === undefined
+      ? ''
+      : `-${text.variants[file.variant] ?? ''}`;
   return `${name} ${versionOf(file)}${variant}`;
 };
 
@@ -74,6 +72,7 @@ const runQueue = async (): Promise<void> => {
         });
         item.done = true;
       } catch (error) {
+        console.warn('the transfer stopped:', reason(error));
         state.transferError = reason(error);
         break;
       }
@@ -94,9 +93,7 @@ const runQueue = async (): Promise<void> => {
       showFailed(
         text.failed.cameBack(
           behind
-            .map((kind) =>
-              text.failed.cameBackItem(kind, now[kind] ?? '', intended[kind] ?? ''),
-            )
+            .map((kind) => text.failed.cameBackItem(kind, now[kind] ?? '', intended[kind] ?? ''))
             .join(' and '),
         ),
       );
@@ -120,9 +117,10 @@ const runQueue = async (): Promise<void> => {
 };
 
 const showFailed = (error: string): void => {
-  const cut = error.indexOf('. ');
-  el('failed-title').textContent = cut < 0 ? (error || text.failed.nothing) : error.slice(0, cut + 1);
-  el('failed-detail').textContent = cut < 0 ? '' : error.slice(cut + 2);
+  const says = human(error);
+  const cut = says.indexOf('. ');
+  el('failed-title').textContent = cut < 0 ? says || text.failed.nothing : says.slice(0, cut + 1);
+  el('failed-detail').textContent = cut < 0 ? '' : says.slice(cut + 2);
   show('screen-failed');
 };
 
@@ -155,7 +153,9 @@ export const renderTransfer = (): void => {
   el('transfer-caption').textContent = text.transfer.keepConnected;
 
   state.queue.forEach((item, index) => {
-    const row = el('transfer-items').querySelector<HTMLElement>(`[data-item="${index}"]`) as HTMLElement;
+    const row = el('transfer-items').querySelector<HTMLElement>(
+      `[data-item="${index}"]`,
+    ) as HTMLElement;
     const moving = index + 1 === state.step && !item.done;
     row.hidden = false;
     row.classList.toggle('ksh__item--waiting', !item.done && !moving);
@@ -164,9 +164,13 @@ export const renderTransfer = (): void => {
     const marker = slot(row, 'state');
     marker.hidden = moving;
     marker.textContent = item.done ? text.transfer.item.done : text.transfer.item.queued;
-    marker.className = `ksh__item-state ksh__item-state--${item.done ? 'latest' : 'waiting'}`;
+    marker.className = item.done
+      ? 'ksh__item-state ksh__item-state--latest'
+      : 'ksh__item-state ksh__item-state--waiting';
   });
   for (let index = state.queue.length; index < 2; index += 1) {
-    (el('transfer-items').querySelector<HTMLElement>(`[data-item="${index}"]`) as HTMLElement).hidden = true;
+    (
+      el('transfer-items').querySelector<HTMLElement>(`[data-item="${index}"]`) as HTMLElement
+    ).hidden = true;
   }
 };

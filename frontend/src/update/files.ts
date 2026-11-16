@@ -15,7 +15,11 @@ export const versionOf = (file: ReleaseFile | null | undefined): string =>
   file?.version ?? file?.date ?? '';
 
 export const olderThan = (candidate: string, onDevice: string): boolean => {
-  const parts = (value: string) => value.split(/[.\s_-]+/).filter(Boolean).map(Number);
+  const parts = (value: string) =>
+    value
+      .split(/[.\s_-]+/)
+      .filter(Boolean)
+      .map(Number);
   const [a, b] = [parts(candidate), parts(onDevice)];
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
     const step = (a[index] ?? 0) - (b[index] ?? 0);
@@ -25,9 +29,7 @@ export const olderThan = (candidate: string, onDevice: string): boolean => {
 };
 
 export const deviceVersion = (kind: ImageKind): string =>
-  kind === 'firmware'
-    ? (state.config?.fwVersion ?? '')
-    : String(state.config?.dbVersion ?? '');
+  kind === 'firmware' ? (state.config?.fwVersion ?? '') : String(state.config?.dbVersion ?? '');
 
 export const keyFor = (kind: ImageKind): string | null =>
   state.mode[kind] === 'file'

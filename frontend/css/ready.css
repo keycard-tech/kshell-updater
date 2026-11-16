@@ -9,15 +9,6 @@
   color: var(--ink-faint);
 }
 
-/* A reason that does not fit the line stays reachable on hover, which is the only place a long
-   `could not reach https://…` can go without pushing the device out of the window. */
-.ksh__statusbar-note {
-  min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: calc(8px * var(--scale));
-}
-
 #status-note {
   min-width: 0;
   overflow: hidden;

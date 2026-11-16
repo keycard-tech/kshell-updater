@@ -1,6 +1,4 @@
 export const images = {
-  shell: 'img/shell.png',
-  connect: 'img/connect_shell.png',
   success: 'img/success.svg',
   untrustworthy: 'img/untrustworthy.svg',
   failed: 'img/fail.svg',

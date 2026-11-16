@@ -27,7 +27,7 @@
               </p>
               <span class="ksh__hint" id="home-sub">Nothing to choose until the Shell is connected</span>
             </div>
-            <img class="ksh__card-img" src="img/connect_shell.png" alt="" id="home-img" />
+            <img class="ksh__card-img" src="img/panel_shell.png" alt="" id="home-img" />
           </div>
         </button>
 
@@ -77,7 +77,7 @@
             <div id="verify-source">
               <div class="ksh__segmented">
                 <button type="button" class="ksh__seg" id="verify-list-online">Fetched list</button>
-                <button type="button" class="ksh__seg" id="verify-list-file">Own list</button>
+                <button type="button" class="ksh__seg" id="verify-list-file">From file</button>
               </div>
               <span class="ksh__hint" id="verify-list-line"></span>
             </div>
@@ -200,7 +200,7 @@
               <div class="ksh__field" data-slot="field" hidden>
                 <select class="ksh__select" data-slot="select" hidden></select>
                 <span class="ksh__field-static" data-slot="static" hidden><span class="ksh__from" data-slot="static-from"></span
-                  ><span class="ksh__arrow">&rarr;</span><span class="ksh__to" data-slot="static-to"></span></span>
+                  ><span class="ksh__arrow">🠒</span><span class="ksh__to" data-slot="static-to"></span></span>
               </div>
               <button type="button" class="ksh__btn ksh__btn--file ksh__btn--pick" data-slot="pick" hidden>Choose file&hellip;</button>
               <a class="ksh__link" data-slot="link" href="https://github.com/keycard-tech/kshell-updater/releases" hidden>
@@ -298,10 +298,7 @@
           ><i class="ksh__dot ksh__dot--off" id="status-dot"></i
           ><span id="status-device">No device connected</span></span
         >
-        <span class="ksh__statusbar-note">
-          <span id="status-note">reading the release list…</span
-          ><button class="ksh__link" type="button" id="btn-list-retry" hidden>Try again</button>
-        </span>
+        <span id="status-note">reading the release list…</span>
       </div>
     </div>
     <!-- https://github.com/cozmo/jsQR (Apache-2.0), vendored: the CSP allows no remote script -->

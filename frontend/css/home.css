@@ -56,6 +56,12 @@
   flex: none;
 }
 
+#home-img {
+  width: auto;
+  -webkit-mask-image: radial-gradient(95% 400% at 100% 50%, #000 30%, rgba(0, 0, 0, 0.1) 100%);
+  mask-image: radial-gradient(95% 400% at 100% 50%, #000 30%, rgba(0, 0, 0, 0.1) 100%);
+}
+
 .ksh__card-img--qr {
   width: calc(100px * var(--scale));
   height: calc(100px * var(--scale));

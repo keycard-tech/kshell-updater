@@ -45,7 +45,6 @@ el<HTMLButtonElement>('btn-done').addEventListener('click', () => {
 
 el<HTMLButtonElement>('card-verify').addEventListener('click', () => void openVerify());
 el<HTMLButtonElement>('btn-verify-update').addEventListener('click', openUpdate);
-el<HTMLButtonElement>('btn-list-retry').addEventListener('click', () => void retryListing(true));
 el<HTMLButtonElement>('verify-list-online').addEventListener('click', () => void useOnlineList());
 el<HTMLButtonElement>('verify-list-file').addEventListener('click', () => void useOwnList());
 el<HTMLButtonElement>('btn-camera').addEventListener('click', () => void startCamera());

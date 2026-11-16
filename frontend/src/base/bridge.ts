@@ -1,5 +1,3 @@
-/* The Rust commands and events, one typed wrapper each. */
-
 import type {
   AppConfiguration,
   Catalogue,

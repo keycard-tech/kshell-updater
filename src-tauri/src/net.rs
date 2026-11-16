@@ -158,20 +158,18 @@ fn header_unix(headers: &HeaderMap, name: &str) -> Option<u64> {
         .and_then(|one| one.trim().parse().ok())
 }
 
-/// Whether a refusal is the network's allowance running out, which is worth waiting for, rather than
-/// some other 403, which is worth reporting as it stands.
-pub fn is_allowance(headers: &HeaderMap) -> bool {
+fn is_allowance(headers: &HeaderMap) -> bool {
     header_unix(headers, "x-ratelimit-remaining") == Some(0) || headers.get("retry-after").is_some()
 }
 
-pub fn reset_after_refusal(headers: &HeaderMap, now: u64) -> u64 {
+fn reset_after_refusal(headers: &HeaderMap, now: u64) -> u64 {
     header_unix(headers, "retry-after")
         .map(|secs| now + secs)
         .or_else(|| header_unix(headers, "x-ratelimit-reset").filter(|reset| *reset > now))
         .unwrap_or(now + DEFAULT_ALLOWANCE_MINUTES * 60)
 }
 
-pub fn minutes_until(reset: u64, now: u64) -> u64 {
+fn minutes_until(reset: u64, now: u64) -> u64 {
     reset.saturating_sub(now).div_ceil(60)
 }
 

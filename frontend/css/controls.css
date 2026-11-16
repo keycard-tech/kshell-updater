@@ -240,6 +240,7 @@ input[type='checkbox']:disabled {
 .ksh__field-static .ksh__arrow {
   color: var(--ink-faint);
   line-height: 1;
+  font-size: 20px;
 }
 
 .ksh__chip {
@@ -333,12 +334,6 @@ input[type='checkbox']:disabled {
   }
 }
 
-.ksh__chip--quiet {
-  flex: none;
-  background: none;
-  border-color: var(--line-strong);
-  color: var(--ink-mid);
-}
 
 .ksh__note {
   display: flex;

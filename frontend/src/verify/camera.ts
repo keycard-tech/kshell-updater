@@ -7,6 +7,7 @@ import {
   silentCamera,
   slowCamera,
 } from '../config.js';
+import { sentence } from '../errors.js';
 import * as text from '../strings.js';
 import { asHtml, el, reason } from '../utils.js';
 import { cameraOptions } from '../views/verify.js';
@@ -101,7 +102,8 @@ export const cameraStart = async (
   try {
     stream = await openCamera(deviceId, generation);
   } catch (error) {
-    verify.problem = text.camera.none(reason(error));
+    console.warn('camera would not open:', reason(error));
+    verify.problem = sentence.camera;
     renderVerify();
     return;
   }
@@ -123,7 +125,8 @@ export const cameraStart = async (
   });
   video.play().catch((error: unknown) => {
     if (generation !== verify.generation || (error as DOMException)?.name === 'AbortError') return;
-    verify.problem = text.camera.noPictureShown(reason(error));
+    console.warn('camera sent no picture:', reason(error));
+    verify.problem = sentence.camera;
     renderScan();
   });
   await listCameras();
@@ -233,7 +236,7 @@ const startDecoding = (onCode: (text: string) => void): void => {
       verify.silentSaid = false;
       say(null);
     }
-  
+
     const nothingNewArrived = verify.frames > 0 && verify.frames === lastFrameDrawn;
     if (nothingNewArrived) return;
     lastFrameDrawn = verify.frames;

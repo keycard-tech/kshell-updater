@@ -1,8 +1,4 @@
-import {
-  clearUpdateRecord,
-  loadUpdateRecord,
-  saveUpdateRecord,
-} from '../base/bridge.js';
+import { clearUpdateRecord, loadUpdateRecord, saveUpdateRecord } from '../base/bridge.js';
 import { state } from '../base/state.js';
 import * as text from '../strings.js';
 import type { AppConfiguration, ImageKind, UpdateRecord } from '../types.js';
@@ -12,9 +8,7 @@ type Versions = Record<ImageKind, string | null>;
 type DeviceVersions = Record<ImageKind, string>;
 
 export const onDeviceVersions = (config: AppConfiguration | null): DeviceVersions | null =>
-  config
-    ? { firmware: config.fwVersion, database: String(config.dbVersion) }
-    : null;
+  config ? { firmware: config.fwVersion, database: String(config.dbVersion) } : null;
 
 export const intendedVersions = (): Versions => {
   const want: Versions = { firmware: null, database: null };
@@ -35,9 +29,7 @@ export const owedVersions = (): string[] | null => {
   const behind = (['firmware', 'database'] as ImageKind[]).filter(
     (kind) => record[kind] && record[kind] !== now[kind],
   );
-  return behind.length
-    ? behind.map((kind) => text.record[kind](now[kind] ?? ''))
-    : null;
+  return behind.length ? behind.map((kind) => text.record[kind](now[kind] ?? '')) : null;
 };
 
 export const writeRecord = async (): Promise<void> => {

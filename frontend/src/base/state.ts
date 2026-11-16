@@ -48,7 +48,6 @@ interface State {
   step: number;
   transfer: { done: number; total: number } | null;
   transferError: string | null;
-  configError: string | null;
   record: UpdateRecord | null;
   screen: Screen;
 }
@@ -71,7 +70,6 @@ export const state: State = {
   step: 0,
   transfer: null,
   transferError: null,
-  configError: null,
   record: null,
   screen: 'screen-home',
 };

@@ -1,5 +1,4 @@
 import { state } from '../base/state.js';
-import { images } from '../config.js';
 import * as text from '../strings.js';
 import { el } from '../utils.js';
 import { owedVersions } from './record.js';
@@ -32,9 +31,7 @@ const words = (): Words => {
   const variant = state.config.fwVariant;
   const runs = text.home.runs(
     state.config.fwVersion,
-    variant === null || variant === undefined
-      ? ''
-      : `-${text.variants[variant] ?? variant}`,
+    variant === null || variant === undefined ? '' : `-${text.variants[variant] ?? variant}`,
     String(state.config.dbVersion),
   );
   if (owed)
@@ -61,8 +58,6 @@ export const renderHome = (): void => {
   badge.className = `ksh__badge${said.settled ? ' ksh__badge--ready' : ' ksh__badge--warn'}`;
   el('home-text').textContent = said.prompt;
   el('home-sub').textContent = said.hint;
-
-  el<HTMLImageElement>('home-img').src = state.device ? images.shell : images.connect;
 
   const card = el<HTMLButtonElement>('card-update');
   card.disabled = !state.config;
