@@ -1,0 +1,369 @@
+.ksh__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: calc(2px * var(--scale)) calc(12px * var(--scale));
+  border: solid 1px var(--line-strong);
+  border-radius: 100px;
+  font-size: var(--fs-sm);
+  line-height: calc(20px * var(--scale));
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.ksh__badge--warn {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.ksh__badge--ready {
+  color: var(--ok);
+  border-color: #23ada059;
+}
+
+.ksh__segmented {
+  display: inline-flex;
+  flex: none;
+  gap: calc(3px * var(--scale));
+  padding: calc(3px * var(--scale));
+  background: var(--line-quiet);
+  border: solid 1px var(--line);
+  border-radius: var(--radius-control);
+}
+
+.ksh__seg {
+  padding: calc(4px * var(--scale)) calc(12px * var(--scale));
+  border: 0;
+  /* the switch's own radius less its padding, so the pill inside runs parallel to the box */
+  border-radius: calc(var(--radius-control) - 3px);
+  background: transparent;
+  color: var(--ink-mid);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: calc(18px * var(--scale));
+  cursor: pointer;
+}
+
+.ksh__seg--on {
+  background: var(--accent);
+  color: #010101;
+}
+
+select.ksh__select {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: 1;
+  min-width: 0;
+  padding: calc(7.2px * var(--scale)) calc(28px * var(--scale)) calc(7.2px * var(--scale))
+    calc(10px * var(--scale));
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ffccbb' stroke-width='1.6'><path d='M5.5 8l4.5 4.5L14.5 8'/></svg>");
+  background-size: calc(16px * var(--scale));
+  background-position: right calc(6px * var(--scale)) center;
+  background-repeat: no-repeat;
+  border: solid 1px var(--line-strong);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+  outline: none;
+}
+
+select.ksh__select:disabled {
+  color: var(--ink-faint);
+  background-image: none;
+}
+
+select.ksh__select option {
+  background: #1a1a1a;
+  color: var(--ink);
+}
+
+.ksh__btn {
+  padding: calc(12px * var(--scale)) calc(16px * var(--scale));
+  background: var(--surface);
+  border: solid 1px var(--line);
+  border-radius: var(--radius-control);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: calc(20px * var(--scale));
+  text-align: center;
+  cursor: pointer;
+}
+
+.ksh__btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+/* A file name goes in here, so it is dashed (nothing to pick from a list) and truncates. */
+.ksh__btn--file {
+  flex: 1;
+  min-width: 0;
+  padding: calc(8px * var(--scale)) calc(12px * var(--scale));
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ksh__btn:disabled {
+  cursor: default;
+}
+
+/* an inactive primary action goes neutral, not faded orange */
+.ksh__btn--primary:disabled {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink-faint);
+}
+
+.ksh__sha {
+  font-size: calc(11px * var(--scale));
+  line-height: calc(16px * var(--scale));
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.ksh__sha b {
+  font-weight: 500;
+  font-family: var(--font-mono);
+  font-size: calc(11px * var(--scale));
+  color: var(--ink-mid);
+}
+
+/* green is the ordinary state: the published hash was checked before this screen was drawn */
+.ksh__sha--ok,
+.ksh__sha--ok b {
+  color: var(--ok);
+}
+
+.ksh__sha-state {
+  font-style: normal;
+  margin-left: calc(6px * var(--scale));
+}
+
+.ksh__sha-state--ok {
+  color: var(--ok);
+}
+
+.ksh__sha-state--bad {
+  color: var(--danger);
+}
+
+.ksh__link {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(4px * var(--scale));
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+  /* one underline, not two: an anchor brings its own decoration on top of this border */
+  text-decoration: none;
+  border-bottom: solid calc(1.5px * var(--scale)) currentColor;
+  padding-bottom: calc(2px * var(--scale));
+  cursor: pointer;
+}
+
+.ksh__link img {
+  width: calc(13px * var(--scale));
+  height: calc(13px * var(--scale));
+  opacity: 0.55;
+  flex: none;
+}
+
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  width: calc(18px * var(--scale));
+  height: calc(18px * var(--scale));
+  border: solid 1px var(--ink-faint);
+  border-radius: calc(5px * var(--scale));
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: calc(5px * var(--scale));
+  top: calc(2px * var(--scale));
+  width: calc(4px * var(--scale));
+  height: calc(8px * var(--scale));
+  border: solid #010101;
+  border-width: 0 calc(2px * var(--scale)) calc(2px * var(--scale)) 0;
+  transform: rotate(45deg);
+}
+
+/* A row with nothing to do cannot be selected, and says so by not looking pressable. */
+input[type='checkbox']:disabled {
+  border-color: var(--line-strong);
+  cursor: default;
+}
+
+.ksh__field {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  min-width: 0;
+}
+
+/* Same box as the variant selector, but nothing to pick: the release decided it. */
+.ksh__field-static {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  padding: calc(7.2px * var(--scale)) calc(12px * var(--scale));
+  background: var(--surface);
+  border: solid 1px var(--line-strong);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+}
+
+.ksh__field-static .ksh__arrow {
+  color: var(--ink-faint);
+  line-height: 1;
+}
+
+.ksh__chip {
+  flex: 1;
+  padding: calc(12px * var(--scale)) calc(14px * var(--scale));
+  background: var(--surface);
+  border: solid 1px var(--line-quiet);
+  border-radius: var(--radius-chip);
+  font-size: calc(11px * var(--scale));
+  line-height: calc(16px * var(--scale));
+  color: var(--ink-mid);
+}
+
+/* the number leads the title, so the text below starts at the same left edge as both */
+.ksh__chip-title {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  color: var(--ink);
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+}
+
+.ksh__chip-text {
+  display: block;
+  margin-top: calc(5px * var(--scale));
+}
+
+.ksh__step-num {
+  flex: none;
+  width: calc(22px * var(--scale));
+  height: calc(22px * var(--scale));
+  border: solid 1px var(--line-strong);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(11px * var(--scale));
+  color: var(--ink-soft);
+}
+
+.ksh__btn--pick {
+  color: var(--accent);
+}
+
+/* the agreed loader (shots/2023-css-only-rotating-loader.webp): white and orange, turning */
+.ksh__loader {
+  --cube: calc(14px * var(--scale));
+  margin-left: auto;
+  position: relative;
+  width: calc(var(--cube) * 2);
+  height: calc(var(--cube) * 2);
+  animation: ksh-turn 1.6s cubic-bezier(0.68, -0.3, 0.32, 1.3) infinite;
+}
+
+.ksh__loader i {
+  position: absolute;
+  width: var(--cube);
+  height: var(--cube);
+  border-radius: calc(2px * var(--scale));
+}
+
+.ksh__loader i:first-child {
+  left: 0;
+  bottom: 0;
+  background: var(--ink);
+}
+
+.ksh__loader i:last-child {
+  right: 0;
+  top: 0;
+  background: var(--accent);
+}
+
+@keyframes ksh-turn {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ksh__loader {
+    animation: none;
+  }
+}
+
+.ksh__chip--quiet {
+  flex: none;
+  background: none;
+  border-color: var(--line-strong);
+  color: var(--ink-mid);
+}
+
+/* No list, no conclusion: the box says so in the place the list line would be. */
+.ksh__note {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--scale));
+  padding: calc(12px * var(--scale)) calc(14px * var(--scale));
+  border: dashed 1px var(--line-strong);
+  border-radius: var(--radius-chip);
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+  color: var(--ink-soft);
+  /* A failure message is however long the Rust is long. Three lines are shown and the rest scrolls in
+     here, so no error can grow this box into the steps above it or the footer below it. */
+  max-height: calc(92px * var(--scale));
+  overflow-y: auto;
+}
+
+.ksh__link--button {
+  /* a button wearing a link's underline */
+  padding: 0;
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  background: none;
+  font: inherit;
+  text-align: left;
+  width: fit-content;
+}
+
+.ksh__link--block {
+  align-self: center;
+}

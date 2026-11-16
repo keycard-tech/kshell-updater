@@ -7,9 +7,12 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
+    "ui": "tsc -p frontend",
+    "ui:watch": "npm run ui && tsc -p frontend --watch --preserveWatchOutput",
     "icons": "tauri icon build/icon.png"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@tauri-apps/cli": "^2",
+    "typescript": "~5.9.3"
   }
 }

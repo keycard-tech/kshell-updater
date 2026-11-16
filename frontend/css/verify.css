@@ -1,0 +1,150 @@
+/* The technical half of a camera failure, so a report from a real machine carries the numbers
+   instead of "it is black". Quiet and mono: read if needed, never mistaken for the sentence above it. */
+.ksh__camera-detail {
+  margin: calc(-2px * var(--scale)) 0 0;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+/* Verify: a question with a QR code on one side and the answer's fate on the other. */
+.ksh__verify {
+  /*
+   * This screen carries its own type scale, as `.ksh__transfer` does: it was drawn at 720x600 and the
+   * window grew 11% in height while `--scale` 1.3 grows its content 30%, so the column was 500px in a
+   * 460px box and centred itself over the heading and the status bar. 1.15 is the largest scale the
+   * longest failure message fits at, measured by shots/webkit-check.py's `verify-no-list-long`.
+   */
+  --scale: 1.15;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(14px * var(--scale));
+}
+
+/* The heading and its badge, on one line, as on the landing cards. */
+.ksh__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(16px * var(--scale));
+}
+
+.ksh__verify-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(18px * var(--scale));
+}
+
+.ksh__verify-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--scale));
+}
+
+.ksh__verify-side .ksh__btn {
+  width: 100%;
+}
+
+.ksh__steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--scale));
+  font-size: inherit;
+  line-height: calc(22px * var(--scale));
+  color: var(--ink-soft);
+}
+
+.ksh__steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(10px * var(--scale));
+}
+
+.ksh__steps b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ksh__steps .ksh__step-num {
+  /* the step circles here are quieter than the ones on the update screen */
+  border-color: var(--ink-faint);
+}
+
+#verify-source {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+}
+
+.ksh__qr {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+  /* a QR is dark on white, and both the challenge and the tile depend on that contrast */
+}
+
+.ksh__qr-tile {
+  width: calc(236px * var(--scale));
+  height: calc(236px * var(--scale));
+  padding: calc(12px * var(--scale));
+  background: var(--ink);
+  border-radius: var(--radius-card);
+}
+
+.ksh__qr-tile svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ksh__qr figcaption {
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+  color: var(--ink-faint);
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+}
+
+.ksh__video {
+  position: relative;
+  width: calc(236px * var(--scale));
+  height: calc(236px * var(--scale));
+  background: var(--surface);
+  border: solid 1px var(--line-quiet);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.ksh__video video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* where the code has to be, so a person can aim without being told */
+.ksh__video-frame {
+  position: absolute;
+  inset: 9%;
+  border: solid 2px var(--accent);
+  border-radius: var(--radius-card);
+  pointer-events: none;
+}
+
+.ksh__select--camera {
+  max-width: calc(236px * var(--scale));
+}
+
+.ksh__done--verify img {
+  width: calc(92px * var(--scale));
+}

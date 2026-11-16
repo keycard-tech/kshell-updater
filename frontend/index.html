@@ -3,11 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <title>Keycard Shell Updater</title>
-    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/controls.css" />
+    <link rel="stylesheet" href="css/home.css" />
+    <link rel="stylesheet" href="css/ready.css" />
+    <link rel="stylesheet" href="css/transfer.css" />
+    <link rel="stylesheet" href="css/verify.css" />
   </head>
   <body>
     <div class="ksh">
-      <!-- the landing screen is also the "connect your device" screen: card one is the button -->
+      <!-- the landing card is the button: card one updates, card two verifies -->
       <div class="ksh__home" id="screen-home">
         <button class="ksh__card" id="card-update" type="button">
           <div class="ksh__card-head">
@@ -34,8 +40,8 @@
           <div class="ksh__card-body">
             <div class="ksh__card-text">
               <p class="ksh__prompt">
-                Scan a challenge with your Shell, let it sign it, then scan the QR code it displays. The
-                answer is checked against the signed list of units that left the factory.
+                Scan a challenge with your Shell, let it sign it, then scan the QR code it displays.
+                The answer is checked against the signed list of units that left the factory.
               </p>
               <span class="ksh__hint">No USB cable · Settings/Shell/Verify on the device</span>
             </div>
@@ -50,8 +56,7 @@
           <div>
             <h1 class="ksh__h1">Verify authenticity of Shell</h1>
             <p class="ksh__prompt" id="verify-sub">
-              The Shell signs a challenge; this computer checks it against the list of produced
-              units
+              The Shell signs a challenge; this computer checks it against the list of produced units
             </p>
           </div>
           <span class="ksh__badge">Camera only</span>
@@ -91,19 +96,19 @@
               <p id="verify-note-text"></p>
             </div>
 
-            <button class="ksh__btn ksh__btn--primary" id="btn-camera" disabled>
-              Enable camera
-            </button>
-            <button class="ksh__link ksh__link--button ksh__link--block" type="button" id="btn-verify-back">
+            <button class="ksh__btn ksh__btn--primary" id="btn-camera" disabled>Enable camera</button>
+            <button
+              class="ksh__link ksh__link--button ksh__link--block"
+              type="button"
+              id="btn-verify-back"
+            >
               Update firmware and database
             </button>
           </div>
 
           <figure class="ksh__qr">
             <div class="ksh__qr-tile" id="verify-qr"></div>
-            <figcaption id="verify-qr-caption">
-              Challenge QR code · valid for this session
-            </figcaption>
+            <figcaption id="verify-qr-caption">Challenge QR code · valid for this session</figcaption>
           </figure>
         </div>
       </div>
@@ -124,11 +129,7 @@
               Keep the Shell screen steady. Nothing is uploaded: the response is checked on this
               computer against the pinned units list key.
             </p>
-            <p class="ksh__hint">
-              If it will not focus, move closer or raise the screen brightness.
-            </p>
-            <!-- A camera can open and still show nothing; that has to be said here, because this is
-                 where a person is standing, not back on the challenge screen. -->
+            <p class="ksh__hint">If it will not focus, move closer or raise the screen brightness.</p>
             <p class="ksh__hint ksh__sha-state--bad" id="scan-problem" hidden></p>
             <p class="ksh__camera-detail" id="scan-problem-detail" hidden></p>
             <button class="ksh__btn" id="btn-scan-back">Back</button>
@@ -140,11 +141,7 @@
               <i class="ksh__video-frame"></i>
             </div>
             <figcaption>
-              <select
-                class="ksh__select ksh__select--camera"
-                id="scan-camera"
-                aria-label="Camera"
-              ></select>
+              <select class="ksh__select ksh__select--camera" id="scan-camera" aria-label="Camera"></select>
             </figcaption>
           </figure>
         </div>
@@ -181,7 +178,9 @@
             <span class="ksh__chip-title">
               <span class="ksh__step-num">2</span>Approve on the Shell
             </span>
-            <span class="ksh__chip-text">Shell's screen will ask you to confirm the firmware / database transfer.</span>
+            <span class="ksh__chip-text">
+              Shell's screen will ask you to confirm the firmware / database transfer.
+            </span>
           </div>
           <div class="ksh__chip">
             <span class="ksh__chip-title"><span class="ksh__step-num">3</span>Database second</span>
@@ -246,7 +245,7 @@
       </div>
     </div>
     <!-- https://github.com/cozmo/jsQR (Apache-2.0), vendored: the CSP allows no remote script -->
-    <script src="js/jsQR.js"></script>
-    <script src="main.js"></script>
+    <script src="vendor/jsQR.js"></script>
+    <script type="module" src="dist/main.js"></script>
   </body>
 </html>

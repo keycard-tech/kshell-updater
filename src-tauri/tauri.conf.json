@@ -4,7 +4,9 @@
   "version": "2.0.0",
   "identifier": "com.github.choppu.kshell-updater",
   "build": {
-    "frontendDist": "../frontend"
+    "frontendDist": "../frontend",
+    "beforeDevCommand": "npm run ui:watch",
+    "beforeBuildCommand": "npm run ui"
   },
   "app": {
     "withGlobalTauri": true,

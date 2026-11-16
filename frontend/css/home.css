@@ -1,0 +1,68 @@
+.ksh__home {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(14px * var(--scale));
+}
+
+.ksh__card {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: calc(14px * var(--scale));
+  padding: calc(16px * var(--scale)) calc(20px * var(--scale));
+  background: var(--surface);
+  border: solid 1px var(--line);
+  border-radius: var(--radius-card);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The verify card is shown before it works, so it says so by not looking pressable. */
+.ksh__card--quiet {
+  cursor: default;
+}
+
+.ksh__card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--scale));
+}
+
+.ksh__card-head .ksh__badge {
+  margin-left: auto;
+}
+
+.ksh__card-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: calc(20px * var(--scale));
+}
+
+.ksh__card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(8px * var(--scale));
+}
+
+.ksh__card-img {
+  /* bounded both ways: either picture at its natural size pushes the second card out */
+  width: calc(190px * var(--scale));
+  height: calc(92px * var(--scale));
+  object-fit: contain;
+  flex: none;
+}
+
+/* The scan glyph is a QR code, and a QR code is dark on white: the tile is what makes it read. */
+.ksh__card-img--qr {
+  width: calc(104px * var(--scale));
+  height: calc(104px * var(--scale));
+  padding: calc(14px * var(--scale));
+  background: var(--ink);
+  border-radius: var(--radius-card);
+}

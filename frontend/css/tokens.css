@@ -1,0 +1,92 @@
+/* Tokens and components from the agreed design (docs/ui-proposal.md). */
+/* Manrope for the screen, JetBrains Mono where aligned digits matter more than shape. */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/manrope-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/manrope-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/manrope-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('../fonts/manrope-latin-700-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/jetbrains-mono-latin-500-normal.woff2') format('woff2');
+}
+
+:root {
+  /* 936x670: the tallest screen plus one padding, re-measured by the checks in shots/ */
+  --scale: 1.2;
+
+  --orange: #ff7d46;
+  --orange-deep: #ff6400;
+  --teal: #23ada0;
+  --error: #e95460;
+  --bg: #010101;
+  --white-95: #fffffff2;
+  --white-80: #fffc;
+  --white-60: #ffffff99;
+  --white-40: #ffffff66;
+  --white-20: #ffffff33;
+  --white-12: #ffffff1f;
+  --white-8: #ffffff14;
+  --white-4: #ffffff0a;
+  --white-2: #ffffff05;
+
+  /* What a colour is for, so a screen says that rather than a shade. */
+  --accent: var(--orange);
+  --accent-bar: var(--orange-deep);
+  --ok: var(--teal);
+  --danger: var(--error);
+  --ink: var(--white-95);
+  --ink-soft: var(--white-80);
+  --ink-mid: var(--white-60);
+  --ink-faint: var(--white-40);
+  --surface: var(--white-4);
+  --surface-quiet: var(--white-2);
+  --line: var(--white-12);
+  --line-strong: var(--white-20);
+  --line-quiet: var(--white-8);
+
+  --font-ui: 'Manrope', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'DejaVu Sans Mono', monospace;
+
+  /* Derived once, from the --scale of the element that declares them: a screen that sets its own
+     --scale (transfer, verify) only re-scales lengths written as calc(Npx * var(--scale)). */
+  --fs-sm: calc(12px * var(--scale));
+  --fs-md: calc(14px * var(--scale));
+  --fs-lg: calc(16px * var(--scale));
+
+  --radius-control: 10px;
+  --radius-chip: calc(16px * var(--scale));
+  --radius-card: calc(20px * var(--scale));
+}

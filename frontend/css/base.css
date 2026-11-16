@@ -1,0 +1,60 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  line-height: calc(24px * var(--scale));
+  letter-spacing: -0.02em;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+/* the components set display, which would otherwise beat the UA's [hidden] rule */
+[hidden] {
+  display: none !important;
+}
+
+.ksh {
+  height: 100%;
+  /* overflow: hidden once hid half the update flow behind the frame */
+  overflow-y: auto;
+  padding: calc(20px * var(--scale));
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--scale));
+}
+
+.ksh__h1 {
+  font-size: calc(24px * var(--scale));
+  font-weight: 600;
+  line-height: calc(32px * var(--scale));
+}
+
+.ksh__h2 {
+  font-size: calc(18px * var(--scale));
+  font-weight: 600;
+  line-height: calc(26px * var(--scale));
+}
+
+.ksh__hint {
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+  color: var(--ink-faint);
+}
+
+.ksh__prompt {
+  font-size: var(--fs-lg);
+  line-height: calc(24px * var(--scale));
+  color: var(--ink-mid);
+  max-width: calc(420px * var(--scale));
+}

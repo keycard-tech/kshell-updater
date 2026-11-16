@@ -1,0 +1,158 @@
+/* Transferring: one screen for both images. */
+.ksh__transfer {
+  /* it reports rather than asks, so: drawn at 0.78, centred, shrinking as a whole through --scale */
+  --scale: 0.78;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ksh__panel {
+  width: calc(800px * var(--scale));
+  min-height: calc(600px * var(--scale));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(16px * var(--scale));
+  padding: calc(34px * var(--scale)) calc(38px * var(--scale));
+  background: var(--surface);
+  border: solid 1px var(--line);
+  border-radius: var(--radius-card);
+}
+
+.ksh__panel .ksh__btn {
+  width: calc(320px * var(--scale));
+  margin: calc(8px * var(--scale)) auto 0;
+  padding: calc(15px * var(--scale)) calc(16px * var(--scale));
+  font-size: var(--fs-lg);
+}
+
+/* Under the action, centred: which of two images this is matters less than what happens next. */
+.ksh__paginator {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+}
+
+.ksh__progress-top {
+  display: flex;
+  align-items: baseline;
+  gap: calc(12px * var(--scale));
+  margin-top: calc(10px * var(--scale));
+}
+
+.ksh__percent {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: calc(52px * var(--scale));
+  line-height: calc(60px * var(--scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ksh__bytes {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+
+.ksh__progress {
+  height: calc(12px * var(--scale));
+  background: var(--line-quiet);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.ksh__progress-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  border-radius: 100px;
+}
+
+.ksh__progress-caption {
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
+}
+
+.ksh__checkline {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--scale));
+  font-size: calc(18px * var(--scale));
+  line-height: calc(26px * var(--scale));
+}
+
+.ksh__checkline img {
+  width: calc(22px * var(--scale));
+  flex: none;
+}
+
+.ksh__items {
+  display: flex;
+  flex-direction: column;
+  gap: calc(12px * var(--scale));
+  margin-top: calc(6px * var(--scale));
+}
+
+.ksh__item {
+  display: flex;
+  align-items: center;
+  gap: calc(12px * var(--scale));
+  padding: calc(14px * var(--scale)) calc(20px * var(--scale));
+  border: solid 1px var(--line);
+  border-radius: var(--radius-card);
+  font-size: var(--fs-lg);
+}
+
+/* The queued image is readable but recedes: the point is which one is moving now. */
+.ksh__item--waiting {
+  border-color: var(--line-quiet);
+  color: var(--ink-faint);
+}
+
+.ksh__item-state {
+  /* the row's own word, not an aside: no italics despite the <i> */
+  font-style: normal;
+  margin-left: auto;
+  font-weight: 600;
+  font-family: 'JetBrains Mono';
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}
+
+.ksh__item-state--waiting {
+  color: var(--ink-faint);
+}
+
+.ksh__item-state--latest {
+  color: var(--ok);
+}
+
+.ksh__item-state--failed {
+  color: var(--danger);
+}
+
+/* Update complete: the same centred shape as the empty screen. */
+.ksh__done {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(16px * var(--scale));
+  text-align: center;
+}
+
+.ksh__done img {
+  width: calc(200px * var(--scale));
+}
+
+.ksh__done .ksh__btn {
+  width: calc(260px * var(--scale));
+  margin-top: calc(8px * var(--scale));
+}
