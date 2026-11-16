@@ -1,8 +1,7 @@
-//! Commands around the produced units list: get it, keep it, ask a Shell to sign for itself.
+//! The produced units list: get it, keep it, ask a Shell to sign for itself.
 //!
-//! The list is cached under the app's own directory because the verify flow has to work without a
-//! network - the mockups call that state "fetched …, no network since" - and a cached list is only
-//! as good as the signature checked again on every read, never on the memory of one.
+//! The list is cached under the app's own directory because verify has to work with no network, and a
+//! cached list is only as good as the signature checked again on every read.
 
 use crate::net;
 use crate::units::{self, UnitList, UnitsError, LIST_ASSET_NAME};
@@ -12,13 +11,24 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
-/// Where the produced units list is published.
 const UNITS_REPO: &str = "keycard-tech/shell-units";
 
 /// Where the list the screen is describing came from.
 const ORIGIN_ONLINE: &str = "online";
 const ORIGIN_FILE: &str = "file";
 const ORIGIN_CACHED: &str = "cached";
+
+/// The one way to reach the session, so no command can hold the lock across a download.
+fn session<T>(
+    units: &Units,
+    run: impl FnOnce(&mut Session) -> Result<T, String>,
+) -> Result<T, String> {
+    let mut guard = units
+        .0
+        .lock()
+        .map_err(|_| "verify state is busy".to_string())?;
+    run(&mut guard)
+}
 
 #[derive(Default)]
 pub struct Units(Mutex<Session>);
@@ -125,21 +135,17 @@ impl Session {
 
 #[tauri::command]
 pub fn units_status(app: AppHandle, units: tauri::State<'_, Units>) -> Result<UnitsStatus, String> {
-    let mut session = units
-        .0
-        .lock()
-        .map_err(|_| "verify state is busy".to_string())?;
-    if session.list.is_none() {
-        restore(&app, &mut session)?;
-    }
-    Ok(session.state.clone())
+    session(&units, |session| {
+        if session.list.is_none() {
+            restore(&app, session)?;
+        }
+        Ok(session.state.clone())
+    })
 }
 
-/// The newest produced units list, downloaded and verified; absence is a refusal like any other.
-///
-/// The API names the release, and its rate limit is not a reason to have no list, so the same file is
-/// also tried at the release's stable download path. Both answers are verified by their signature, so
-/// falling back asks nothing of trust.
+/// The newest list, downloaded and verified; absence is a refusal like any other. The API names the
+/// release and its rate limit is not a reason to have no list, so the same file is also tried at the
+/// release's stable download path. Both are verified by signature, so falling back asks no trust.
 pub async fn newest_list() -> Result<(Vec<u8>, UnitList), String> {
     let mut urls = Vec::with_capacity(2);
     let api = format!("https://api.github.com/repos/{UNITS_REPO}/releases/latest");
@@ -205,21 +211,15 @@ pub async fn units_fetch(
     )
     .map_err(|e| e.to_string())?;
 
-    let mut session = units
-        .0
-        .lock()
-        .map_err(|_| "verify state is busy".to_string())?;
-    session.note_list(list, state.clone());
-    Ok(state)
+    session(&units, |session| {
+        session.note_list(list, state.clone());
+        Ok(state)
+    })
 }
 
 /// A chosen file, checked with the same pinned key: the source changes, the rules do not.
 #[tauri::command]
-pub fn units_use_file(
-    app: AppHandle,
-    units: tauri::State<'_, Units>,
-    path: String,
-) -> Result<UnitsStatus, String> {
+pub fn units_use_file(units: tauri::State<'_, Units>, path: String) -> Result<UnitsStatus, String> {
     let bytes = std::fs::read(&path).map_err(|e| format!("could not read {path}: {e}"))?;
     let list = units::load_list(&bytes).map_err(|e| format!("that file was refused: {e}"))?;
     let build = list.build;
@@ -228,72 +228,63 @@ pub fn units_use_file(
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or(path);
 
-    let mut session = units
-        .0
-        .lock()
-        .map_err(|_| "verify state is busy".to_string())?;
-    session.note_list(
-        list,
-        UnitsStatus {
-            build: Some(build),
-            origin: Some(ORIGIN_FILE.to_string()),
-            fetched_at: Some(today()),
-            file: Some(file),
-        },
-    );
-    let _ = app;
-    Ok(session.state.clone())
+    session(&units, |session| {
+        session.note_list(
+            list,
+            UnitsStatus {
+                build: Some(build),
+                origin: Some(ORIGIN_FILE.to_string()),
+                fetched_at: Some(today()),
+                file: Some(file),
+            },
+        );
+        Ok(session.state.clone())
+    })
 }
 
 /// A fresh challenge, and the QR the Shell will read it from.
 #[tauri::command]
 pub fn units_challenge(units: tauri::State<'_, Units>) -> Result<Challenge, String> {
-    let mut session = units
-        .0
-        .lock()
-        .map_err(|_| "verify state is busy".to_string())?;
     let challenge = units::new_challenge();
     let text = ur::ur_encode(&units::encode_init(&challenge));
     let svg = challenge_svg(&text)?;
-    session.challenge = Some(challenge);
-    session.answered = false;
-    Ok(Challenge { text, svg })
+    session(&units, |session| {
+        session.challenge = Some(challenge);
+        session.answered = false;
+        Ok(Challenge { text, svg })
+    })
 }
 
 /// Read a scanned answer; the challenge is spent once, so a scan cannot be a second guess.
 #[tauri::command]
 pub fn units_check(units: tauri::State<'_, Units>, text: String) -> Result<Verdict, String> {
-    let mut session = units
-        .0
-        .lock()
-        .map_err(|_| "verify state is busy".to_string())?;
-    let challenge = session
-        .challenge
-        .ok_or_else(|| "this verify session has no challenge to check against".to_string())?;
-    if session.answered {
-        return Ok(Verdict::Refused {
-            reason: "this session has already been answered; start the check again".into(),
-        });
-    }
-    if session.list.is_none() {
-        return Ok(Verdict::Refused {
-            reason: "no units list has been loaded on this computer".into(),
-        });
-    }
-    let payload = ur::ur_decode(&text).map_err(|e| e.to_string())?;
-    let list = session.list.as_ref().expect("checked just above");
-    let verdict = match units::check_answer(list, &challenge, &payload) {
-        Ok(_) => {
-            session.answered = true;
-            Verdict::Authentic
+    session(&units, |session| {
+        let challenge = session
+            .challenge
+            .ok_or("this verify session has no challenge to check against")?;
+        if session.answered {
+            return Ok(Verdict::Refused {
+                reason: "this session has already been answered; start the check again".into(),
+            });
         }
-        Err(UnitsError::NotRegistered { uid }) => {
-            session.answered = true;
-            Verdict::NotRegistered { uid }
-        }
-        Err(UnitsError::Refusal(reason)) => Verdict::Refused { reason },
-    };
-    Ok(verdict)
+        let Some(list) = session.list.as_ref() else {
+            return Ok(Verdict::Refused {
+                reason: "no units list has been loaded on this computer".into(),
+            });
+        };
+        let payload = ur::ur_decode(&text).map_err(|e| e.to_string())?;
+        Ok(match units::check_answer(list, &challenge, &payload) {
+            Ok(_) => {
+                session.answered = true;
+                Verdict::Authentic
+            }
+            Err(UnitsError::NotRegistered { uid }) => {
+                session.answered = true;
+                Verdict::NotRegistered { uid }
+            }
+            Err(UnitsError::Refusal(reason)) => Verdict::Refused { reason },
+        })
+    })
 }
 
 /// The QR code as inline SVG: the CSP allows no remote image, and an SVG string needs none.

@@ -14,7 +14,6 @@ export interface ReleaseFile {
 
 export interface Catalogue {
   files: ReleaseFile[];
-  unofferable: number;
   verified: boolean;
   note: string | null;
 }
@@ -35,7 +34,6 @@ export interface Prepared {
 
 export interface DeviceInfo {
   productName: string;
-  usbProductId: number;
   path: string;
   serialNumber: string | null;
 }

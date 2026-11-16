@@ -1,7 +1,7 @@
 // cargo run --example releases — the release pipeline with no window open: list what the updater
 // would offer, fetch each release's hash list, download the newest image of each kind and verify it
 // against the published hash. Prints what was read rather than what was expected.
-use kshell_updater_lib::{build_catalogue, catalogue_for, download_verified, image};
+use kshell_updater_lib::{build_catalogue, catalogue_for, download_verified, image, image::Kind};
 
 fn main() {
     // `cargo run --example releases -- --fixtures ../tests/fixtures/releases.json` writes what the
@@ -37,20 +37,21 @@ fn main() {
     }
 
     tauri::async_runtime::block_on(async {
-        for kind in ["firmware", "database"] {
-            let (files, unofferable, index, failures) = match catalogue_for(kind).await {
-                Ok(ok) => ok,
+        for kind in [Kind::Firmware, Kind::Database] {
+            let listing = match catalogue_for(kind).await {
+                Ok(listing) => listing,
                 Err(error) => {
                     println!("{kind}: listing failed — {error}");
                     continue;
                 }
             };
+            let files = listing.files;
+            let index = listing.index;
             println!(
-                "{kind}: {} offerable, {} without a published hash, {} published hashes, {} hash lists unreachable",
+                "{kind}: {} offered, {} hashes known, {} hash lists unreachable",
                 files.len(),
-                unofferable,
                 index.len(),
-                failures.len()
+                listing.failures.len()
             );
             for file in &files {
                 let hash = file.sha256.clone().unwrap_or_default();

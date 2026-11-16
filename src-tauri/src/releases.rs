@@ -1,17 +1,14 @@
 //! Which release assets the app is willing to offer.
 //!
-//! Online mode shows exactly the two images a person can reasonably flash: the omni build and the
-//! btc-only build. `shellos-bootloader-*` is not this updater's business, and
-//! `shellos-experimental-*` is excluded rather than hidden behind a toggle — an updater that offers
-//! a build labelled experimental invites the brick it exists to prevent. Both remain installable
-//! through `From file`, where the file was chosen deliberately.
+//! Online mode offers the omni build and the btc-only build. `shellos-bootloader-*` is not this
+//! updater's business, and `shellos-experimental-*` is excluded rather than offered behind a toggle.
+//! Both stay installable through `From file`, where the file was chosen deliberately.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// The two firmware builds. Serialised as the number the device reports in `fwVariant`, because the
-/// view compares a release file's variant against the device's and the two must be the same shape:
-/// as `"omni"` and `"btcOnly"` they would never match, and the label would read undefined.
+/// The two firmware builds, serialised as the number the device reports in `fwVariant`: the view
+/// compares the two, and `"omni"` against `0` would never match.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 pub enum Variant {
     /// Signs Bitcoin and Ethereum; what the device reports as fwVariant 0.
@@ -138,10 +135,9 @@ pub fn parse_sha256_index(text: &str) -> HashMap<String, String> {
         .collect()
 }
 
-/// The published hash lists do not use the asset names. A btc-only image is listed as
-/// `shellos-btc-<date>-<version>.bin` where the asset is `shellos-<date>-<version>-btc-only.bin`,
-/// and the database is listed as plain `db.bin` where the asset is `shelldb-<date>.bin`. Without this
-/// mapping the two most-flashed files would report no published hash.
+/// The published hash lists do not use the asset names: a btc-only image is listed as
+/// `shellos-btc-<date>-<version>.bin`, the database as plain `db.bin`. Without this mapping the two
+/// most-flashed files would report no published hash.
 pub fn index_key(name: &str) -> String {
     if let Some(stem) = name
         .strip_prefix("shellos-")
@@ -161,10 +157,8 @@ pub fn attach_sha256(files: &mut [ReleaseFile], index: &HashMap<String, String>)
     }
 }
 
-/// Only the newest release is ever offered: the updater installs what is current, and nothing keeps a
-/// list of older builds to reach for. Files are grouped by the date they were published, so a release
-/// that ships omni only stays omni only — an older btc-only build is not offered beside it, which
-/// would read as two current builds of different ages.
+/// Only the newest release is offered, whole: grouping by date keeps a release that ships omni only
+/// from gaining an older btc-only build beside it.
 pub fn latest(files: &[ReleaseFile]) -> Vec<ReleaseFile> {
     let Some(newest) = files.iter().map(|f| f.date.clone()).max() else {
         return Vec::new();
@@ -172,22 +166,13 @@ pub fn latest(files: &[ReleaseFile]) -> Vec<ReleaseFile> {
     files.iter().filter(|f| f.date == newest).cloned().collect()
 }
 
-/// What to show: files with a published hash. The rest are left out rather than greyed out, because
-/// an updater cannot say what an unverifiable file contains, and listing it invites someone to try.
-/// The same bytes stay installable through `From file`, where they were chosen deliberately. Releases
-/// before v1.4.0 publish no hash list, so this drops most of the history — which is reported as a
-/// count so the list does not look short by accident.
+/// Files with a published hash; the rest are left out rather than greyed out, since an updater
+/// cannot say what an unverifiable file contains. Releases before v1.4.0 publish no hash list, so
+/// most of the history goes here — the count is logged, not shown.
 pub fn offerable(files: Vec<ReleaseFile>) -> (Vec<ReleaseFile>, usize) {
-    let mut offered = Vec::new();
-    let mut skipped = 0;
-    for file in files {
-        if file.sha256.is_some() {
-            offered.push(file);
-        } else {
-            skipped += 1;
-        }
-    }
-    (offered, skipped)
+    let (offered, dropped): (Vec<_>, Vec<_>) =
+        files.into_iter().partition(|file| file.sha256.is_some());
+    (offered, dropped.len())
 }
 
 pub fn lookup_sha256(index: &HashMap<String, String>, asset: &str) -> Option<String> {
@@ -199,9 +184,7 @@ pub fn lookup_sha256(index: &HashMap<String, String>, asset: &str) -> Option<Str
 
 /// Assets of a GitHub releases API response, filtered to flashable images and newest first.
 ///
-/// `kind` is `firmware` or `database`; the two repos use different name shapes but the same release
-/// JSON, so one walk serves both. Each file keeps the URL of its release's `-sha256.txt` so the hash
-/// can be fetched later without hardcoding a tag.
+/// The two repos use different name shapes but the same release JSON, so one walk serves both.
 pub fn release_files(json: &serde_json::Value, kind: &str) -> Vec<ReleaseFile> {
     let mut files: Vec<ReleaseFile> = json
         .as_array()
@@ -227,9 +210,9 @@ pub fn release_files(json: &serde_json::Value, kind: &str) -> Vec<ReleaseFile> {
     files
 }
 
-/// URLs of every release's own hash list, taken from the API rather than composed: the file name
-/// carries the tag, and tags do not always match the version inside the file names. Each list covers
-/// only its own release, so they are merged into one index — asset names are unique across releases.
+/// Every release's own hash list, taken from the API rather than composed: the file name carries the
+/// tag, and tags do not always match the names inside. Asset names are unique across releases, so the
+/// lists merge into one index.
 pub fn sha256_urls(json: &serde_json::Value) -> Vec<String> {
     json.as_array()
         .into_iter()

@@ -11,18 +11,18 @@ const TAG: u8 = 0x05;
 const CLA: u8 = 0xe0;
 const INS_GET_APP_CONFIGURATION: u8 = 0x06;
 const INS_GET_RESPONSE: u8 = 0xc0;
-/// Flashing. Both take the image in the same chunked form, `load_block` builds it.
+/// Flashing: both take the image in the same chunked form `load_block` builds.
 pub const INS_LOAD_FIRMWARE: u8 = 0xf2;
 pub const INS_LOAD_DATABASE: u8 = 0xf4;
 const LOAD_CHUNK: usize = 240;
-/// The answer a person walking away from the device gives: the flash is declined on its screen.
+/// The flash declined on the device's own screen.
 pub const SW_USER_DECLINED: u16 = 0x6982;
-/// A normal command answers in milliseconds; a chunk write erases flash.
+/// A command answers in milliseconds; a chunk write erases flash.
 const READ_TIMEOUT: i32 = 5_000;
 const LOAD_TIMEOUT: i32 = 30_000;
 
-/// One chunk of a `load`: only the first carries the image's total length, and it counts towards the
-/// command's own length byte, which is why 240 bytes of image become a 244-byte payload.
+/// One chunk of a `load`. Only the first carries the image's total length, and that header counts
+/// towards the command's own length byte.
 pub fn load_block(ins: u8, total: usize, offset: usize, data: &[u8]) -> Vec<u8> {
     let chunk = &data[offset..(offset + LOAD_CHUNK).min(data.len())];
     let header = if offset == 0 {
@@ -32,7 +32,7 @@ pub fn load_block(ins: u8, total: usize, offset: usize, data: &[u8]) -> Vec<u8> 
     };
     let mut apdu = Vec::with_capacity(chunk.len() + header.len() + 5);
     apdu.extend_from_slice(&[CLA, ins, if offset == 0 { 0x00 } else { 0x80 }, 0x00]);
-    // The length byte covers everything after it, the total-length header included.
+    // Covers the total-length header too.
     apdu.push((header.len() + chunk.len()) as u8);
     apdu.extend_from_slice(&header);
     apdu.extend_from_slice(chunk);
@@ -53,8 +53,8 @@ pub enum ShellError {
     Timeout,
     #[error("the Shell sent an unexpected packet ({0})")]
     Framing(&'static str),
-    /// The number, not just its text: 0x6982 means the person declined the flash on the device,
-    /// which the updater shows differently from a genuine rejection.
+    /// The number rather than its text: 0x6982 is a decline on the device, shown differently from a
+    /// genuine rejection.
     #[error("the Shell rejected the command (SW {0:#06x})")]
     StatusWord(u16),
     #[error("the transfer was cancelled")]
@@ -75,10 +75,15 @@ type Result<T> = std::result::Result<T, ShellError>;
 #[serde(rename_all = "camelCase")]
 pub struct DeviceInfo {
     pub product_name: String,
-    pub usb_product_id: u16,
     /// The path HID uses to open the device; the UI hands it back unchanged.
     pub path: String,
     pub serial_number: Option<String>,
+}
+
+/// The one device to talk to. Commands take the first, because a second interface on the same Shell
+/// answers the same APDUs and the person only ever updates one.
+pub fn only_device(api: &mut hidapi::HidApi) -> Option<DeviceInfo> {
+    list_devices(api).into_iter().next()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -96,9 +101,9 @@ fn is_shell(device: &hidapi::DeviceInfo) -> bool {
     device.vendor_id() == SHELL_VENDOR_ID && SHELL_PRODUCT_IDS.contains(&device.product_id())
 }
 
-/// The list must be re-read, not just visited: hidapi caches what the bus looked like when the
-/// context was made, so a Shell that is plugged in - or powered on, which is how the Shell itself
-/// appears - after start-up stayed invisible until the app was restarted.
+/// hidapi caches the bus as it looked when the context was made, so the list must be re-read:
+/// otherwise a Shell plugged in after start-up - or powered on, which is how it appears - stays
+/// invisible until the app restarts.
 pub fn list_devices(api: &mut hidapi::HidApi) -> Vec<DeviceInfo> {
     let _ = api.refresh_devices();
     let mut devices: Vec<DeviceInfo> = api
@@ -109,7 +114,6 @@ pub fn list_devices(api: &mut hidapi::HidApi) -> Vec<DeviceInfo> {
                 .product_string()
                 .unwrap_or("Keycard Shell")
                 .to_string(),
-            usb_product_id: device.product_id(),
             path: device.path().to_string_lossy().into_owned(),
             serial_number: device.serial_number().map(str::to_string),
         })
@@ -118,8 +122,8 @@ pub fn list_devices(api: &mut hidapi::HidApi) -> Vec<DeviceInfo> {
     devices
 }
 
-/// Ledger-style framing: a 5 byte header (channel, tag, sequence) then 59 bytes of payload.
-/// The whole APDU is prefixed with its own length, and the last block is zero padded.
+/// Ledger framing: 5 byte header (channel, tag, sequence) then 59 bytes of payload. The APDU is
+/// prefixed with its own length and the last block is zero padded.
 fn write_block(buf: &mut [u8; PACKET_SIZE], channel: u16, sequence: u16, payload: &[u8]) {
     buf[0..2].copy_from_slice(&channel.to_be_bytes());
     buf[2] = TAG;
@@ -152,8 +156,7 @@ struct Reassembler {
 }
 
 impl Reassembler {
-    /// The first packet carries the total length inside the payload, later ones use the whole
-    /// block after the header.
+    /// The first packet carries the total length; later ones use the whole block.
     fn push(&mut self, packet: &[u8]) -> Result<Option<Vec<u8>>> {
         if packet.len() < 7 {
             return Err(ShellError::Framing("short packet"));
@@ -173,8 +176,7 @@ impl Reassembler {
         }
         self.data.extend_from_slice(&packet[header..]);
         self.sequence += 1;
-        // The tail of the last packet is zero padding, so reaching the length ends the response
-        // rather than exceeding it.
+        // The tail of the last packet is padding, so reaching the length ends the response.
         if self.data.len() >= self.expected {
             self.data.truncate(self.expected);
             return Ok(Some(std::mem::take(&mut self.data)));
@@ -195,7 +197,7 @@ impl Shell {
         let device = api
             .open_path(&c_path)
             .map_err(|e| ShellError::Open(e.to_string()))?;
-        // A random channel makes stale responses from a previous session identifiable.
+        // A fixed-ish channel makes a stale response from a previous session identifiable.
         let channel = (std::process::id() as u16) ^ 0x5cb0;
         Ok(Self { device, channel })
     }
@@ -206,7 +208,7 @@ impl Shell {
 
     fn exchange_with(&self, apdu: &[u8], timeout: i32) -> Result<Vec<u8>> {
         for packet in request_blocks(self.channel, apdu) {
-            // The leading zero is the report id the HID report carries, not part of the frame.
+            // The leading zero is the HID report id, not part of the frame.
             let mut out = Vec::with_capacity(PACKET_SIZE + 1);
             out.push(0);
             out.extend_from_slice(&packet);
@@ -236,7 +238,7 @@ impl Shell {
         }
     }
 
-    /// A short status word with no payload means "ask again", the answer comes from INS_GET_RESPONSE.
+    /// 0x6100 means "ask again", and the answer comes from INS_GET_RESPONSE.
     fn finish(&self, data: Vec<u8>) -> Result<Vec<u8>> {
         if data.len() < 2 {
             return Err(ShellError::Malformed {
@@ -254,10 +256,9 @@ impl Shell {
         Err(ShellError::StatusWord(sw))
     }
 
-    /// Write an image to the device. Every chunk is answered, and any status but 0x9000 stops the
-    /// transfer there rather than continuing to flash a rejected image.
-    /// `should_stop` is checked between chunks, so Cancel ends the transfer at a chunk boundary
-    /// rather than mid-image. A part-written firmware is why this is checked and not ignored.
+    /// Write an image. Any status but 0x9000 stops the transfer rather than flashing an image the
+    /// device has refused. `should_stop` is checked between chunks, because a part-written firmware
+    /// is what a cancel mid-chunk leaves behind.
     pub fn load(
         &self,
         ins: u8,
@@ -281,9 +282,9 @@ impl Shell {
     }
 }
 
-/// Offsets are fixed by the firmware: version 0..3, database 3..7, serial 7..23, key 23..56,
-/// and firmware 1.5 appends variant and beta flags. The status word stays in the buffer unread,
-/// which is what shelljs does.
+/// Offsets are fixed by the firmware: version 0..3, database 3..7, serial 7..23, key 23..56, with
+/// variant and beta appended by firmware 1.5. The status word stays in the buffer unread, as shelljs
+/// leaves it.
 fn parse_app_configuration(response: &[u8]) -> Result<AppConfiguration> {
     let extended = match response.len() {
         APP_CONFIG_LEN => false,
@@ -306,7 +307,7 @@ fn parse_app_configuration(response: &[u8]) -> Result<AppConfiguration> {
 }
 
 fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
+    crate::image::hex(bytes)
 }
 
 #[cfg(test)]

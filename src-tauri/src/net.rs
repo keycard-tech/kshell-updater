@@ -1,9 +1,8 @@
 //! HTTPS to GitHub, and nothing else.
 //!
 //! Downloads happen here rather than in the renderer because the CSP allows no remote `connect-src`,
-//! and because a firmware image must be hashed by the same code that hands it to the device.
-//! Unauthenticated GitHub API use is capped at 60 requests an hour per address, which is plenty for a
-//! handful of release listings and one hash list per release.
+//! and because an image must be hashed by the same code that hands it to the device. Unauthenticated
+//! GitHub API use is capped at 60 requests an hour per address.
 
 use reqwest::header::ACCEPT;
 use thiserror::Error;
@@ -39,19 +38,20 @@ pub enum NetError {
     },
 }
 
-fn client() -> Result<reqwest::Client, NetError> {
-    reqwest::Client::builder()
-        // GitHub returns an HTML error page for a request without a User-Agent.
-        .user_agent(concat!("kshell-updater/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .map_err(|source| NetError::Request {
-            url: String::new(),
-            source,
-        })
+/// One client for the run, so connections are pooled and the builder runs once.
+fn client() -> &'static reqwest::Client {
+    static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            // GitHub answers a request without a User-Agent with an HTML error page.
+            .user_agent(concat!("kshell-updater/", env!("CARGO_PKG_VERSION")))
+            .build()
+            .expect("a default HTTP client builds")
+    })
 }
 
 async fn get(url: &str, accept: &str, max: usize) -> Result<Vec<u8>, NetError> {
-    let response = client()?
+    let response = client()
         .get(url)
         .header(ACCEPT, accept)
         .send()
@@ -67,8 +67,17 @@ async fn get(url: &str, accept: &str, max: usize) -> Result<Vec<u8>, NetError> {
             status: status.as_u16(),
         });
     }
-    // The size of an image is known before it arrives, and a wrong-length body is worth refusing
-    // early rather than after a hash mismatch that would not say what went wrong.
+    // The size of an image is known before it arrives, so a wrong length is refused rather than
+    // buffered first and reported later as a hash mismatch.
+    if let Some(declared) = response.content_length() {
+        if declared > max as u64 {
+            return Err(NetError::TooLarge {
+                url: url.to_string(),
+                found: declared as usize,
+                max,
+            });
+        }
+    }
     let body = response.bytes().await.map_err(|source| NetError::Request {
         url: url.to_string(),
         source,

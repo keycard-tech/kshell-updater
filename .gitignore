@@ -10,3 +10,6 @@ src-tauri/gen/schemas/
 # local-only working notes and UI screenshots
 docs/
 shots/
+
+# pictures of the running app, kept out of the repo
+real-app-shots/

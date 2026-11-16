@@ -96,17 +96,23 @@ export const rowState = (kind: ImageKind): RowStatus => {
       : { status: text.status.reading, modifier: 'empty', wanted: false };
   }
 
+  if (kind === 'database') {
+    return sameOrNew(String(state.config?.dbVersion ?? ''), versionOf(file));
+  }
   const deviceVariant = state.config?.fwVariant ?? null;
-  if (kind === 'firmware' && deviceVariant !== null && file.variant !== deviceVariant) {
+  if (deviceVariant !== null && file.variant !== deviceVariant) {
     return { status: text.status.variantSwitch, modifier: '', wanted: true };
   }
-  const onDevice =
-    kind === 'firmware' ? state.config?.fwVersion : String(state.config?.dbVersion ?? '');
-  if (onDevice && onDevice === versionOf(file)) {
-    return { status: text.status.upToDate, modifier: 'latest', wanted: false };
-  }
-  return { status: text.status.newVersion, modifier: '', wanted: true };
+  // A beta of the current version is still an update to install: the device would otherwise sit on a
+  // pre-release build the release notes call the same number.
+  if (state.config?.fwBeta) return { status: text.status.newVersion, modifier: '', wanted: true };
+  return sameOrNew(state.config?.fwVersion ?? '', versionOf(file));
 };
+
+const sameOrNew = (onDevice: string, offered: string): RowStatus =>
+  onDevice && onDevice === offered
+    ? { status: text.status.upToDate, modifier: 'latest', wanted: false }
+    : { status: text.status.newVersion, modifier: '', wanted: true };
 
 export const wantedKinds = (): ImageKind[] =>
   text.kinds
@@ -135,17 +141,9 @@ export const render = (kind: ImageKind): void => {
 
   if (mode === 'online') renderField(kind, refs);
 
-  const offline = !ready?.error && state.listError;
-  const failed = checkedOf(kind) === 'failed';
-  // The failure detail lives in the tooltip: in the row it would wrap and grow every screen.
-  refs.hint.textContent = ready?.error
-    ? ready.error
-    : offline
-      ? text.row.offlineHint
-      : failed
-        ? (noteOf(kind) ?? text.row.unreadable)
-        : '';
-  refs.hint.title = offline ? (state.listError ?? '') : '';
+  const problem = rowProblem(kind, ready);
+  refs.hint.textContent = problem.text;
+  refs.hint.title = problem.detail;
 
   const sha =
     mode === 'file'
@@ -185,6 +183,19 @@ const renderField = (kind: ImageKind, refs: RowRefs): void => {
     state.ready[kind] = null;
     render(kind);
   });
+};
+
+/** One line of help per row, and only for a file the person can act on. The longer reason for a
+    listing failure lives in the tooltip: in the row it would wrap and grow the screen. */
+const rowProblem = (
+  kind: ImageKind,
+  ready: ReadyFile | null,
+): { text: string; detail: string } => {
+  if (ready?.error) return { text: ready.error, detail: '' };
+  if (state.listError) return { text: text.row.offlineHint, detail: state.listError };
+  if (checkedOf(kind) === 'failed')
+    return { text: noteOf(kind) ?? text.row.unreadable, detail: '' };
+  return { text: '', detail: '' };
 };
 
 export const renderSummary = (): void => {

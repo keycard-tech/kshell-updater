@@ -1,19 +1,19 @@
 //! The device allowlist: which Shell units left the factory, and the signed answer to a challenge.
 //!
 //! A list is verified by the secp256k1 signature inside it, over everything before the trailing 64
-//! bytes; the pinned key is the trust, not the download location. A device answers a 32-byte
-//! challenge with a signature over `uid || challenge`, and the row that matches it is
-//! `sha256(salt || "ShellUID" || uid || "ShellPubKey" || recovered pubkey)` - so a list holds no
-//! identifier that could be matched without the device signing for it.
+//! bytes, against the pinned key - not against where it was downloaded from. A device answers a
+//! 32-byte challenge with a signature over `uid || challenge`, and its row is
+//! `sha256(salt || "ShellUID" || uid || "ShellPubKey" || recovered pubkey)`, so a list holds no
+//! identifier that can be matched without the device signing for it.
 
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
-/// Lists are published by `keycard-tech/shell-units`; this key is what says one came from them.
 /// The one asset the units release carries.
 pub const LIST_ASSET_NAME: &str = "shell-verification-db.bin";
 
+/// Published by `keycard-tech/shell-units`; this key is what says a list came from them.
 pub const UNITS_VERIFY_KEY: &str =
     "032ac68f2b2a500ebf1bc31f0c36e4645b24530ce6d1460e92c2d94e9a47ba550e";
 
@@ -57,7 +57,7 @@ fn u32le(bytes: &[u8], at: usize) -> u32 {
     u32::from_le_bytes([bytes[at], bytes[at + 1], bytes[at + 2], bytes[at + 3]])
 }
 
-/// A list this key signed. One buffer, so `rows` cannot outlive the signature that authorised it.
+/// A list this key signed. One buffer, so no row can outlive the signature that authorised it.
 pub struct UnitList {
     bytes: Vec<u8>,
     pub build: u32,
@@ -110,7 +110,7 @@ pub fn load_list(bytes: &[u8]) -> Result<UnitList, UnitsError> {
     load_list_with_key(bytes, UNITS_VERIFY_KEY)
 }
 
-/// `verify_key` is a parameter so a test can sign its own list and exercise the rest of the rules.
+/// `verify_key` is a parameter so a test can sign its own list and exercise the other rules.
 pub fn load_list_with_key(bytes: &[u8], verify_key: &str) -> Result<UnitList, UnitsError> {
     if bytes.len() < HEADER_SIZE + SIG_SIZE {
         return refuse("file too short to be a units list");
@@ -375,7 +375,7 @@ fn unhex(text: &str) -> Result<Vec<u8>, UnitsError> {
 }
 
 pub fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+    crate::image::hex(bytes)
 }
 
 #[cfg(test)]

@@ -14,7 +14,57 @@
 
 use serde::Serialize;
 use sha2::{Digest, Sha256};
+use std::fmt;
 use thiserror::Error;
+
+/// The two images a Shell takes. Every mapping that depends on which one it is lives here, so a new
+/// kind cannot be half-added.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    Firmware,
+    Database,
+}
+
+impl Kind {
+    pub fn parse(text: &str) -> Result<Self, String> {
+        match text {
+            "firmware" => Ok(Self::Firmware),
+            "database" => Ok(Self::Database),
+            other => Err(format!("unknown image kind {other}")),
+        }
+    }
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Firmware => "firmware",
+            Self::Database => "database",
+        }
+    }
+
+    /// The hash the release publishes for this kind, which is not `sha256sum` for either.
+    pub fn hash(self, image: &[u8]) -> Result<String, ImageError> {
+        match self {
+            Self::Firmware => firmware_hash(image),
+            Self::Database => database_hash(image),
+        }
+    }
+
+    /// Structural checks only: a file from disk has nothing to match a published hash against
+    /// unless it happens to be a release asset.
+    pub fn inspect(self, image: &[u8]) -> Result<ImageInfo, String> {
+        match self {
+            Self::Firmware => inspect_firmware(image),
+            Self::Database => inspect_database(image),
+        }
+        .map_err(|e| e.to_string())
+    }
+}
+
+impl fmt::Display for Kind {
+    fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
+        out.write_str(self.name())
+    }
+}
 
 /// One flash page of the MCU.
 pub const PAGE_SIZE: usize = 8192;
@@ -63,8 +113,8 @@ pub struct ImageInfo {
     pub matches_release: Option<String>,
 }
 
-/// The hash the bootloader checks, as hex. Pads short images exactly as `tools/firmware-hash.py`
-/// does: the ELF was produced with `--gap-fill=255`, so unwritten flash reads as `0xff`.
+/// The hash the bootloader checks: padded to [`FW_SIZE`] with `0xff` (the ELF was linked with
+/// `--gap-fill=255`) and with the signature window skipped, as `tools/firmware-hash.py` does.
 pub fn firmware_hash(image: &[u8]) -> Result<String, ImageError> {
     if image.len() < FW_VERSION_POSITION + 3 {
         return Err(ImageError::FirmwareTooSmall(image.len()));
@@ -95,21 +145,14 @@ pub fn database_hash(image: &[u8]) -> Result<String, ImageError> {
 /// is what an empty or half-written image looks like here, and 0.0.0 is what a header full of zeros
 /// reads as. The old app accepted both and flashed them.
 fn version_is_plausible(major: u8, minor: u8, patch: u8) -> bool {
-    major != 0
-        && (major, minor, patch) != (0xff, 0xff, 0xff)
-        && major < 0xff
-        && minor < 0xff
-        && patch < 0xff
+    major != 0 && major < 0xff && minor < 0xff && patch < 0xff
 }
 
-/// Reads the header and rejects anything the Shell would refuse.
-///
-/// The variant comes from the image rather than the file name, so a renamed or downloaded-and-renamed
-/// file still reports what it is. The flags byte is not the device's `fwVariant` encoding: bit `0x20`
-/// of byte 655 marks btc-only (`0x00` on omni, seen on 1.5.2, 1.5.2-experimental-btc and 1.5.3 in both
-/// shapes), where the device reports 0 or 1. Normalised here so callers see device values.
-/// Whether a firmware image is older than what the device reported. This is what stands between a
-/// person and reflashing an older build by accident, so `1.10.0` must not lose to `1.9.9`.
+/// Reads the firmware header and rejects anything the Shell would refuse. The variant comes from the
+/// image rather than the file name, so a renamed file still reports what it is. Bit `0x20` of byte
+/// 655 marks btc-only, where the device reports 0 or 1: normalised here so callers see device values.
+/// Whether a firmware image is older than what the device reported: `1.10.0` must not lose to
+/// `1.9.9`, so this is never a string comparison.
 pub fn firmware_version_older(candidate: &str, on_device: &str) -> bool {
     fn key(version: &str) -> (u32, u32, u32) {
         let mut parts = version
