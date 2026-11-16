@@ -46,7 +46,7 @@
 /* One knob: every length here is `calc(<design px> * var(--scale))`, and 1 is the mockup. */
 /* 936x670: tallest screen plus one padding, re-measured by the checks in shots/ */
 :root {
-  --scale: 1.3;
+  --scale: 1.2;
 
   --orange: #ff7d46;
   --orange-progress: #ff6400;
@@ -70,6 +70,7 @@
   --text-font-size: calc(16px * var(--scale));
   --text-font-medium: calc(14px * var(--scale));
   --text-font-small: calc(12px * var(--scale));
+  --text-font-xs: calc(12px * var(--scale));
 }
 
 * {
@@ -124,6 +125,15 @@ body {
   font-size: var(--text-font-small);
   line-height: calc(18px * var(--scale));
   color: var(--white-40);
+}
+
+/* The technical half of a camera failure, so a report from a real machine carries the numbers
+   instead of "it is black". Quiet and mono: read if needed, never mistaken for the sentence above it. */
+.ksh__camera-detail {
+  margin: calc(-2px * var(--scale)) 0 0;
+  color: var(--white-40);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: var(--text-font-small);
 }
 
 .ksh__badge {
@@ -360,7 +370,7 @@ select.ksh__select {
   -webkit-appearance: none;
   flex: 1;
   min-width: 0;
-  padding: calc(5px * var(--scale)) calc(28px * var(--scale)) calc(5px * var(--scale))
+  padding: calc(7.2px * var(--scale)) calc(28px * var(--scale)) calc(7.2px * var(--scale))
     calc(10px * var(--scale));
   background-color: var(--white-4);
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ffccbb' stroke-width='1.6'><path d='M5.5 8l4.5 4.5L14.5 8'/></svg>");
@@ -491,7 +501,7 @@ select.ksh__select option {
 }
 
 .ksh__device-serial {
-  font-size: var(--text-font-small);
+  font-size: var(--text-font-xs);
   line-height: calc(18px * var(--scale));
   color: var(--white-60);
   overflow-wrap: anywhere;
@@ -522,7 +532,7 @@ select.ksh__select option {
   line-height: calc(18px * var(--scale));
   /* one underline, not two: an anchor brings its own decoration on top of this border */
   text-decoration: none;
-  border-bottom: solid calc(2px * var(--scale)) currentColor;
+  border-bottom: solid calc(1.5px * var(--scale)) currentColor;
   padding-bottom: calc(2px * var(--scale));
   cursor: pointer;
 }
@@ -538,8 +548,8 @@ input[type='checkbox'] {
   -webkit-appearance: none;
   position: relative;
   flex: none;
-  width: calc(20px * var(--scale));
-  height: calc(20px * var(--scale));
+  width: calc(18px * var(--scale));
+  height: calc(18px * var(--scale));
   border: solid 1px var(--white-40);
   border-radius: calc(5px * var(--scale));
   background: transparent;
@@ -552,10 +562,10 @@ input[type='checkbox']:checked {
 input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
-  left: calc(6px * var(--scale));
+  left: calc(5px * var(--scale));
   top: calc(2px * var(--scale));
-  width: calc(5px * var(--scale));
-  height: calc(10px * var(--scale));
+  width: calc(4px * var(--scale));
+  height: calc(8px * var(--scale));
   border: solid #010101;
   border-width: 0 calc(2px * var(--scale)) calc(2px * var(--scale)) 0;
   transform: rotate(45deg);
@@ -577,7 +587,7 @@ input[type='checkbox']:disabled {
   display: inline-flex;
   align-items: center;
   gap: calc(8px * var(--scale));
-  padding: calc(5px * var(--scale)) calc(12px * var(--scale));
+  padding: calc(7.2px * var(--scale)) calc(12px * var(--scale));
   background: var(--white-4);
   border: solid 1px var(--white-20);
   border-radius: var(--radius-control);
@@ -640,10 +650,6 @@ input[type='checkbox']:disabled {
 
 .ksh__btn--pick {
   color: var(--orange);
-}
-
-.ksh__sha-state--bad {
-  color: var(--error);
 }
 
 /* Transferring: one screen for both images. */
@@ -753,7 +759,9 @@ input[type='checkbox']:disabled {
   font-style: normal;
   margin-left: auto;
   font-weight: 600;
+  font-family: 'JetBrains Mono';
   color: var(--orange);
+  font-size: var(--text-font-small);
 }
 .ksh__item-state--waiting {
   color: var(--white-40);
@@ -823,13 +831,20 @@ input[type='checkbox']:disabled {
 
 /* Verify: a question with a QR code on one side and the answer's fate on the other. */
 .ksh__verify {
+  /*
+   * This screen carries its own type scale, as `.ksh__transfer` does: it was drawn at 720x600 and the
+   * window grew 11% in height while `--scale` 1.3 grows its content 30%, so the column was 500px in a
+   * 460px box and centred itself over the heading and the status bar. 1.15 is the largest scale the
+   * longest failure message fits at, measured by shots/webkit-check.py's `verify-no-list-long`.
+   */
+  --scale: 1.15;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: calc(14px * var(--scale));
 }
-/* the heading and its badge, on one line, as on the landing cards */
+/* The heading and its badge, on one line, as on the landing cards. */
 .ksh__head {
   display: flex;
   align-items: flex-start;
@@ -897,6 +912,10 @@ input[type='checkbox']:disabled {
   font-size: var(--text-font-small);
   line-height: calc(18px * var(--scale));
   color: var(--white-80);
+  /* A failure message is however long the Rust is long. Three lines are shown and the rest scrolls in
+     here, so no error can grow this box into the steps above it or the footer below it. */
+  max-height: calc(92px * var(--scale));
+  overflow-y: auto;
 }
 .ksh__link--button {
   /* a button wearing a link's underline */

@@ -110,6 +110,19 @@ struct Session {
     answered: bool,
 }
 
+impl Session {
+    /// A list has been loaded, from a download or from a file the person chose.
+    ///
+    /// It does not touch `challenge`: the verify screen draws its QR before the list is even asked
+    /// for, so a list that arrives afterwards is the normal case, and clearing the challenge there
+    /// left the code on screen belonging to nothing -- every scan then answered "this verify session
+    /// has no challenge to check against" against a genuine Shell (2026-11-13).
+    fn note_list(&mut self, list: UnitList, state: UnitsStatus) {
+        self.list = Some(list);
+        self.state = state;
+    }
+}
+
 #[tauri::command]
 pub fn units_status(app: AppHandle, units: tauri::State<'_, Units>) -> Result<UnitsStatus, String> {
     let mut session = units
@@ -196,10 +209,7 @@ pub async fn units_fetch(
         .0
         .lock()
         .map_err(|_| "verify state is busy".to_string())?;
-    session.list = Some(list);
-    session.state = state.clone();
-    session.challenge = None;
-    session.answered = false;
+    session.note_list(list, state.clone());
     Ok(state)
 }
 
@@ -222,13 +232,15 @@ pub fn units_use_file(
         .0
         .lock()
         .map_err(|_| "verify state is busy".to_string())?;
-    session.list = Some(list);
-    session.state = UnitsStatus {
-        build: Some(build),
-        origin: Some(ORIGIN_FILE.to_string()),
-        fetched_at: Some(today()),
-        file: Some(file),
-    };
+    session.note_list(
+        list,
+        UnitsStatus {
+            build: Some(build),
+            origin: Some(ORIGIN_FILE.to_string()),
+            fetched_at: Some(today()),
+            file: Some(file),
+        },
+    );
     let _ = app;
     Ok(session.state.clone())
 }
@@ -297,4 +309,36 @@ pub fn challenge_svg(text: &str) -> Result<String, String> {
         .margin(2)
         .shape(Shape::RoundedSquare)
         .to_str(&code))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The order `openVerify` runs in: a challenge first, so the screen is never a blank tile, and
+    /// the list behind it. Wiping the challenge when the list landed was enough to fail every real
+    /// Shell, because by the time the answer was scanned the code it answered was gone.
+    #[test]
+    fn a_list_arriving_after_the_challenge_leaves_the_challenge_alone() {
+        let mut session = Session::default();
+        let challenge = units::new_challenge();
+        session.challenge = Some(challenge);
+
+        let bytes = std::fs::read(format!(
+            "{}/scratch/units-20261112.bin",
+            std::env::var("HOME").unwrap_or_default()
+        ));
+        let Ok(bytes) = bytes else {
+            // Same reason the vector test skips: the factory list is not in the repository.
+            return;
+        };
+        let list = units::load_list(&bytes).expect("the published list loads");
+        session.note_list(list, UnitsStatus::default());
+
+        assert_eq!(
+            session.challenge,
+            Some(challenge),
+            "the screen is still showing this code"
+        );
+    }
 }

@@ -607,6 +607,7 @@ pub fn run() {
             app.manage(Usb(Mutex::new(hidapi::HidApi::new()?)));
             app.manage(Cancel::default());
             app.manage(Loaded::default());
+            app.manage(verify::Units::default());
             watch_presence(app.handle().clone());
             // `"create": false` in tauri.conf.json, because a permission the webview is never asked
             // for is a permission the webview never grants: the camera handler can only be attached

@@ -34,7 +34,7 @@
           <div class="ksh__card-body">
             <div class="ksh__card-text">
               <p class="ksh__prompt">
-                Show your Shell a challenge, let it sign it, then scan the QR code it displays. The
+                Scan a challenge with your Shell, let it sign it, then scan the QR code it displays. The
                 answer is checked against the signed list of units that left the factory.
               </p>
               <span class="ksh__hint">No USB cable · Settings/Shell/Verify on the device</span>
@@ -89,9 +89,6 @@
 
             <div class="ksh__note" id="verify-note" hidden>
               <p id="verify-note-text"></p>
-              <button class="ksh__link ksh__link--button" type="button" id="btn-note-file">
-                Load units list from file
-              </button>
             </div>
 
             <button class="ksh__btn ksh__btn--primary" id="btn-camera" disabled>
@@ -130,6 +127,10 @@
             <p class="ksh__hint">
               If it will not focus, move closer or raise the screen brightness.
             </p>
+            <!-- A camera can open and still show nothing; that has to be said here, because this is
+                 where a person is standing, not back on the challenge screen. -->
+            <p class="ksh__hint ksh__sha-state--bad" id="scan-problem" hidden></p>
+            <p class="ksh__camera-detail" id="scan-problem-detail" hidden></p>
             <button class="ksh__btn" id="btn-scan-back">Back</button>
           </div>
 
@@ -173,14 +174,14 @@
           <div class="ksh__chip">
             <span class="ksh__chip-title"><span class="ksh__step-num">1</span>Transfer</span>
             <span class="ksh__chip-text">
-              Each file is checked against its sha256 before flashing.
+              Each file is checked against its sha256 before transfering.
             </span>
           </div>
           <div class="ksh__chip">
             <span class="ksh__chip-title">
               <span class="ksh__step-num">2</span>Approve on the Shell
             </span>
-            <span class="ksh__chip-text">Its screen asks you to confirm the flash.</span>
+            <span class="ksh__chip-text">Shell's screen will ask you to confirm the firmware / database transfer.</span>
           </div>
           <div class="ksh__chip">
             <span class="ksh__chip-title"><span class="ksh__step-num">3</span>Database second</span>

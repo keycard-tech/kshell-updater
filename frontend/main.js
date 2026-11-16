@@ -202,7 +202,7 @@ function render(kind) {
   refs.hint.textContent = ready?.error
     ? ready.error
     : offline
-      ? 'Offline - choose From file to install what you already have.'
+      ? 'Offline - only air-gapped update is available.'
       : preloadedState(kind) === 'failed'
         ? (preloadedNote(kind) ?? 'The file could not be read.')
         : '';
@@ -373,7 +373,7 @@ function renderSummary() {
   button.textContent = state.busy
     ? 'Transferring…'
     : !wanted.length
-      ? 'Nothing to update'
+      ? 'Transfer'
       : state.preloading
         ? 'Preparing files…'
         : waiting.length
@@ -737,6 +737,16 @@ const verify = {
   timer: null,
   verdict: null,
   drawn: false,
+  fetching: false,
+  noPicture: 0,
+  noPictureSent: false,
+  frames: 0,
+  slowSaid: false,
+  window: { at: 0, frames: 0 },
+  openedAt: 0,
+  stopWatch: null,
+  generation: 0,
+  problemDetail: null,
 };
 
 /** 20261112 as the site writes it: the date the list was built is how a list is named. */
@@ -745,6 +755,11 @@ const listDate = (build) => `${build}`.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2
 const dayDate = (days) => new Date(days * 86_400_000).toISOString().slice(0, 10);
 
 function stopCamera() {
+  clearTimeout(verify.noPicture);
+  verify.stopWatch?.();
+  verify.stopWatch = null;
+  verify.frames = 0;
+  verify.slowSaid = false;
   if (verify.timer) clearInterval(verify.timer);
   verify.timer = null;
   for (const track of verify.stream?.getTracks() ?? []) track.stop();
@@ -756,9 +771,13 @@ async function openVerify() {
   show('screen-verify');
   verify.problem = null;
   verify.drawn = false;
+  // The challenge is drawn before anything asks the network for a list: it does not depend on which
+  // list the answer is checked against, and a white tile sitting empty while a download is decided
+  // looks exactly like the failure it is not.
+  verify.status = await invoke('units_status').catch(() => null);
   renderVerify();
-  await ensureList();
   await ensureChallenge();
+  await fetchList();
   renderVerify();
 }
 
@@ -773,40 +792,60 @@ async function ensureChallenge() {
   verify.drawn = true;
 }
 
-/** A list is needed before a challenge means anything, so the screen waits for one. */
-async function ensureList() {
-  verify.status = await invoke('units_status').catch(() => null);
-  if (verify.mode !== 'online') return;
+/**
+ * One challenge per visit: drawing a second would invalidate what the Shell is already signing.
+ */
+async function ensureChallenge() {
+  if (verify.drawn) return;
   try {
-    verify.status = await invoke('units_fetch');
-    verify.net = 'online';
-  } catch (error) {
-    verify.net = 'offline';
-    // A cached list stays useful: the screen then says when it was fetched rather than nothing.
-    verify.status = (await invoke('units_status').catch(() => null)) ?? verify.status;
-    if (!verify.status) verify.problem = String(error);
-  }
-}
-
-async function useOwnList() {
-  const path = await invoke('plugin:dialog|open', {
-    options: {
-      multiple: false,
-      title: 'Choose a units list',
-      filters: [{ name: 'Produced units list', extensions: ['bin'] }],
-    },
-  });
-  if (!path) return;
-  try {
-    verify.status = await invoke('units_use_file', { path });
-    verify.mode = 'file';
-    verify.problem = null;
     await drawChallenge();
     verify.drawn = true;
   } catch (error) {
     verify.problem = String(error);
   }
+}
+
+/** The fetched list, asked for after the screen is up; a cached one stays useful when this fails. */
+async function fetchList() {
+  if (verify.mode !== 'online') return;
+  verify.fetching = true;
   renderVerify();
+  try {
+    verify.status = await invoke('units_fetch');
+    verify.net = 'online';
+    verify.problem = null;
+  } catch (error) {
+    verify.net = 'offline';
+    verify.status = (await invoke('units_status').catch(() => null)) ?? verify.status;
+    if (!verify.status) verify.problem = String(error);
+  }
+  verify.fetching = false;
+}
+
+function useOwnList() {
+  invoke('plugin:dialog|open', {
+    options: {
+      multiple: false,
+      title: 'Choose a units list',
+      filters: [{ name: 'Produced units list', extensions: ['bin'] }],
+    },
+  })
+    .then((path) => {
+      // Picking the file is the whole request: it is read and verified here, not behind a button.
+      if (!path) return null;
+      return invoke('units_use_file', { path });
+    })
+    .then((status) => {
+      if (!status) return;
+      verify.status = status;
+      verify.mode = 'file';
+      verify.problem = null;
+      return ensureChallenge();
+    })
+    .catch((error) => {
+      verify.problem = String(error);
+    })
+    .then(renderVerify);
 }
 
 async function drawChallenge() {
@@ -817,15 +856,18 @@ async function drawChallenge() {
 
 function renderVerify() {
   const loaded = Boolean(verify.status);
-  el('verify-list-online').classList.toggle('ksh__seg--on', verify.mode === 'online');
-  el('verify-list-file').classList.toggle('ksh__seg--on', verify.mode === 'file');
-  el('verify-net').textContent = verify.net === 'offline' ? 'No network' : 'Online';
-  el('verify-source').hidden = !loaded;
-  el('verify-list-line').hidden = !loaded;
+  const { origin, fetchedAt, file } = verify.status ?? {};
 
-  if (loaded) {
-    const { origin, fetchedAt, file } = verify.status;
-    const line = el('verify-list-line');
+  el('verify-list-online').classList.toggle('ksh__seg--on', loaded && verify.mode === 'online');
+  el('verify-list-file').classList.toggle('ksh__seg--on', loaded && verify.mode === 'file');
+  // With nothing on the computer, "Fetched list" is not a choice to make: the button below fetches it.
+  el('verify-list-online').disabled = !loaded;
+  el('verify-net').textContent = loaded && verify.net !== 'offline' ? 'Online' : 'No network';
+
+  const line = el('verify-list-line');
+  if (verify.fetching) {
+    line.textContent = 'Fetching the produced units list…';
+  } else if (loaded) {
     const verified = document.createElement('span');
     verified.className = 'ksh__sha--ok';
     verified.textContent = 'signature verified';
@@ -834,32 +876,39 @@ function renderVerify() {
       verified,
       ` · ${origin === 'file' ? file : `fetched ${dayDate(fetchedAt)}${origin === 'cached' ? ', no network since' : ''}`}`,
     );
+  } else {
+    const none = document.createElement('span');
+    none.className = 'ksh__sha-state--bad';
+    none.textContent = 'No list on this computer';
+    line.replaceChildren(none, ' · load one from file, or fetch it once you are online');
   }
 
-  el('verify-note').hidden = loaded && !verify.problem;
-  el('verify-note-text').textContent = loaded
-    ? String(verify.problem ?? '')
-    : verify.problem
-      ? `No units list could be loaded here: ${verify.problem}`
-      : 'No units list on this computer, so nothing can be concluded yet. The camera unlocks once one is loaded.';
-  el('btn-note-file').hidden = loaded;
-
-  el('verify-sub').textContent = loaded
-    ? 'The Shell signs a challenge; this computer checks it against the list of produced units'
-    : 'Checked against the signed list of produced units · no list loaded';
-  el('verify-qr-caption').textContent = loaded
-    ? 'Challenge QR code · valid for this session'
-    : 'The challenge means nothing until a list can check it';
+  // Only the reason something failed: the line above already says what to do about it.
+  el('verify-note').hidden = !verify.problem;
+  el('verify-note-text').textContent = String(verify.problem ?? '');
 
   const button = el('btn-camera');
-  button.textContent = loaded ? 'Enable camera' : 'Load units list';
-  button.disabled = false;
+  button.textContent = loaded
+    ? 'Enable camera'
+    : verify.fetching
+      ? 'Fetching units list…'
+      : 'Load units list';
+  button.disabled = verify.fetching;
+  // Solid orange means "go", and this screen can only say that with a list checked against.
+  button.classList.toggle('ksh__btn--primary', loaded);
 }
 
+// A "5M" webcam asked for nothing gets its biggest mode: 2592x1944 over USB arrives seconds apart,
+// which is a black preview and a code nobody can ever scan. 640x480 is more than the 420 px the
+// decoder window uses, and it is a mode every webcam has. ideal rather than an exact 640 because a
+// constraint one camera cannot satisfy means no camera at all.
+const CAMERA_MODE = { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 30 } };
+
 async function cameraStart(deviceId) {
+  const generation = ++verify.generation;
   try {
     verify.stream = await navigator.mediaDevices.getUserMedia({
-      video: deviceId ? { deviceId: { exact: deviceId } } : {},
+      video: { ...CAMERA_MODE, ...(deviceId ? { deviceId: { exact: deviceId } } : {}) },
       audio: false,
     });
   } catch (error) {
@@ -868,16 +917,21 @@ async function cameraStart(deviceId) {
     return;
   }
   verify.problem = null;
+  verify.problemDetail = null;
+  renderScan();
   show('screen-scan');
   // Nothing between the answer and the screen. play() takes a second or two, and on a WebKitGTK
   // without the gstreamer plugins it never settles at all; the frame is there to aim at either way,
   // and a picture that cannot be shown is said in the note box of a screen you can already read.
-  el('scan-video').srcObject = verify.stream;
-  el('scan-video')
-    .play()
-    .catch((error) => {
-      verify.problem = `The camera is open but its picture cannot be shown here: ${error}`;
-    });
+  const video = el('scan-video');
+  video.srcObject = verify.stream;
+  video.play().catch((error) => {
+    // Pointing the element at another camera rejects the play() of the load it replaces with an
+    // AbortError we caused ourselves; the watchdog is what says so if no frame ever arrives.
+    if (generation !== verify.generation || error?.name === 'AbortError') return;
+    verify.problem = `The camera is open but its picture cannot be shown here: ${error}`;
+    renderScan();
+  });
   await listCameras();
   startDecoding();
 }
@@ -913,9 +967,57 @@ function startDecoding() {
   canvas.height = size;
   const context = canvas.getContext('2d', { willReadFrequently: true });
 
+  clearTimeout(verify.noPicture);
   if (verify.timer) clearInterval(verify.timer);
+  // A webcam that opens and never delivers a frame is indistinguishable from a covered lens, so say
+  // it out loud rather than keep a black frame and a person holding a Shell up to it.
+  verify.noPictureSent = false;
+  verify.noPicture = setTimeout(() => {
+    if (video.readyState >= 2 || state.screen !== 'screen-scan') return;
+    // A second ask: sitting at readyState 0 until played again is on the record for WebKitGTK.
+    video.srcObject = verify.stream;
+    video.play().catch(() => {});
+    verify.noPicture = setTimeout(() => {
+      if (video.readyState >= 2 || state.screen !== 'screen-scan') return;
+      verify.noPictureSent = true;
+      verify.problem = 'This camera opened but sent no picture. Try another one below.';
+      verify.problemDetail = videoState(video);
+      renderScan();
+    }, 4000);
+  }, 3000);
+  verify.frames = 0;
+  verify.openedAt = performance.now();
+  verify.window = { at: performance.now(), frames: 0 };
+  verify.stopWatch?.();
+  verify.stopWatch = watchFrames(video, () => {
+    verify.frames += 1;
+  });
   verify.timer = setInterval(() => {
     if (state.screen !== 'screen-scan' || video.readyState < 2) return;
+    if (verify.noPictureSent) {
+      // A slow camera is not a dead one: the first frame takes back the accusation.
+      verify.noPictureSent = false;
+      verify.problem = null;
+      verify.problemDetail = null;
+      renderScan();
+    }
+    // Rate over a window, not the gap since the last frame: a camera at one picture a second has no
+    // gap long enough to look broken and still cannot be scanned. Measured, so a camera that speeds up
+    // takes the sentence back.
+    if (performance.now() - verify.window.at > 2000) {
+      const seconds = (performance.now() - verify.window.at) / 1000;
+      const fps = (verify.frames - verify.window.frames) / seconds;
+      verify.window = { at: performance.now(), frames: verify.frames };
+      const slow = verify.frames >= 2 && fps < 3;
+      if (slow !== verify.slowSaid) {
+        verify.slowSaid = slow;
+        verify.problem = slow
+          ? `This camera manages about ${fps.toFixed(1)} pictures a second, too slow to read a code. Try another one below.`
+          : null;
+        verify.problemDetail = slow ? videoState(video) : null;
+        renderScan();
+      }
+    }
     context.drawImage(video, 0, 0, size, size);
     const code = window.jsQR?.(context.getImageData(0, 0, size, size).data, size, size, {
       inversionAttempts: 'dontInvert',
@@ -935,6 +1037,51 @@ async function scanAnswer(text) {
   verify.verdict = verdict;
   renderVerdict();
   show('screen-verdict');
+}
+
+/** The scan screen speaks for itself: whatever goes wrong with the camera happens in front of it. */
+function renderScan() {
+  const problem = el('scan-problem');
+  problem.hidden = !verify.problem;
+  problem.textContent = String(verify.problem ?? '');
+  const detail = el('scan-problem-detail');
+  detail.hidden = !verify.problemDetail;
+  detail.textContent = String(verify.problemDetail ?? '');
+}
+
+/** What the media element itself says, for a report from a machine this app has never seen: the
+mode the camera agreed to is the difference between a dark room and a driver doing 0.3 fps. */
+function videoState(video) {
+  const track = verify.stream?.getVideoTracks()[0];
+  return [
+    `readyState ${video.readyState}`,
+    video.videoWidth ? `${video.videoWidth}×${video.videoHeight}` : 'no size',
+    `track ${track?.readyState ?? 'gone'}`,
+    `${verify.frames} frame${verify.frames === 1 ? '' : 's'} in ${Math.round((performance.now() - verify.openedAt) / 1000)}s`,
+    video.error ? String(video.error) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/**
+ * Counts the frames the element really receives, by whichever API this engine has. Without one of
+ * these a camera that manages one picture every three seconds looks exactly like a working one.
+ */
+function watchFrames(video, onFrame) {
+  if (video.requestVideoFrameCallback) {
+    let handle = video.requestVideoFrameCallback(function loop() {
+      onFrame();
+      handle = video.requestVideoFrameCallback(loop);
+    });
+    return () => video.cancelVideoFrameCallback?.(handle);
+  }
+  const track = verify.stream?.getVideoTracks()[0];
+  if (track?.addEventListener) {
+    track.addEventListener('frame', onFrame);
+    return () => track.removeEventListener('frame', onFrame);
+  }
+  return null;
 }
 
 function renderVerdict() {
@@ -1000,17 +1147,21 @@ el('btn-done').addEventListener('click', () => {
 });
 el('card-verify').addEventListener('click', openVerify);
 el('btn-verify-back').addEventListener('click', () => show('screen-home'));
-el('verify-list-online').addEventListener('click', () => {
-  if (verify.mode === 'online') return;
+el('verify-list-online').addEventListener('click', async () => {
+  if (verify.mode === 'online' && verify.status) return;
   verify.mode = 'online';
   verify.problem = null;
-  openVerify();
+  await fetchList();
+  renderVerify();
 });
 el('verify-list-file').addEventListener('click', useOwnList);
-el('btn-note-file').addEventListener('click', useOwnList);
-el('btn-camera').addEventListener('click', () => {
-  if (verify.status) cameraStart();
-  else useOwnList();
+el('btn-camera').addEventListener('click', async () => {
+  if (verify.status) {
+    cameraStart();
+    return;
+  }
+  await fetchList();
+  renderVerify();
 });
 el('btn-scan-back').addEventListener('click', () => {
   stopCamera();
