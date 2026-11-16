@@ -1,6 +1,8 @@
 use crate::net;
 use crate::units::{self, UnitList, UnitsError, LIST_ASSET_NAME};
 use crate::ur;
+use fast_qr::qr::QRBuilder;
+use fast_qr::{QRCode, ECL};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -216,13 +218,18 @@ pub fn units_use_file(units: tauri::State<'_, Units>, path: String) -> Result<Un
 }
 
 #[tauri::command]
-pub fn units_challenge(units: tauri::State<'_, Units>) -> Result<Challenge, String> {
-    let challenge = units::new_challenge();
-    let text = ur::ur_encode(&units::encode_init(&challenge));
-    let svg = challenge_svg(&text)?;
+pub fn units_challenge(
+    units: tauri::State<'_, Units>,
+    renew: Option<bool>,
+) -> Result<Challenge, String> {
     with_session(&units, |session| {
-        session.challenge = Some(challenge);
-        session.answered = false;
+        if renew.unwrap_or(false) || session.challenge.is_none() || session.answered {
+            session.challenge = Some(units::new_challenge());
+            session.answered = false;
+        }
+        let challenge = session.challenge.ok_or("no challenge could be made")?;
+        let text = ur::ur_encode(&units::encode_init(&challenge));
+        let svg = challenge_svg(&text)?;
         Ok(Challenge { text, svg })
     })
 }
@@ -258,23 +265,43 @@ pub fn units_check(units: tauri::State<'_, Units>, text: String) -> Result<Verdi
     })
 }
 
+const QUIET_ZONE_MODULES: usize = 4;
+
 pub fn challenge_svg(text: &str) -> Result<String, String> {
     use fast_qr::convert::svg::SvgBuilder;
     use fast_qr::convert::{Builder, Shape};
-    use fast_qr::qr::QRBuilder;
 
-    let code = QRBuilder::new(text.to_string())
-        .build()
-        .map_err(|e| format!("the challenge did not fit a QR code: {e}"))?;
     Ok(SvgBuilder::default()
-        .margin(2)
-        .shape(Shape::RoundedSquare)
-        .to_str(&code))
+        .margin(QUIET_ZONE_MODULES)
+        .shape(Shape::Square)
+        .to_str(&challenge_code(text)?))
+}
+
+/// Error level L, as shell-units docs/format.md asks for. fast_qr defaults to quartile, which spends
+/// a fifth of the symbol on redundancy the Shell's camera does not need and buys smaller modules with
+/// it - and that camera has a narrow focus range, so a denser code fails like one that is too small.
+fn challenge_code(text: &str) -> Result<QRCode, String> {
+    QRBuilder::new(text.to_string())
+        .ecl(ECL::L)
+        .build()
+        .map_err(|e| format!("the challenge did not fit a QR code: {e}"))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_challenge_code_is_sparse_enough_for_the_shell_to_focus_on() {
+        let text = format!("UR:DEV-AUTH/{}", "ae".repeat(42));
+        let code = challenge_code(&text).expect("a challenge fits a QR code");
+        assert_eq!(
+            code.size, 37,
+            "a challenge answer takes {} modules; quartile error correction would make it 41, \
+             and the Shell's camera has a narrow focus range",
+            code.size,
+        );
+    }
 
     #[test]
     fn a_list_arriving_after_the_challenge_leaves_the_challenge_alone() {

@@ -51,7 +51,8 @@ export const unitsFetch = (): Promise<UnitsStatus> => call('units_fetch');
 export const unitsUseFile = (path: string): Promise<UnitsStatus> =>
   call('units_use_file', { path });
 
-export const unitsChallenge = (): Promise<Challenge> => call('units_challenge');
+export const unitsChallenge = (renew: boolean): Promise<Challenge> =>
+  call('units_challenge', { renew });
 
 export const unitsCheck = (text: string): Promise<Verdict> => call('units_check', { text });
 

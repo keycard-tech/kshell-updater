@@ -17,6 +17,7 @@ export const answer = async (code: string): Promise<void> => {
     verdict = { outcome: 'refused', reason: reason(error) };
   }
   verify.verdict = verdict;
+  verify.answered = true;
   renderVerdict();
   show('screen-verdict');
 };

@@ -147,6 +147,9 @@ export const camera = {
   silent: 'This camera opened but sent no picture. Try another one below.',
   slow: (rate: string): string =>
     `This camera manages about ${rate} pictures a second, too slow to read a code. Try another one below.`,
+  stopped: 'This camera stopped by itself. Pick another one below.',
+  didNotWork: 'did not open',
+  sentNothing: 'sent no picture',
   unnamed: (index: number): string => `Camera ${index}`,
 };
 

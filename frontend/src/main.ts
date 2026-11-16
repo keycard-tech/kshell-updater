@@ -17,7 +17,13 @@ import {
   startTransfer,
 } from './update/transfer.js';
 import { cameraStart, stopCamera } from './verify/camera.js';
-import { fetchList, openVerify, renderVerify, useOwnList } from './verify/screen.js';
+import {
+  ensureChallenge,
+  fetchList,
+  openVerify,
+  renderVerify,
+  useOwnList,
+} from './verify/screen.js';
 import { renderScan, verify } from './verify/state.js';
 import { answer, verdictButton } from './verify/verdict.js';
 
@@ -86,12 +92,13 @@ async function useOnlineList(): Promise<void> {
 }
 
 async function startCamera(): Promise<void> {
-  if (verify.status) {
-    await cameraStart(answer);
+  if (!verify.status) {
+    await fetchList();
+    renderVerify();
     return;
   }
-  await fetchList();
-  renderVerify();
+  await ensureChallenge(false);
+  await cameraStart(answer);
 }
 
 async function switchCamera(deviceId: string): Promise<void> {

@@ -19,13 +19,16 @@ export interface VerifyState {
   silentSaid: boolean;
   stopWatch: (() => void) | null;
   verdict: Verdict | null;
-  drawn: boolean;
+  challengeText: string | null;
+  drawing: Promise<void> | null;
+  answered: boolean;
   fetching: boolean;
   frames: number;
   slowSaid: boolean;
   rate: { at: number; frames: number };
   openedAt: number;
   generation: number;
+  broken: Map<string, string>;
 }
 
 export const verify: VerifyState = {
@@ -40,13 +43,16 @@ export const verify: VerifyState = {
   silentSaid: false,
   stopWatch: null,
   verdict: null,
-  drawn: false,
+  challengeText: null,
+  drawing: null,
+  answered: false,
   fetching: false,
   frames: 0,
   slowSaid: false,
   rate: { at: 0, frames: 0 },
   openedAt: 0,
   generation: 0,
+  broken: new Map(),
 };
 
 export const renderScan = (): void => {

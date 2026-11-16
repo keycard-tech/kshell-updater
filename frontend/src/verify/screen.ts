@@ -14,24 +14,34 @@ import { listReady, verify } from './state.js';
 export const openVerify = async (): Promise<void> => {
   show('screen-verify');
   verify.problem = null;
-  verify.drawn = false;
   verify.listProblem = false;
   verify.status = (await unitsStatus().catch(() => null)) ?? null;
   renderVerify();
-  await ensureChallenge();
+  if (verify.challengeText === null || verify.answered) {
+    await ensureChallenge(verify.answered);
+  }
   await fetchList();
   renderVerify();
 };
 
-const ensureChallenge = async (): Promise<void> => {
-  if (verify.drawn) return;
-  try {
-    const { svg } = await unitsChallenge();
-    el('verify-qr').innerHTML = svg;
-    verify.drawn = true;
-  } catch (error) {
-    verify.problem = reason(error);
-  }
+/** The code the Shell signs belongs to the verify session: a list arriving, a camera restarting or a
+    render never replaces it, because the Shell may already be signing that one. Only a session that
+    ended asks for a fresh code, and a second call while one is on its way joins it. */
+export const ensureChallenge = async (renew: boolean): Promise<void> => {
+  if (verify.drawing) return verify.drawing;
+  verify.drawing = (async () => {
+    try {
+      const challenge = await unitsChallenge(renew);
+      verify.challengeText = challenge.text;
+      el('verify-qr').innerHTML = challenge.svg;
+      if (renew) verify.answered = false;
+    } catch (error) {
+      verify.problem = reason(error);
+    } finally {
+      verify.drawing = null;
+    }
+  })();
+  return verify.drawing;
 };
 
 export const fetchList = async (): Promise<void> => {
@@ -64,7 +74,6 @@ export const useOwnList = async (): Promise<void> => {
       verify.mode = 'file';
       verify.problem = null;
       verify.listProblem = false;
-      await ensureChallenge();
     }
   } catch (error) {
     verify.problem = reason(error);

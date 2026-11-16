@@ -1,5 +1,6 @@
 .ksh__verify {
-  --scale: 1.15;
+  --scale: 0.95;
+  --qr: min(330px, 46vw, 52vh);
   flex: 1;
   min-height: 0;
   display: flex;
@@ -25,6 +26,7 @@
 .ksh__verify-side {
   flex: 1;
   min-width: 0;
+  max-width: 46ch;
   display: flex;
   flex-direction: column;
   gap: calc(12px * var(--scale));
@@ -75,8 +77,8 @@
 
 .ksh__qr-tile {
   position: relative;
-  width: calc(236px * var(--scale));
-  height: calc(236px * var(--scale));
+  width: var(--qr);
+  height: var(--qr);
   padding: calc(12px * var(--scale));
   background: var(--ink);
   border-radius: var(--radius-card);
@@ -117,8 +119,8 @@
 
 .ksh__video {
   position: relative;
-  width: calc(236px * var(--scale));
-  height: calc(236px * var(--scale));
+  width: var(--qr);
+  height: var(--qr);
   background: var(--surface);
   border: solid 1px var(--line-quiet);
   border-radius: var(--radius-card);
@@ -141,7 +143,11 @@
 }
 
 .ksh__select--camera {
-  max-width: calc(236px * var(--scale));
+  max-width: var(--qr);
+}
+
+.ksh__done--verify {
+  --scale: 0.95;
 }
 
 .ksh__done--verify img {

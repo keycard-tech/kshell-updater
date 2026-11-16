@@ -39,10 +39,10 @@
       "outcome": "row"
     },
     {
-      "name": "replayed against another challenge",
+      "name": "replayed against another challenge is a miss, not a refusal",
       "challenge": "c078a99d6ff4d638f1a5f50bc7dd71c9939bec3c5fd2b1a6a4a4dcd3e7cd8a74",
       "response": "a4010202d82550ffff18bc4422737055897757e286d1140658208f08dbbcf89d3510cb44f7eb69f71bd8e5ebce84d74bc97a7d36497b2151ddfd075840cae654a9905e08b4c1202a01136e45751086fbf7a72c8360ccb14b54b40f7dc471650cefa28add191419b283f6359ee47ac1c67d8e58e1b36511a4610c10a904",
-      "outcome": "refusal"
+      "outcome": "not-registered"
     },
     {
       "name": "listed uid signed by an unlisted key",

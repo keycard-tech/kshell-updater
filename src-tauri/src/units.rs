@@ -307,9 +307,9 @@ pub fn check_answer(
     let signature = answer
         .signature
         .ok_or_else(|| UnitsError::Refusal("no signature".into()))?;
-    if answer.challenge.as_deref() != Some(challenge.as_slice()) {
-        return refuse("device signed a different challenge than this session asked for");
-    }
+    // Field 6 of the answer is device randomness and is checked against nothing (shell-units
+    // docs/format.md). The answer is bound to this session by sha256(uid || challenge): an answer
+    // made for another challenge recovers a point no row holds.
     if uid.len() != UID_LEN {
         return refuse(format!(
             "unit id is {} bytes, the list expects {UID_LEN}",
@@ -328,14 +328,19 @@ pub fn check_answer(
     let sig = sig.normalize_s().unwrap_or(sig);
     let digest = Sha256::digest([uid.as_slice(), challenge.as_slice()].concat());
 
+    let mut recovered_any = false;
     for id in 0..2 {
         let Ok(key) = recover(&sig, &digest, id) else {
             continue;
         };
+        recovered_any = true;
         let point = key.to_encoded_point(true);
         if let Some(row) = list.row_holding(&row_hash(list.salt(), &uid, point.as_bytes())) {
             return Ok(row);
         }
+    }
+    if !recovered_any {
+        return refuse("the signature recovers no public key");
     }
 
     Err(UnitsError::NotRegistered { uid: hex(&uid) })
