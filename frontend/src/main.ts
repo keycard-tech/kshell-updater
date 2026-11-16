@@ -5,14 +5,13 @@ import { show } from './base/screens.js';
 import { state } from './base/state.js';
 import type { FlashProgress, Preloaded } from './types.js';
 import { presencePollMs } from './config.js';
-import * as text from './strings.js';
 import { el } from './utils.js';
 import { refresh, showWaiting } from './update/device.js';
 import { keyFor } from './update/files.js';
 import { loadReleases, preload } from './update/releases.js';
 import { readRecord } from './update/record.js';
 import { buildRows, render } from './update/rows.js';
-import { cancelTransfer, renderTransfer, startTransfer } from './update/transfer.js';
+import { cancelTransfer, renderTransfer, retryTransfer, startTransfer } from './update/transfer.js';
 import { cameraStart, stopCamera } from './verify/camera.js';
 import { fetchList, openVerify, renderVerify, useOwnList } from './verify/screen.js';
 import { renderScan, verify } from './verify/state.js';
@@ -22,11 +21,8 @@ buildRows();
 
 el<HTMLButtonElement>('btn-transfer').addEventListener('click', () => void startTransfer());
 el<HTMLButtonElement>('btn-cancel').addEventListener('click', cancelTransfer);
-el<HTMLButtonElement>('btn-transfer-back').addEventListener('click', () => {
-  state.transferError = null;
-  show('screen-ready');
-  void refresh();
-});
+el<HTMLButtonElement>('btn-retry').addEventListener('click', () => void retryTransfer());
+el<HTMLButtonElement>('btn-ready-verify').addEventListener('click', () => void openVerify());
 el<HTMLButtonElement>('card-update').addEventListener('click', () => {
   if (!state.device || !state.config) return;
   show('screen-ready');
@@ -51,13 +47,15 @@ el<HTMLSelectElement>('scan-camera').addEventListener('change', (event) =>
 );
 el<HTMLButtonElement>('btn-verdict').addEventListener('click', verdictButton);
 
-listen(events.connected, () => void refresh());
+// No configuration read while a write owns the device: the Shell answers with what it runs when the
+// command in flight returns.
+listen(events.connected, () => {
+  if (!state.busy) void refresh();
+});
 listen(events.disconnected, () => {
-  if (state.screen === 'screen-transfer' && !state.transferError) {
-    // No device, no write: the percentage would sit there frozen.
-    state.transferError = text.transfer.disconnected;
-  }
-  renderTransfer();
+  // A firmware write ends with the Shell restarting, and the watcher sees that as an unplug. The
+  // screen stays where it is: the command in flight answers with the outcome, restart included.
+  if (state.busy) return;
   showWaiting();
 });
 listen<FlashProgress>(events.flashProgress, (progress) => {

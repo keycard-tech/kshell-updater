@@ -3,14 +3,21 @@
 import { el } from '../utils.js';
 import type { UnitsStatus, Verdict } from '../types.js';
 
+/**
+ * `units_status` answers with an empty status rather than an error when nothing has been loaded, so
+ * the build number is what says a list is really here. Everything the screen allows or blurs hangs
+ * on it.
+ */
+export const listLoaded = (status: UnitsStatus | null): status is UnitsStatus =>
+  Boolean(status?.build);
+
 export interface VerifyState {
   /** The list the screen describes, straight from `units_status`. */
   status: UnitsStatus | null;
   mode: 'online' | 'file';
   net: 'unknown' | 'online' | 'offline';
-  /** Why the camera or the list is not available yet: said in the note box, never in a dialog. */
+  /** Why the camera or the list is not available yet: said on the screen, never in a dialog. */
   problem: string | null;
-  problemDetail: string | null;
   stream: MediaStream | null;
   decodeTimer: number | null;
   silentWait: number | null;
@@ -31,7 +38,6 @@ export const verify: VerifyState = {
   mode: 'online',
   net: 'unknown',
   problem: null,
-  problemDetail: null,
   stream: null,
   decodeTimer: null,
   silentWait: null,
@@ -52,13 +58,9 @@ export const renderScan = (): void => {
   const problem = el('scan-problem');
   problem.hidden = !verify.problem;
   problem.textContent = verify.problem ?? '';
-  const detail = el('scan-problem-detail');
-  detail.hidden = !verify.problemDetail;
-  detail.textContent = verify.problemDetail ?? '';
 };
 
-export const say = (problem: string | null, detail: string | null = null): void => {
+export const say = (problem: string | null): void => {
   verify.problem = problem;
-  verify.problemDetail = detail;
   renderScan();
 };

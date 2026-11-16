@@ -9,9 +9,9 @@ import {
 } from '../base/bridge.js';
 import { show } from '../base/screens.js';
 import * as text from '../strings.js';
-import { asHtml, el, reason } from '../utils.js';
+import { el, reason } from '../utils.js';
 import { listLine } from '../views/verify.js';
-import { verify } from './state.js';
+import { listLoaded, verify } from './state.js';
 
 export const openVerify = async (): Promise<void> => {
   show('screen-verify');
@@ -77,17 +77,19 @@ export const useOwnList = async (): Promise<void> => {
 };
 
 export const renderVerify = (): void => {
-  const loaded = Boolean(verify.status);
+  const loaded = listLoaded(verify.status);
 
   const online = el<HTMLButtonElement>('verify-list-online');
   online.classList.toggle('ksh__seg--on', loaded && verify.mode === 'online');
   el('verify-list-file').classList.toggle('ksh__seg--on', loaded && verify.mode === 'file');
   // With nothing on the computer, "Fetched list" is not a choice to make: the button below fetches it.
   online.disabled = !loaded;
-  el('verify-net').textContent =
-    loaded && verify.net !== 'offline' ? text.verify.online : text.verify.noNetwork;
+  el('verify-list-line').textContent = listLine(verify.status, verify.fetching);
 
-  el('verify-list-line').innerHTML = asHtml(listLine(verify.status, verify.fetching));
+  // The challenge is worth showing before there is a list, since fetching one is what unlocks the
+  // camera - but blurred, so nobody scans a code this computer cannot check the answer of.
+  el('verify-qr-tile').classList.toggle('ksh__qr-tile--blurred', !loaded);
+  el('verify-qr-note').hidden = loaded;
 
   // Only the reason something failed: the line above already says what to do about it.
   el('verify-note').hidden = !verify.problem;

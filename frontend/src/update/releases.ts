@@ -4,7 +4,7 @@ import { listReleases, preloadImages } from '../base/bridge.js';
 import { state } from '../base/state.js';
 import * as text from '../strings.js';
 import { el, reason } from '../utils.js';
-import { filesFor, versionOf } from './files.js';
+import { filesFor } from './files.js';
 import { renderHome } from './home.js';
 import { renderRows, renderSummary } from './rows.js';
 
@@ -13,18 +13,15 @@ export const loadReleases = async (): Promise<void> => {
     try {
       state.files[kind] = (await listReleases(kind)).files;
     } catch (error) {
+      // The reason is a support detail, and it has nowhere else to go now the row says only `No list`.
+      console.warn(`could not list ${kind} releases:`, reason(error));
       state.listError = reason(error);
       state.files[kind] = [];
     }
     renderRows();
   }
-  const firmware = versionOf(filesFor('firmware')[0]);
-  const database = versionOf(filesFor('database')[0]);
-  el('status-note').textContent = state.listError
-    ? text.releases.offline
-    : firmware && database
-      ? text.releases.online(firmware, database)
-      : text.releases.reading;
+  // Offline is a state a person has to know; a list of what is newest is plumbing.
+  el('status-note').textContent = state.listError ? text.releases.offline : '';
   renderHome();
 };
 

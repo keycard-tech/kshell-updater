@@ -29,39 +29,35 @@ export const variants: Record<number, string> = { 0: 'omni', 1: 'btc' };
 export const title = (kind: ImageKind): string =>
   kinds.find((entry) => entry.kind === kind)?.title ?? kind;
 
-/** Words the row shows and the code matches on: `cancelled` is `CANCELLED` in src-tauri/src/lib.rs. */
+/** The status word of a row: said, never matched on. */
 export const status = {
   reading: 'Reading…',
   noFile: 'No file',
   noList: 'No list',
   variantSwitch: 'Variant switch',
-  downgrade: 'Downgrade',
   upToDate: 'Up to date',
   newVersion: 'New version',
-  cancelled: 'cancelled',
+  older: 'Older version',
 };
 
 export const home = {
   badgeNoDevice: 'USB-C required',
   badgeNotReady: 'Device not ready',
-  badgeReady: 'Device ready',
   badgeUpToDate: 'Up to date',
-  connect:
-    'Unlock your Shell and connect it with a USB-C cable, then choose what to transfer: firmware, database or both.',
+  badgeOwed: 'Update owed',
+  badgeUpdates: (count: number): string => `${count} update${count > 1 ? 's' : ''}`,
+  connect: 'Connect the Shell with a USB-C cable and unlock it to choose what to write.',
+  connectHint: 'Nothing to choose until the Shell is connected',
+  prompt: 'Write the newest firmware and the newest Ethereum database to the Shell.',
+  runs: (firmware: string, variant: string, database: string): string =>
+    `It runs firmware ${firmware}${variant} and database ${database}`,
   silentDevice: 'The Shell did not answer. Lock it and try again.',
-  updated: (parts: string, both: boolean): string =>
-    `${parts} on this Shell ${both ? 'can both' : 'can'} be updated. You approve the flash on the device screen.`,
-  current: 'This Shell runs the newest firmware and database.',
-  start: 'Connect your Shell to start',
   replug: 'Unplug the Shell and plug it back in if it stays like this.',
   owed: (versions: string): string =>
     `An update did not finish: this Shell still runs ${versions}.`,
-  offline: 'Offline · updates from file only',
-  checking: 'Checking the files…',
-  airGapped: 'Works with no internet connection, from files you already downloaded.',
-  partFirmware: (version: string): string => `Firmware ${version}`,
-  partDatabase: (version: string): string => `database ${version}`,
 };
+
+/** The action under the release rows. */
 
 export const summary = {
   selected: (count: number): string =>
@@ -81,7 +77,8 @@ export const row = {
   choose: 'Choose a .bin file',
   fromFileVersion: (version: string, variant: string): string =>
     `${version}${variant ? `-${variant}` : ''} from file`,
-  offlineHint: 'Offline - only air-gapped update is available.',
+  older: (kind: string, onDevice: string): string =>
+    `The file you loaded is older than the ${kind} ${onDevice} on this Shell.`,
   unreadable: 'The file could not be read.',
   unknownVersion: '—',
   variantOption: (version: string, variant: string): string => `${version} - ${variant}`,
@@ -99,24 +96,22 @@ export const hash = {
 
 export const transfer = {
   titleBusy: 'Transferring',
-  titleCancelled: 'Transfer cancelled',
-  titleFailed: 'Update failed',
-  step: (step: number, total: number): string => `${step} / ${total}`,
   percent: (percent: number): string => `${percent}%`,
-  bytes: (done: string, total: string): string => `${done} / ${total} bytes`,
   keepConnected: 'Please do not disconnect the device.',
-  cancelling: 'Cancelling after the chunk in flight…',
+  // The two words a queue line can hold: the one moving shows the loader, the rest wait their turn.
+  item: { done: 'Done', queued: 'Queued' },
+};
+
+/**
+ * One screen for everything that stopped a write. Its title is the first sentence of what went
+ * wrong, so the sentences worth naming live here and the rest arrive from Rust already written.
+ */
+export const failed = {
+  nothing: 'The transfer failed.',
   cameBack: (differences: string): string =>
     `The Shell came back with ${differences}.`,
   cameBackItem: (kind: string, now: string, wanted: string): string =>
     `${kind} ${now} instead of ${wanted}`,
-  disconnected: 'The device was disconnected.',
-  item: {
-    done: 'Done',
-    failed: 'Failed',
-    notStarted: 'Not started',
-    queued: 'Queued',
-  },
 };
 
 export const record = {
@@ -136,35 +131,21 @@ export const device = {
   name: (productName: string): string => `${productName} connected`,
   productName: 'Keycard Shell',
   connected: (serial: string): string => `Keycard Shell connected · SN ${serial}`,
-  onDevice: (
-    serial: string,
-    firmware: string,
-    variant: string,
-    database: string,
-  ): string => `SN ${serial} · on device: firmware ${firmware}${variant}, database ${database}`,
+  serial: (serial: string): string => `serial ${serial}`,
   keyTitle: (key: string): string => `attestation key ${key}`,
   absent: 'No device connected',
 };
 
-export const releases = {
-  offline: 'Offline · updates from file only',
-  online: (firmware: string, database: string): string =>
-    `Online · latest firmware ${firmware} · latest database ${database}`,
-  reading: 'reading the release list…',
-};
+export const releases = { offline: 'Offline · updates from file only' };
 
 export const verify = {
   fetching: 'Fetching the produced units list…',
-  signatureVerified: 'signature verified',
-  fetched: (date: string): string => `fetched ${date}`,
-  cached: ', no network since',
-  noList: 'No list on this computer',
-  noListHint: ' · load one from file, or fetch it once you are online',
-  online: 'Online',
-  noNetwork: 'No network',
+  fetched: (date: string): string => `Units list fetched ${date}`,
+  fromFile: (name: string): string => `Units list from ${name}`,
+  noList: 'Load one with Own list to verify offline.',
   enableCamera: 'Enable camera',
   fetchingList: 'Fetching units list…',
-  loadList: 'Load units list',
+  loadList: 'Fetch units list',
 };
 
 export const camera = {
@@ -176,13 +157,6 @@ export const camera = {
   slow: (rate: string): string =>
     `This camera manages about ${rate} pictures a second, too slow to read a code. Try another one below.`,
   unnamed: (index: number): string => `Camera ${index}`,
-  readyState: (state: number): string => `readyState ${state}`,
-  size: (width: number, height: number): string => `${width}×${height}`,
-  noSize: 'no size',
-  track: (state: string): string => `track ${state}`,
-  trackGone: 'gone',
-  counted: (frames: number, seconds: number): string =>
-    `${frames} frame${frames === 1 ? '' : 's'} in ${seconds}s`,
 };
 
 export interface Shown {
@@ -194,23 +168,22 @@ export interface Shown {
 
 export const verdict = {
   nothingScanned: 'nothing was scanned',
-  listUpdated: (date: string): string => `Produced units list last updated ${date}`,
-  authentic: (updated: string): Shown => ({
+  authentic: (): Shown => ({
     title: 'Your Shell is authentic',
-    text: 'It signed the challenge correctly and it is on our produced units list.',
-    sub: `${updated} · checked on this computer`,
+    text: 'It is in the list of produced units, and it signed this challenge itself.',
+    sub: '',
     button: 'Done',
   }),
-  notRegistered: (uid: string, updated: string): Shown => ({
-    title: 'Your Shell is not on our produced units list',
-    text: `The response was signed correctly, but no entry matches ${uid}. We can go through the process together.`,
-    sub: updated,
+  notRegistered: (uid: string): Shown => ({
+    title: 'No device with this id is in the produced units list',
+    text: 'Contact our team to check it.',
+    sub: uid,
     button: 'Learn more',
   }),
-  refused: (reason: string, updated: string): Shown => ({
-    title: 'Shell was not verified',
-    text: `Something went wrong: ${reason}. Go to Settings/Shell/Verify on your Shell and try again.`,
-    sub: updated,
+  refused: (reason: string): Shown => ({
+    title: 'This Shell could not be verified',
+    text: 'Go to Settings/Shell/Verify on the Shell and try again.',
+    sub: reason,
     button: 'Try again',
   }),
 };

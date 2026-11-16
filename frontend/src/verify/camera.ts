@@ -44,7 +44,6 @@ export const cameraStart = async (
     return;
   }
   verify.problem = null;
-  verify.problemDetail = null;
   renderScan();
   show('screen-scan');
   // Nothing between the answer and the screen: play() can settle late or never, and the frame to
@@ -96,7 +95,8 @@ const startDecoding = (onCode: (text: string) => void): void => {
     verify.silentWait = setTimeout(() => {
       if (video.readyState >= 2 || state.screen !== 'screen-scan') return;
       verify.silentSaid = true;
-      say(text.camera.silent, videoState(video));
+      say(text.camera.silent);
+      console.warn('camera sent no picture:', videoState(video));
     }, silentCamera.secondWaitMs);
   }, silentCamera.firstWaitMs);
 
@@ -124,10 +124,8 @@ const startDecoding = (onCode: (text: string) => void): void => {
       const slow = verify.frames >= slowCamera.minFrames && fps < slowCamera.minFps;
       if (slow !== verify.slowSaid) {
         verify.slowSaid = slow;
-        say(
-          slow ? text.camera.slow(fps.toFixed(1)) : null,
-          slow ? videoState(video) : null,
-        );
+        say(slow ? text.camera.slow(fps.toFixed(1)) : null);
+        if (slow) console.warn('camera is too slow to scan:', videoState(video));
       }
     }
     context.drawImage(video, 0, 0, decodeWindowPx, decodeWindowPx);
@@ -141,23 +139,19 @@ const startDecoding = (onCode: (text: string) => void): void => {
   }, scanIntervalMs);
 };
 
-/** What the media element itself says, so a report from a machine this app has never seen carries numbers. */
+/** Numbers for a report from a machine this app has never seen: the console, not the screen. */
 const videoState = (video: HTMLVideoElement): string => {
   const track = verify.stream?.getVideoTracks()[0];
-  return [
-    text.camera.readyState(video.readyState),
-    video.videoWidth
-      ? text.camera.size(video.videoWidth, video.videoHeight)
-      : text.camera.noSize,
-    text.camera.track(track?.readyState ?? text.camera.trackGone),
-    text.camera.counted(
-      verify.frames,
-      Math.round((performance.now() - verify.openedAt) / 1000),
-    ),
-    video.error ? String(video.error) : '',
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  return JSON.stringify({
+    deviceId: track?.getSettings().deviceId ?? null,
+    resolution: video.videoWidth ? `${video.videoWidth}x${video.videoHeight}` : null,
+    settings: track?.getSettings() ?? null,
+    readyState: video.readyState,
+    trackState: track?.readyState ?? 'gone',
+    frames: verify.frames,
+    seconds: Math.round((performance.now() - verify.openedAt) / 1000),
+    error: video.error ? String(video.error) : null,
+  });
 };
 
 /** Counts the frames the element really receives, by whichever API this engine has. */

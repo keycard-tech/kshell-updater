@@ -10,9 +10,6 @@ export const images = {
 
 export const presencePollMs = 1500;
 
-/** A flashed firmware restarts the Shell: how long to keep asking it for its configuration. */
-export const deviceReturn = { attempts: 20, delayMs: 1000 };
-
 /** A "5M" webcam left alone picks 2592x1944 over USB and delivers seconds per frame; ideal, not exact, because a constraint the camera cannot meet means no camera at all. */
 export const cameraMode: MediaTrackConstraints = {
   width: { ideal: 640 },

@@ -6,7 +6,16 @@ import * as text from '../strings.js';
 import type { ImageKind } from '../types.js';
 import { asHtml, el, reason } from '../utils.js';
 import { rowShell, shaFromFile, shaFromRelease, versionSelect, versionStatic } from '../views/rows.js';
-import { checkedOf, filesFor, isReadyToFlash, noteOf, selectedFile, versionOf } from './files.js';
+import {
+  checkedOf,
+  deviceVersion,
+  filesFor,
+  isReadyToFlash,
+  noteOf,
+  olderThan,
+  selectedFile,
+  versionOf,
+} from './files.js';
 
 interface RowRefs {
   row: HTMLElement;
@@ -79,6 +88,11 @@ export const rowState = (kind: ImageKind): RowStatus => {
   if (state.mode[kind] === 'file') {
     const picked = state.ready[kind]?.info;
     if (!picked) return { status: text.status.noFile, modifier: 'empty', wanted: false };
+    const onDevice = deviceVersion(kind);
+    // Older is not a thing to be talked into: it is said, and the row stops asking. The Shell keeps
+    // its own refusal for anything else we cannot judge from a version number.
+    if (onDevice && olderThan(picked.version, onDevice))
+      return { status: text.status.older, modifier: 'empty', wanted: false };
     return {
       status: text.row.fromFileVersion(
         picked.version,
@@ -141,9 +155,17 @@ export const render = (kind: ImageKind): void => {
 
   if (mode === 'online') renderField(kind, refs);
 
+  // Once a file is picked its name replaces the request for one, in the same compact box.
+  const picked = ready?.key?.split('/').pop() ?? null;
+  refs.pick.classList.toggle('ksh__btn--chosen', Boolean(picked));
+  refs.pick.textContent = picked ?? text.row.choose;
+
   const problem = rowProblem(kind, ready);
+  refs.hint.classList.toggle('ksh__hint--bad', problem.bad);
   refs.hint.textContent = problem.text;
   refs.hint.title = problem.detail;
+  // With nothing to say the hint takes no room and the hash stands alone on the right.
+  refs.hint.hidden = !problem.text;
 
   const sha =
     mode === 'file'
@@ -190,12 +212,15 @@ const renderField = (kind: ImageKind, refs: RowRefs): void => {
 const rowProblem = (
   kind: ImageKind,
   ready: ReadyFile | null,
-): { text: string; detail: string } => {
-  if (ready?.error) return { text: ready.error, detail: '' };
-  if (state.listError) return { text: text.row.offlineHint, detail: state.listError };
+): { text: string; detail: string; bad: boolean } => {
+  if (ready?.error) return { text: ready.error, detail: '', bad: true };
+  const onDevice = deviceVersion(kind);
+  if (ready?.info && state.mode[kind] === 'file' && onDevice && olderThan(ready.info.version, onDevice))
+    return { text: text.row.older(text.title(kind).toLowerCase(), onDevice), detail: '', bad: true };
+  // Offline needs no line here: the status word says `No list` and the status bar says why.
   if (checkedOf(kind) === 'failed')
-    return { text: noteOf(kind) ?? text.row.unreadable, detail: '' };
-  return { text: '', detail: '' };
+    return { text: noteOf(kind) ?? text.row.unreadable, detail: '', bad: true };
+  return { text: '', detail: '', bad: false };
 };
 
 export const renderSummary = (): void => {

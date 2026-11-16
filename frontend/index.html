@@ -23,10 +23,9 @@
           <div class="ksh__card-body">
             <div class="ksh__card-text">
               <p class="ksh__prompt" id="home-text">
-                Unlock your Shell and connect it with a USB-C cable, then choose what to transfer:
-                firmware, database or both.
+                Connect the Shell with a USB-C cable and unlock it to choose what to write.
               </p>
-              <span class="ksh__hint" id="home-sub">Connect your Shell to start</span>
+              <span class="ksh__hint" id="home-sub">Nothing to choose until the Shell is connected</span>
             </div>
             <img class="ksh__card-img" src="img/connect_shell.png" alt="" id="home-img" />
           </div>
@@ -40,10 +39,9 @@
           <div class="ksh__card-body">
             <div class="ksh__card-text">
               <p class="ksh__prompt">
-                Scan a challenge with your Shell, let it sign it, then scan the QR code it displays.
-                The answer is checked against the signed list of units that left the factory.
+                Scan a challenge with your Shell, then scan the QR code it answers with.
               </p>
-              <span class="ksh__hint">No USB cable · Settings/Shell/Verify on the device</span>
+              <span class="ksh__hint">No USB cable · Settings/Shell/Verify on the Shell</span>
             </div>
             <img class="ksh__card-img ksh__card-img--qr" src="img/qr-glyph-dark.svg" alt="" />
           </div>
@@ -56,7 +54,7 @@
           <div>
             <h1 class="ksh__h1">Verify authenticity of Shell</h1>
             <p class="ksh__prompt" id="verify-sub">
-              The Shell signs a challenge; this computer checks it against the list of produced units
+              Nothing is uploaded: this computer checks the answer against the pinned key.
             </p>
           </div>
           <span class="ksh__badge">Camera only</span>
@@ -67,30 +65,25 @@
             <ol class="ksh__steps">
               <li>
                 <span class="ksh__step-num">1</span>
-                <span>On the Shell open <b>Settings/Shell/Verify</b> and scan this QR code.</span>
+                <span>Open <b>Settings/Shell/Verify</b> and scan this code.</span>
               </li>
               <li>
                 <span class="ksh__step-num">2</span>
-                <span>The Shell displays a response QR code.</span>
+                <span>The Shell shows a response code.</span>
               </li>
               <li>
                 <span class="ksh__step-num">3</span>
-                <span>Scan that QR code with this computer's camera.</span>
+                <span>Scan it with this camera.</span>
               </li>
             </ol>
-
-            <p class="ksh__hint">
-              Nothing is uploaded: the response is checked on this computer against the pinned key.
-            </p>
 
             <div id="verify-source">
               <div class="ksh__segmented">
                 <button type="button" class="ksh__seg" id="verify-list-online">Fetched list</button>
                 <button type="button" class="ksh__seg" id="verify-list-file">Own list</button>
               </div>
-              <span class="ksh__chip ksh__chip--quiet" id="verify-net">Online</span>
+              <span class="ksh__hint" id="verify-list-line"></span>
             </div>
-            <span class="ksh__hint" id="verify-list-line"></span>
 
             <div class="ksh__note" id="verify-note" hidden>
               <p id="verify-note-text"></p>
@@ -107,8 +100,11 @@
           </div>
 
           <figure class="ksh__qr">
-            <div class="ksh__qr-tile" id="verify-qr"></div>
-            <figcaption id="verify-qr-caption">Challenge QR code · valid for this session</figcaption>
+            <div class="ksh__qr-tile" id="verify-qr-tile">
+              <div id="verify-qr"></div>
+              <span class="ksh__qr-note" id="verify-qr-note" hidden>No units list available</span>
+            </div>
+            <figcaption id="verify-qr-caption">Scan this code on the Shell</figcaption>
           </figure>
         </div>
       </div>
@@ -118,7 +114,7 @@
         <div class="ksh__head">
           <div>
             <h1 class="ksh__h1" id="scan-title">Now scan the Shell QR code</h1>
-            <p class="ksh__prompt" id="scan-sub">Hold the Shell screen inside the frame</p>
+            <p class="ksh__prompt" id="scan-sub">Point the camera at the Shell screen.</p>
           </div>
           <span class="ksh__badge" id="scan-badge">Scanning…</span>
         </div>
@@ -126,12 +122,13 @@
         <div class="ksh__verify-body">
           <div class="ksh__verify-side">
             <p class="ksh__prompt">
-              Keep the Shell screen steady. Nothing is uploaded: the response is checked on this
-              computer against the pinned units list key.
+              Nothing is uploaded. The code is read here and checked against the list of produced
+              units.
             </p>
-            <p class="ksh__hint">If it will not focus, move closer or raise the screen brightness.</p>
-            <p class="ksh__hint ksh__sha-state--bad" id="scan-problem" hidden></p>
-            <p class="ksh__camera-detail" id="scan-problem-detail" hidden></p>
+            <p class="ksh__hint ksh__hint--bad" id="scan-problem" hidden></p>
+            <p class="ksh__hint">
+              Hold it flat and steady. If it will not focus, move closer or turn the brightness up.
+            </p>
             <button class="ksh__btn" id="btn-scan-back">Back</button>
           </div>
 
@@ -195,6 +192,9 @@
             <button class="ksh__btn ksh__btn--primary" id="btn-transfer" disabled>
               Transfer to device
             </button>
+            <button class="ksh__link ksh__link--button ksh__link--block" type="button" id="btn-ready-verify">
+              Verify device
+            </button>
           </div>
         </div>
       </div>
@@ -206,7 +206,6 @@
 
           <div class="ksh__progress-top">
             <span class="ksh__percent" id="transfer-percent">0%</span>
-            <span class="ksh__bytes" id="transfer-bytes">0 / 0 bytes</span>
           </div>
           <div class="ksh__progress">
             <i class="ksh__progress-bar" id="transfer-bar"></i>
@@ -223,10 +222,15 @@
           <div class="ksh__items" id="transfer-items"></div>
 
           <button class="ksh__btn ksh__btn--primary" id="btn-cancel">Cancel</button>
-          <button class="ksh__btn ksh__btn--primary" id="btn-transfer-back" hidden>Back</button>
-          <span class="ksh__paginator" id="transfer-step">1 / 2</span>
         </div>
       </div>
+
+      <section class="ksh__done" id="screen-failed" hidden>
+        <img src="img/fail.svg" alt="" />
+        <h1 class="ksh__h1" id="failed-title">The transfer failed.</h1>
+        <span class="ksh__hint" id="failed-detail"></span>
+        <button class="ksh__btn ksh__btn--primary" id="btn-retry">Try again</button>
+      </section>
 
       <section class="ksh__done" id="screen-done" hidden>
         <img src="img/success.svg" alt="" />

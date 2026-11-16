@@ -13,7 +13,7 @@
 .ksh__device {
   display: flex;
   align-items: flex-start;
-  gap: calc(10px * var(--scale));
+  gap: calc(9px * var(--scale));
 }
 
 /* centred on the title alone: on the title plus its serial line it reads as sinking */
@@ -48,8 +48,8 @@
 .ksh__row {
   display: flex;
   flex-direction: column;
-  gap: calc(6px * var(--scale));
-  padding: calc(13px * var(--scale)) calc(20px * var(--scale));
+  gap: calc(5px * var(--scale));
+  padding: calc(11px * var(--scale)) calc(20px * var(--scale));
   background: var(--surface);
   border: solid 1px var(--line);
   border-radius: var(--radius-card);
@@ -100,8 +100,11 @@
   gap: calc(12px * var(--scale));
 }
 
+.ksh__row-foot .ksh__sha {
+  margin-left: auto;
+}
+
 .ksh__row-foot .ksh__hint {
-  max-width: 62%;
   /* an error here must not grow the row; the detail is in the tooltip */
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -144,7 +147,7 @@
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: calc(12px * var(--scale));
+  gap: calc(6px * var(--scale));
 }
 
 .ksh__h1--device {

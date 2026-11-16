@@ -8,6 +8,7 @@ export const SCREENS = [
   'screen-ready',
   'screen-transfer',
   'screen-done',
+  'screen-failed',
   'screen-verify',
   'screen-scan',
   'screen-verdict',

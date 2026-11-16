@@ -125,6 +125,10 @@ select.ksh__select option {
   color: var(--ink-faint);
 }
 
+.ksh__hint--bad {
+  color: var(--danger);
+}
+
 .ksh__sha {
   font-size: calc(11px * var(--scale));
   line-height: calc(16px * var(--scale));
@@ -243,7 +247,7 @@ input[type='checkbox']:disabled {
 
 .ksh__chip {
   flex: 1;
-  padding: calc(12px * var(--scale)) calc(14px * var(--scale));
+  padding: calc(9px * var(--scale)) calc(13px * var(--scale));
   background: var(--surface);
   border: solid 1px var(--line-quiet);
   border-radius: var(--radius-chip);
@@ -283,6 +287,12 @@ input[type='checkbox']:disabled {
 
 .ksh__btn--pick {
   color: var(--accent);
+}
+
+/* a picked file: the same dashed box, naming the file in the font files are named in */
+.ksh__btn--chosen {
+  flex: 0 1 auto;
+  font-family: var(--font-mono);
 }
 
 /* the agreed loader (shots/2023-css-only-rotating-loader.webp): white and orange, turning */
@@ -354,8 +364,9 @@ input[type='checkbox']:disabled {
 }
 
 .ksh__link--button {
-  /* a button wearing a link's underline */
+  /* a button wearing a link's underline: the type of a button, not of the paragraph around it */
   padding: 0;
+  font-size: var(--fs-md);
   border: none;
   border-bottom: 2px solid var(--accent);
   background: none;

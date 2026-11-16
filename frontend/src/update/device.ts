@@ -41,12 +41,7 @@ export const readConfiguration = async (device: DeviceInfo): Promise<void> => {
     state.config = config;
     const variant = config.fwVariant ?? null;
     const line = el('device-line');
-    line.textContent = text.device.onDevice(
-      device.serialNumber ?? config.serialNumber,
-      config.fwVersion,
-      variant === null ? '' : `-${text.variants[variant] ?? variant}`,
-      String(config.dbVersion),
-    );
+    line.textContent = text.device.serial(device.serialNumber ?? config.serialNumber);
     line.title = text.device.keyTitle(config.publicKey);
     // Default to the variant on the device, so the plain action is not a variant switch.
     if (variant !== null) state.variant.firmware = variant;

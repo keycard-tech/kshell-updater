@@ -54,10 +54,6 @@ export const reason = (error: unknown): string => String(error);
 export const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Bytes with thin spaces, so the counter does not twitch as it fills. */
-export const thousands = (value: number | undefined): string =>
-  (value ?? 0).toLocaleString('en-US').replace(/,/g, ' ');
-
 export const shortHash = (hash: string | null): string =>
   hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : '';
 

@@ -1,12 +1,5 @@
 /* The technical half of a camera failure, so a report from a real machine carries the numbers
    instead of "it is black". Quiet and mono: read if needed, never mistaken for the sentence above it. */
-.ksh__camera-detail {
-  margin: calc(-2px * var(--scale)) 0 0;
-  color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-}
-
 /* Verify: a question with a QR code on one side and the answer's fate on the other. */
 .ksh__verify {
   /*
@@ -93,6 +86,7 @@
 }
 
 .ksh__qr-tile {
+  position: relative;
   width: calc(236px * var(--scale));
   height: calc(236px * var(--scale));
   padding: calc(12px * var(--scale));
@@ -104,6 +98,25 @@
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/* Blurred, not hidden: the challenge is real, this computer just cannot check its answer yet. */
+.ksh__qr-tile--blurred svg {
+  filter: blur(7px);
+}
+
+.ksh__qr-note {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: calc(6px * var(--scale)) calc(10px * var(--scale));
+  background: var(--white-95);
+  border: 1px solid var(--line);
+  border-radius: calc(8px * var(--scale));
+  color: var(--bg);
+  font-size: calc(12px * var(--scale));
+  white-space: nowrap;
 }
 
 .ksh__qr figcaption {

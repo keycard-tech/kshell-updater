@@ -29,13 +29,6 @@
 }
 
 /* Under the action, centred: which of two images this is matters less than what happens next. */
-.ksh__paginator {
-  text-align: center;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  color: var(--ink-faint);
-}
-
 .ksh__progress-top {
   display: flex;
   align-items: baseline;
@@ -50,13 +43,6 @@
   line-height: calc(60px * var(--scale));
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-
-.ksh__bytes {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  color: var(--ink-soft);
 }
 
 .ksh__progress {
@@ -131,10 +117,6 @@
 
 .ksh__item-state--latest {
   color: var(--ok);
-}
-
-.ksh__item-state--failed {
-  color: var(--danger);
 }
 
 /* Update complete: the same centred shape as the empty screen. */

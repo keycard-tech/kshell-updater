@@ -402,7 +402,9 @@ fn explain(error: shell::ShellError) -> String {
             eprintln!("shell rejected the command: SW {code:#06x}");
             String::from("The Shell refused the update.")
         }
-        ShellError::Cancelled => String::from(CANCELLED),
+        ShellError::Cancelled => {
+            String::from("The transfer was cancelled. Nothing more was written.")
+        }
         ShellError::Timeout => String::from("The Shell did not answer in time."),
         ShellError::Framing(why) => {
             eprintln!("framing error: {why}");
@@ -414,9 +416,6 @@ fn explain(error: shell::ShellError) -> String {
         }
     }
 }
-
-/// The one error string the view matches on instead of showing.
-const CANCELLED: &str = "cancelled";
 
 /// An update that has not finished: written before the first byte, so a half-written Shell is known
 /// later.

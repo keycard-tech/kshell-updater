@@ -17,6 +17,23 @@ export const selectedFile = (kind: ImageKind): ReleaseFile | null => {
 export const versionOf = (file: ReleaseFile | null | undefined): string =>
   file?.version ?? file?.date ?? '';
 
+/** `1.5.3` and `20261081` compared as the numbers they are, not as text. */
+export const olderThan = (candidate: string, onDevice: string): boolean => {
+  const parts = (value: string) => value.split(/[.\s_-]+/).filter(Boolean).map(Number);
+  const [a, b] = [parts(candidate), parts(onDevice)];
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    const step = (a[index] ?? 0) - (b[index] ?? 0);
+    if (step !== 0) return step < 0;
+  }
+  return false;
+};
+
+/** What this Shell runs of one kind, in the shape its files name versions. */
+export const deviceVersion = (kind: ImageKind): string =>
+  kind === 'firmware'
+    ? (state.config?.fwVersion ?? '')
+    : String(state.config?.dbVersion ?? '');
+
 /** The `Prepared.key` of what this row would write. */
 export const keyFor = (kind: ImageKind): string | null =>
   state.mode[kind] === 'file'

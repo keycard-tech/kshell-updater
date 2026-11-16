@@ -3,7 +3,7 @@
 import type { Markup } from '../utils.js';
 import { html } from '../utils.js';
 
-export type Tone = 'latest' | 'waiting' | 'failed';
+export type Tone = 'latest' | 'waiting';
 
 /** The turning squares, not a word: the row already says which image it is. */
 export const spinner = (): Markup =>
