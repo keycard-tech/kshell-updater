@@ -1,5 +1,3 @@
-/* The camera: opening it, aiming it, and reading the code out of its pictures. */
-
 import { show } from '../base/screens.js';
 import { state } from '../base/state.js';
 import { cameraMode, decodeWindowPx, scanIntervalMs, silentCamera, slowCamera } from '../config.js';
@@ -46,12 +44,10 @@ export const cameraStart = async (
   verify.problem = null;
   renderScan();
   show('screen-scan');
-  // Nothing between the answer and the screen: play() can settle late or never, and the frame to
-  // aim at is there either way.
+
   const video = el<HTMLVideoElement>('scan-video');
   video.srcObject = verify.stream;
   video.play().catch((error: unknown) => {
-    // Replacing the load rejects its own play(); the watchdog is what says so if no frame arrives.
     if (generation !== verify.generation || (error as DOMException)?.name === 'AbortError') return;
     verify.problem = text.camera.noPictureShown(reason(error));
     renderScan();
@@ -84,12 +80,9 @@ const startDecoding = (onCode: (text: string) => void): void => {
 
   if (verify.silentWait !== null) clearTimeout(verify.silentWait);
   if (verify.decodeTimer !== null) clearInterval(verify.decodeTimer);
-  // A camera that opens and sends nothing looks exactly like a covered lens, so say it out loud
-  // rather than keep a black frame and a person holding a Shell up to it.
   verify.silentSaid = false;
   verify.silentWait = setTimeout(() => {
     if (video.readyState >= 2 || state.screen !== 'screen-scan') return;
-    // A second ask: sitting at readyState 0 until played again is on the record for WebKitGTK.
     video.srcObject = verify.stream;
     video.play().catch(() => {});
     verify.silentWait = setTimeout(() => {
@@ -110,13 +103,12 @@ const startDecoding = (onCode: (text: string) => void): void => {
 
   verify.decodeTimer = setInterval(() => {
     if (state.screen !== 'screen-scan' || video.readyState < 2) return;
+
     if (verify.silentSaid) {
-      // A slow camera is not a dead one: the first frame takes back the accusation.
       verify.silentSaid = false;
       say(null);
     }
-    // Rate over a window, not the gap since the last frame: one picture a second has no gap long
-    // enough to look broken and still cannot be scanned.
+  
     if (performance.now() - verify.rate.at > slowCamera.windowMs) {
       const seconds = (performance.now() - verify.rate.at) / 1000;
       const fps = (verify.frames - verify.rate.frames) / seconds;
@@ -139,7 +131,6 @@ const startDecoding = (onCode: (text: string) => void): void => {
   }, scanIntervalMs);
 };
 
-/** Numbers for a report from a machine this app has never seen: the console, not the screen. */
 const videoState = (video: HTMLVideoElement): string => {
   const track = verify.stream?.getVideoTracks()[0];
   return JSON.stringify({
@@ -154,7 +145,6 @@ const videoState = (video: HTMLVideoElement): string => {
   });
 };
 
-/** Counts the frames the element really receives, by whichever API this engine has. */
 const watchFrames = (video: HTMLVideoElement, onFrame: () => void): (() => void) | null => {
   const element = video as unknown as FrameCallbackVideo;
   if (element.requestVideoFrameCallback) {

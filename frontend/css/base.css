@@ -19,14 +19,12 @@ body {
   user-select: none;
 }
 
-/* the components set display, which would otherwise beat the UA's [hidden] rule */
 [hidden] {
   display: none !important;
 }
 
 .ksh {
   height: 100%;
-  /* overflow: hidden once hid half the update flow behind the frame */
   overflow-y: auto;
   padding: calc(20px * var(--scale));
   display: flex;

@@ -1,6 +1,4 @@
-/* Transferring: one screen for both images. */
 .ksh__transfer {
-  /* it reports rather than asks, so: drawn at 0.78, centred, shrinking as a whole through --scale */
   --scale: 0.78;
   flex: 1;
   display: flex;
@@ -28,7 +26,6 @@
   font-size: var(--fs-lg);
 }
 
-/* Under the action, centred: which of two images this is matters less than what happens next. */
 .ksh__progress-top {
   display: flex;
   align-items: baseline;
@@ -95,14 +92,12 @@
   font-size: var(--fs-lg);
 }
 
-/* The queued image is readable but recedes: the point is which one is moving now. */
 .ksh__item--waiting {
   border-color: var(--line-quiet);
   color: var(--ink-faint);
 }
 
 .ksh__item-state {
-  /* the row's own word, not an aside: no italics despite the <i> */
   font-style: normal;
   margin-left: auto;
   font-weight: 600;

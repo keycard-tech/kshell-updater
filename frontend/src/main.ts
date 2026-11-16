@@ -1,5 +1,3 @@
-/* Wiring: which control does what, and what the Shell tells us as it happens. */
-
 import { events, listShells, listen } from './base/bridge.js';
 import { show } from './base/screens.js';
 import { state } from './base/state.js';
@@ -47,21 +45,21 @@ el<HTMLSelectElement>('scan-camera').addEventListener('change', (event) =>
 );
 el<HTMLButtonElement>('btn-verdict').addEventListener('click', verdictButton);
 
-// No configuration read while a write owns the device: the Shell answers with what it runs when the
-// command in flight returns.
+
 listen(events.connected, () => {
   if (!state.busy) void refresh();
 });
+
 listen(events.disconnected, () => {
-  // A firmware write ends with the Shell restarting, and the watcher sees that as an unplug. The
-  // screen stays where it is: the command in flight answers with the outcome, restart included.
   if (state.busy) return;
   showWaiting();
 });
+
 listen<FlashProgress>(events.flashProgress, (progress) => {
   state.transfer = { done: progress.done, total: progress.total };
   renderTransfer();
 });
+
 listen<Preloaded>(events.preloaded, (file) => {
   state.cache[file.key] = { ok: file.ok, note: file.note ?? undefined };
   for (const kind of ['firmware', 'database'] as const) {
@@ -77,7 +75,6 @@ async function useOnlineList(): Promise<void> {
   renderVerify();
 }
 
-/** The list decides whether the button opens the camera or fetches what the camera needs. */
 async function startCamera(): Promise<void> {
   if (verify.status) {
     await cameraStart(answer);
@@ -92,7 +89,6 @@ async function switchCamera(deviceId: string): Promise<void> {
   await cameraStart(answer, deviceId);
 }
 
-/** Polled as well as pushed: the watcher's first event can arrive before this document listens. */
 async function poll(): Promise<void> {
   if (state.scanning || state.busy) return;
   state.scanning = true;
@@ -102,14 +98,12 @@ async function poll(): Promise<void> {
     const seen = state.device?.path ?? null;
     if (path !== seen || (path && !state.config)) await refresh();
   } catch {
-    // Unreadable for a moment while USB settles; the next tick sees it.
   } finally {
     state.scanning = false;
   }
 }
 
 showWaiting();
-// Read before the device, so the first render can mention a previous run.
 void readRecord()
   .then(refresh)
   .then(loadReleases)
@@ -117,5 +111,4 @@ void readRecord()
 
 setInterval(() => void poll(), presencePollMs);
 
-/* shots/ drives the app from outside the module graph: a scanned code, and what the camera screen says. */
 window.kshell = { scanAnswer: answer, renderScan, verify };

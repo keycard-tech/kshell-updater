@@ -1,5 +1,3 @@
-/* The published releases, and the bytes behind them. */
-
 import { listReleases, preloadImages } from '../base/bridge.js';
 import { state } from '../base/state.js';
 import * as text from '../strings.js';
@@ -20,12 +18,10 @@ export const loadReleases = async (): Promise<void> => {
     }
     renderRows();
   }
-  // Offline is a state a person has to know; a list of what is newest is plumbing.
   el('status-note').textContent = state.listError ? text.releases.offline : '';
   renderHome();
 };
 
-/** Every offered file, including both firmware variants: pressing Transfer only ever writes. */
 export const preload = async (): Promise<void> => {
   const files = text.kinds
     .flatMap(({ kind }) => filesFor(kind).map((file) => ({ kind, url: file.url })))

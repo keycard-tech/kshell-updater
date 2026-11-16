@@ -1,5 +1,3 @@
-/* The landing card: what this Shell runs, and what it is owed. */
-
 import { state } from '../base/state.js';
 import { images } from '../config.js';
 import * as text from '../strings.js';
@@ -9,7 +7,6 @@ import { wantedKinds } from './rows.js';
 
 interface Words {
   badge: string;
-  /** Teal: the Shell answered and nothing is owed to it. */
   settled: boolean;
   prompt: string;
   hint: string;

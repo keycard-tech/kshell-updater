@@ -162,7 +162,64 @@
           <span class="ksh__badge ksh__badge--ready" id="select-badge">Reading…</span>
         </div>
 
-        <div class="ksh__rows" id="rows"></div>
+        <div class="ksh__rows" id="rows">
+          <div class="ksh__row" data-kind="firmware">
+            <div class="ksh__row-top">
+              <div class="ksh__row-title">
+                <input type="checkbox" data-slot="include" checked aria-label="Write the firmware" />
+                <h2 class="ksh__h2">Firmware</h2>
+              </div>
+              <span class="ksh__status" data-slot="status"></span>
+            </div>
+            <div class="ksh__row-mid">
+              <div class="ksh__segmented" data-slot="mode">
+                <button type="button" class="ksh__seg" data-mode="online">Online</button>
+                <button type="button" class="ksh__seg" data-mode="file">From file</button>
+              </div>
+              <div class="ksh__field" data-slot="field" hidden>
+                <select class="ksh__select" data-slot="select" hidden></select>
+                <span class="ksh__field-static" data-slot="static" hidden><span class="ksh__from" data-slot="static-from"></span
+                  ><span class="ksh__arrow">&rarr;</span><span class="ksh__to" data-slot="static-to"></span></span>
+              </div>
+              <button type="button" class="ksh__btn ksh__btn--file ksh__btn--pick" data-slot="pick" hidden>Choose file&hellip;</button>
+              <a class="ksh__link" data-slot="link" href="https://github.com/keycard-tech/kshell-updater/releases" hidden>
+                <img src="img/external.svg" alt="" /><span data-slot="link-label"></span>
+              </a>
+            </div>
+            <div class="ksh__row-foot">
+              <span class="ksh__hint" data-slot="hint"></span>
+              <span class="ksh__sha" data-slot="sha"></span>
+            </div>
+          </div>
+          <div class="ksh__row" data-kind="database">
+            <div class="ksh__row-top">
+              <div class="ksh__row-title">
+                <input type="checkbox" data-slot="include" checked aria-label="Write the database" />
+                <h2 class="ksh__h2">Database</h2>
+              </div>
+              <span class="ksh__status" data-slot="status"></span>
+            </div>
+            <div class="ksh__row-mid">
+              <div class="ksh__segmented" data-slot="mode">
+                <button type="button" class="ksh__seg" data-mode="online">Online</button>
+                <button type="button" class="ksh__seg" data-mode="file">From file</button>
+              </div>
+              <div class="ksh__field" data-slot="field" hidden>
+                <select class="ksh__select" data-slot="select" hidden></select>
+                <span class="ksh__field-static" data-slot="static" hidden><span class="ksh__from" data-slot="static-from"></span
+                  ><span class="ksh__arrow">&rarr;</span><span class="ksh__to" data-slot="static-to"></span></span>
+              </div>
+              <button type="button" class="ksh__btn ksh__btn--file ksh__btn--pick" data-slot="pick" hidden>Choose file&hellip;</button>
+              <a class="ksh__link" data-slot="link" href="https://github.com/keycard-tech/kshell-updater/releases" hidden>
+                <img src="img/external.svg" alt="" /><span data-slot="link-label"></span>
+              </a>
+            </div>
+            <div class="ksh__row-foot">
+              <span class="ksh__hint" data-slot="hint"></span>
+              <span class="ksh__sha" data-slot="sha"></span>
+            </div>
+          </div>
+        </div>
 
         <div class="ksh__next">
           <div class="ksh__chip">
@@ -199,7 +256,6 @@
         </div>
       </div>
 
-      <!-- one readout for both images, drawn at 0.78 and centred -->
       <div class="ksh__transfer" id="screen-transfer" hidden>
         <div class="ksh__panel">
           <h1 class="ksh__h1" id="transfer-title">Transferring</h1>
@@ -219,7 +275,10 @@
             <span>Check the Keycard Shell screen for instructions</span>
           </div>
 
-          <div class="ksh__items" id="transfer-items"></div>
+          <div class="ksh__items" id="transfer-items">
+            <div class="ksh__item" data-item="0" hidden><span data-slot="label"></span><i class="ksh__loader" data-slot="spin" hidden><i></i><i></i></i><i class="ksh__item-state" data-slot="state" hidden></i></div>
+            <div class="ksh__item" data-item="1" hidden><span data-slot="label"></span><i class="ksh__loader" data-slot="spin" hidden><i></i><i></i></i><i class="ksh__item-state" data-slot="state" hidden></i></div>
+          </div>
 
           <button class="ksh__btn ksh__btn--primary" id="btn-cancel">Cancel</button>
         </div>

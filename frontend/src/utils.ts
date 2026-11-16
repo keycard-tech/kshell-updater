@@ -1,5 +1,3 @@
-/* Helpers that know nothing about this app's screens. */
-
 const MARKUP = Symbol('markup');
 
 const entities: Record<string, string> = {
@@ -23,8 +21,6 @@ const show = (value: unknown): string => {
   return String(value);
 };
 
-/** Markup as a value rather than a string in the middle of the logic: interpolated text is escaped,
-    markup built by another view is spliced as it is. */
 export type Markup = string | MarkupNode | Markup[];
 
 interface MarkupNode {
@@ -46,6 +42,9 @@ export const asHtml = (content: Markup): string =>
       ? content
       : content[MARKUP];
 
+export const slot = <T extends HTMLElement>(row: HTMLElement, name: string): T =>
+  row.querySelector<T>(`[data-slot=${name}]`) as T;
+
 export const el = <T extends HTMLElement = HTMLElement>(id: string): T =>
   document.getElementById(id) as T;
 
@@ -57,10 +56,8 @@ export const sleep = (ms: number): Promise<void> =>
 export const shortHash = (hash: string | null): string =>
   hash ? `${hash.slice(0, 8)}…${hash.slice(-4)}` : '';
 
-/** Days since the epoch, as the site writes the day. */
 export const dayDate = (days: number): string =>
   new Date(days * 86_400_000).toISOString().slice(0, 10);
 
-/** 20261112 as the site writes it. */
 export const listDate = (build: number | string): string =>
   `${build}`.replace(/^(\d{4})(\d{2})(\d{2})$/, '$1-$2-$3');

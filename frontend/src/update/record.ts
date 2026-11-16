@@ -1,5 +1,3 @@
-/* The update this Shell was owed, kept in the app's config directory. */
-
 import {
   clearUpdateRecord,
   loadUpdateRecord,
@@ -18,7 +16,6 @@ export const onDeviceVersions = (config: AppConfiguration | null): DeviceVersion
     ? { firmware: config.fwVersion, database: String(config.dbVersion) }
     : null;
 
-/** What the queue was going to put on the Shell, in the words its configuration uses. */
 export const intendedVersions = (): Versions => {
   const want: Versions = { firmware: null, database: null };
   for (const item of state.queue) {
@@ -28,7 +25,6 @@ export const intendedVersions = (): Versions => {
   return want;
 };
 
-/** Versions the device still owes; the record outlives the app, so a half-written Shell is known later. */
 export const owedVersions = (): string[] | null => {
   const record = state.record;
   if (!record || !state.config) return null;
@@ -52,7 +48,6 @@ export const writeRecord = async (): Promise<void> => {
     database: intended.database,
   };
   state.record = record;
-  // A read-only config directory costs the memory, not the update.
   await saveUpdateRecord(record).catch(() => {});
 };
 

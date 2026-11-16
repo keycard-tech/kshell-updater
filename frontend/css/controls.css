@@ -33,7 +33,6 @@
 .ksh__seg {
   padding: calc(4px * var(--scale)) calc(12px * var(--scale));
   border: 0;
-  /* the switch's own radius less its padding, so the pill inside runs parallel to the box */
   border-radius: calc(var(--radius-control) - 3px);
   background: transparent;
   color: var(--ink-mid);
@@ -100,7 +99,6 @@ select.ksh__select option {
   color: var(--ink);
 }
 
-/* A file name goes in here, so it is dashed (nothing to pick from a list) and truncates. */
 .ksh__btn--file {
   flex: 1;
   min-width: 0;
@@ -118,7 +116,6 @@ select.ksh__select option {
   cursor: default;
 }
 
-/* an inactive primary action goes neutral, not faded orange */
 .ksh__btn--primary:disabled {
   background: var(--surface);
   border-color: var(--line);
@@ -143,7 +140,6 @@ select.ksh__select option {
   color: var(--ink-mid);
 }
 
-/* green is the ordinary state: the published hash was checked before this screen was drawn */
 .ksh__sha--ok,
 .ksh__sha--ok b {
   color: var(--ok);
@@ -169,7 +165,6 @@ select.ksh__select option {
   color: var(--accent);
   font-size: var(--fs-sm);
   line-height: calc(18px * var(--scale));
-  /* one underline, not two: an anchor brings its own decoration on top of this border */
   text-decoration: none;
   border-bottom: solid calc(1.5px * var(--scale)) currentColor;
   padding-bottom: calc(2px * var(--scale));
@@ -213,7 +208,6 @@ input[type='checkbox']:checked::after {
   transform: rotate(45deg);
 }
 
-/* A row with nothing to do cannot be selected, and says so by not looking pressable. */
 input[type='checkbox']:disabled {
   border-color: var(--line-strong);
   cursor: default;
@@ -226,7 +220,6 @@ input[type='checkbox']:disabled {
   min-width: 0;
 }
 
-/* Same box as the variant selector, but nothing to pick: the release decided it. */
 .ksh__field-static {
   display: inline-flex;
   align-items: center;
@@ -256,7 +249,6 @@ input[type='checkbox']:disabled {
   color: var(--ink-mid);
 }
 
-/* the number leads the title, so the text below starts at the same left edge as both */
 .ksh__chip-title {
   display: flex;
   align-items: center;
@@ -289,13 +281,11 @@ input[type='checkbox']:disabled {
   color: var(--accent);
 }
 
-/* a picked file: the same dashed box, naming the file in the font files are named in */
 .ksh__btn--chosen {
   flex: 0 1 auto;
   font-family: var(--font-mono);
 }
 
-/* the agreed loader (shots/2023-css-only-rotating-loader.webp): white and orange, turning */
 .ksh__loader {
   --cube: calc(14px * var(--scale));
   margin-left: auto;
@@ -346,7 +336,6 @@ input[type='checkbox']:disabled {
   color: var(--ink-mid);
 }
 
-/* No list, no conclusion: the box says so in the place the list line would be. */
 .ksh__note {
   display: flex;
   flex-direction: column;
@@ -357,16 +346,13 @@ input[type='checkbox']:disabled {
   font-size: var(--fs-sm);
   line-height: calc(18px * var(--scale));
   color: var(--ink-soft);
-  /* A failure message is however long the Rust is long. Three lines are shown and the rest scrolls in
-     here, so no error can grow this box into the steps above it or the footer below it. */
   max-height: calc(92px * var(--scale));
   overflow-y: auto;
 }
 
 .ksh__link--button {
-  /* a button wearing a link's underline: the type of a button, not of the paragraph around it */
   padding: 0;
-  font-size: var(--fs-md);
+  font-size: var(--fs-sm);
   border: none;
   border-bottom: 2px solid var(--accent);
   background: none;

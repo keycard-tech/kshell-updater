@@ -1,5 +1,3 @@
-/* What crosses the Rust bridge. */
-
 export type ImageKind = 'firmware' | 'database';
 
 export interface ReleaseFile {
@@ -7,7 +5,6 @@ export interface ReleaseFile {
   url: string;
   date: string;
   version: string | null;
-  /** 0 omni, 1 btc-only: the same number the device reports in `fwVariant`. */
   variant: number | null;
   sha256: string | null;
 }

@@ -1,5 +1,3 @@
-/* Which image each row points at, and whether it has been checked. */
-
 import { state } from '../base/state.js';
 import type { ImageKind, ReleaseFile } from '../types.js';
 
@@ -7,7 +5,6 @@ export type Checked = 'ready' | 'failed' | 'pending' | null;
 
 export const filesFor = (kind: ImageKind): ReleaseFile[] => state.files[kind];
 
-/** The chosen variant for firmware, the one listing a database has for the database. */
 export const selectedFile = (kind: ImageKind): ReleaseFile | null => {
   const files = filesFor(kind);
   if (kind === 'database') return files[0] ?? null;
@@ -17,7 +14,6 @@ export const selectedFile = (kind: ImageKind): ReleaseFile | null => {
 export const versionOf = (file: ReleaseFile | null | undefined): string =>
   file?.version ?? file?.date ?? '';
 
-/** `1.5.3` and `20261081` compared as the numbers they are, not as text. */
 export const olderThan = (candidate: string, onDevice: string): boolean => {
   const parts = (value: string) => value.split(/[.\s_-]+/).filter(Boolean).map(Number);
   const [a, b] = [parts(candidate), parts(onDevice)];
@@ -28,13 +24,11 @@ export const olderThan = (candidate: string, onDevice: string): boolean => {
   return false;
 };
 
-/** What this Shell runs of one kind, in the shape its files name versions. */
 export const deviceVersion = (kind: ImageKind): string =>
   kind === 'firmware'
     ? (state.config?.fwVersion ?? '')
     : String(state.config?.dbVersion ?? '');
 
-/** The `Prepared.key` of what this row would write. */
 export const keyFor = (kind: ImageKind): string | null =>
   state.mode[kind] === 'file'
     ? (state.ready[kind]?.key ?? null)

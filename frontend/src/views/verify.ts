@@ -1,12 +1,9 @@
-/* Markup of the verify screen's dynamic lines. */
-
 import * as text from '../strings.js';
 import type { Markup } from '../utils.js';
 import { dayDate, html } from '../utils.js';
 import type { UnitsStatus } from '../types.js';
 import { listLoaded } from '../verify/state.js';
 
-/** Where the list came from, as one line beside the toggle that chose it. */
 export const listLine = (status: UnitsStatus | null, fetching: boolean): string => {
   if (fetching) return text.verify.fetching;
   if (!listLoaded(status)) return text.verify.noList;

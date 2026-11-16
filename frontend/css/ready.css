@@ -16,9 +16,7 @@
   gap: calc(9px * var(--scale));
 }
 
-/* centred on the title alone: on the title plus its serial line it reads as sinking */
 .ksh__device-icon {
-  /* as tall as the heading's line box, so centering in it is centering on the words */
   height: calc(30px * var(--scale));
   flex: none;
   display: flex;
@@ -32,7 +30,6 @@
 }
 
 .ksh__device .ksh__badge {
-  /* the heading line again, since the block below the icon no longer centres the row */
   margin-top: calc(4px * var(--scale));
   margin-left: auto;
 }
@@ -40,14 +37,15 @@
 .ksh__rows {
   display: flex;
   flex-direction: column;
-  /* `flex: none`, no `min-height: 0`: squashed, this box lets the cards paint over the step chips */
   flex: none;
-  gap: calc(10px * var(--scale));
+  gap: calc(7px * var(--scale));
 }
 
 .ksh__row {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  min-height: calc(115px * var(--scale));
   gap: calc(5px * var(--scale));
   padding: calc(11px * var(--scale)) calc(20px * var(--scale));
   background: var(--surface);
@@ -57,14 +55,12 @@
 
 .ksh__row-top {
   display: flex;
-  /* flex-start: center floated the checkbox between the title and the controls below it */
   align-items: flex-start;
   gap: calc(12px * var(--scale));
 }
 
 .ksh__row-title {
   display: flex;
-  /* center, not baseline: a checkbox has no baseline, so its bottom edge would be used */
   align-items: center;
   gap: calc(10px * var(--scale));
   flex: 1;
@@ -73,7 +69,6 @@
 
 .ksh__row-title .ksh__h2 {
   font-size: calc(18px * var(--scale));
-  /* the checkbox's own height: the boxes coincide without an optical offset per engine */
   line-height: calc(20px * var(--scale));
 }
 
@@ -105,7 +100,6 @@
 }
 
 .ksh__row-foot .ksh__hint {
-  /* an error here must not grow the row; the detail is in the tooltip */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -123,7 +117,6 @@
   color: var(--ok);
 }
 
-/* centred, calc(300px * var(--scale)): agreed for the update flow (docs/ui-proposal.md) */
 .ksh__footer {
   display: flex;
   /* under the content, not pinned to the window bottom */
@@ -143,11 +136,10 @@
 }
 
 .ksh__ready {
-  /* content-sized for the same reason `.ksh__rows` is */
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: calc(6px * var(--scale));
+  gap: calc(5px * var(--scale));
 }
 
 .ksh__h1--device {

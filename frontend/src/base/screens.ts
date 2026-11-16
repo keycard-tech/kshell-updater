@@ -1,5 +1,3 @@
-/* One screen visible at a time. */
-
 import { el } from '../utils.js';
 import { state } from './state.js';
 

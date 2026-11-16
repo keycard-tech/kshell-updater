@@ -21,7 +21,6 @@
   cursor: pointer;
 }
 
-/* The verify card is shown before it works, so it says so by not looking pressable. */
 .ksh__card--quiet {
   cursor: default;
 }
@@ -51,14 +50,12 @@
 }
 
 .ksh__card-img {
-  /* bounded both ways: either picture at its natural size pushes the second card out */
   width: calc(190px * var(--scale));
   height: calc(92px * var(--scale));
   object-fit: contain;
   flex: none;
 }
 
-/* The scan glyph is a QR code, and a QR code is dark on white: the tile is what makes it read. */
 .ksh__card-img--qr {
   width: calc(104px * var(--scale));
   height: calc(104px * var(--scale));

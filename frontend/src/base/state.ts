@@ -1,5 +1,3 @@
-/* Everything the app remembers between renders. */
-
 import type {
   AppConfiguration,
   DeviceInfo,
@@ -16,7 +14,6 @@ export type ByKind<T> = Record<ImageKind, T>;
 
 const byKind = <T>(value: T): ByKind<T> => ({ firmware: value, database: value });
 
-/** What a row has read from disk: the image it would write, or why it could not. */
 export interface ReadyFile {
   info?: ImageInfo;
   key?: string;
@@ -25,7 +22,6 @@ export interface ReadyFile {
 
 export interface QueueItem {
   kind: ImageKind;
-  /** `Prepared.key`: the release URL, or `file://<path>` for a file from disk. */
   key: string;
   label: string;
   bytes: number;
@@ -37,7 +33,6 @@ export interface QueueItem {
 export interface State {
   device: DeviceInfo | null;
   config: AppConfiguration | null;
-  /** Only the newest release of each kind, so nothing here can offer an older build. */
   files: ByKind<ReleaseFile[]>;
   mode: ByKind<Mode>;
   include: ByKind<boolean>;
@@ -46,7 +41,6 @@ export interface State {
   listError: string | null;
   busy: boolean;
   scanning: boolean;
-  /** Keyed by `Prepared.key`: whether the file behind it passed its checks. */
   cache: Record<string, { ok: boolean; note?: string }>;
   prepared: Record<string, ImageInfo>;
   preloading: boolean;

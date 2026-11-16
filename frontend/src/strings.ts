@@ -1,5 +1,3 @@
-/* Every word the app says, and the pages its links open. */
-
 import type { ImageKind } from './types.js';
 
 export const links = {
@@ -23,13 +21,11 @@ export const kinds: { kind: ImageKind; title: string; link: string; url: string 
   },
 ];
 
-/** The two firmware builds, named by the number the device reports. */
 export const variants: Record<number, string> = { 0: 'omni', 1: 'btc' };
 
 export const title = (kind: ImageKind): string =>
   kinds.find((entry) => entry.kind === kind)?.title ?? kind;
 
-/** The status word of a row: said, never matched on. */
 export const status = {
   reading: 'Reading…',
   noFile: 'No file',
@@ -56,8 +52,6 @@ export const home = {
   owed: (versions: string): string =>
     `An update did not finish: this Shell still runs ${versions}.`,
 };
-
-/** The action under the release rows. */
 
 export const summary = {
   selected: (count: number): string =>
@@ -102,10 +96,6 @@ export const transfer = {
   item: { done: 'Done', queued: 'Queued' },
 };
 
-/**
- * One screen for everything that stopped a write. Its title is the first sentence of what went
- * wrong, so the sentences worth naming live here and the rest arrive from Rust already written.
- */
 export const failed = {
   nothing: 'The transfer failed.',
   cameBack: (differences: string): string =>
@@ -131,7 +121,8 @@ export const device = {
   name: (productName: string): string => `${productName} connected`,
   productName: 'Keycard Shell',
   connected: (serial: string): string => `Keycard Shell connected · SN ${serial}`,
-  serial: (serial: string): string => `serial ${serial}`,
+  onDevice: (firmware: string, variant: string, database: string): string =>
+    `on device: firmware ${firmware}${variant} · database ${database}`,
   keyTitle: (key: string): string => `attestation key ${key}`,
   absent: 'No device connected',
 };

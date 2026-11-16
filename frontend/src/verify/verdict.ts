@@ -1,5 +1,3 @@
-/* The answer: what was scanned, and what it turned out to be. */
-
 import { openExternal, unitsCheck } from '../base/bridge.js';
 import { show } from '../base/screens.js';
 import { images } from '../config.js';
@@ -47,7 +45,6 @@ export const renderVerdict = (): void => {
   el<HTMLButtonElement>('btn-verdict').textContent = result.button;
 };
 
-/** Each verdict asks for something different: the help page, this screen again, or nothing. */
 export const verdictButton = (): void => {
   const outcome = verify.verdict?.outcome;
   if (outcome !== 'notRegistered') {

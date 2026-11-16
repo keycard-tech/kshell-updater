@@ -1,11 +1,9 @@
-/* The two release rows: what they say, and what pressing them means. */
-
 import { chooseFile, openExternal, pickImageFile } from '../base/bridge.js';
 import { state, type ByKind, type ReadyFile } from '../base/state.js';
 import * as text from '../strings.js';
 import type { ImageKind } from '../types.js';
-import { asHtml, el, reason } from '../utils.js';
-import { rowShell, shaFromFile, shaFromRelease, versionSelect, versionStatic } from '../views/rows.js';
+import { asHtml, el, reason, slot } from '../utils.js';
+import { shaFromFile, shaFromRelease, versionOptions } from '../views/rows.js';
 import {
   checkedOf,
   deviceVersion,
@@ -23,6 +21,8 @@ interface RowRefs {
   status: HTMLElement;
   link: HTMLAnchorElement;
   field: HTMLElement;
+  select: HTMLSelectElement;
+  staticBox: HTMLElement;
   pick: HTMLButtonElement;
   hint: HTMLElement;
   sha: HTMLElement;
@@ -36,31 +36,26 @@ export interface RowStatus {
   wanted: boolean;
 }
 
-const slot = <T extends HTMLElement>(row: HTMLElement, name: string): T =>
-  row.querySelector<T>(`[data-slot=${name}]`) as T;
-
 export const buildRows = (): void => {
-  const host = el('rows');
-  host.replaceChildren();
   for (const entry of text.kinds) {
     const kind = entry.kind;
-    const row = document.createElement('div');
-    row.className = 'ksh__row';
-    row.dataset.kind = kind;
-    row.innerHTML = asHtml(rowShell(entry));
-    host.append(row);
-
+    const row = el('rows').querySelector<HTMLElement>(`[data-kind=${kind}]`);
+    if (!row) throw new Error(`index.html has no ${kind} row`);
     const refs: RowRefs = {
       row,
       include: slot<HTMLInputElement>(row, 'include'),
       status: slot(row, 'status'),
       link: slot<HTMLAnchorElement>(row, 'link'),
       field: slot(row, 'field'),
+      select: slot<HTMLSelectElement>(row, 'select'),
+      staticBox: slot<HTMLElement>(row, 'static'),
       pick: slot<HTMLButtonElement>(row, 'pick'),
       hint: slot(row, 'hint'),
       sha: slot(row, 'sha'),
     };
     rows[kind] = refs;
+    refs.link.href = entry.url;
+    slot(row, 'link-label').textContent = entry.link;
 
     row.querySelector('[data-slot=mode]')?.addEventListener('click', (event) => {
       const mode = (event.target as HTMLElement | null)?.dataset?.mode;
@@ -74,6 +69,11 @@ export const buildRows = (): void => {
       render(kind);
     });
     refs.pick.addEventListener('click', () => chooseImage(kind));
+    refs.select.addEventListener('change', () => {
+      state.variant[kind] = Number(refs.select.value);
+      state.ready[kind] = null;
+      render(kind);
+    });
     refs.link.addEventListener('click', (event) => {
       event.preventDefault();
       openExternal(entry.url).catch((error: unknown) =>
@@ -83,14 +83,11 @@ export const buildRows = (): void => {
   }
 };
 
-/** Status text and whether the row asks for work: the checkbox, badge and action follow it. */
 export const rowState = (kind: ImageKind): RowStatus => {
   if (state.mode[kind] === 'file') {
     const picked = state.ready[kind]?.info;
     if (!picked) return { status: text.status.noFile, modifier: 'empty', wanted: false };
     const onDevice = deviceVersion(kind);
-    // Older is not a thing to be talked into: it is said, and the row stops asking. The Shell keeps
-    // its own refusal for anything else we cannot judge from a version number.
     if (onDevice && olderThan(picked.version, onDevice))
       return { status: text.status.older, modifier: 'empty', wanted: false };
     return {
@@ -117,8 +114,7 @@ export const rowState = (kind: ImageKind): RowStatus => {
   if (deviceVariant !== null && file.variant !== deviceVariant) {
     return { status: text.status.variantSwitch, modifier: '', wanted: true };
   }
-  // A beta of the current version is still an update to install: the device would otherwise sit on a
-  // pre-release build the release notes call the same number.
+ 
   if (state.config?.fwBeta) return { status: text.status.newVersion, modifier: '', wanted: true };
   return sameOrNew(state.config?.fwVersion ?? '', versionOf(file));
 };
@@ -155,7 +151,6 @@ export const render = (kind: ImageKind): void => {
 
   if (mode === 'online') renderField(kind, refs);
 
-  // Once a file is picked its name replaces the request for one, in the same compact box.
   const picked = ready?.key?.split('/').pop() ?? null;
   refs.pick.classList.toggle('ksh__btn--chosen', Boolean(picked));
   refs.pick.textContent = picked ?? text.row.choose;
@@ -164,7 +159,6 @@ export const render = (kind: ImageKind): void => {
   refs.hint.classList.toggle('ksh__hint--bad', problem.bad);
   refs.hint.textContent = problem.text;
   refs.hint.title = problem.detail;
-  // With nothing to say the hint takes no room and the hash stands alone on the right.
   refs.hint.hidden = !problem.text;
 
   const sha =
@@ -183,32 +177,25 @@ export const renderRows = (): void => {
 
 const renderField = (kind: ImageKind, refs: RowRefs): void => {
   const files = filesFor(kind);
-  if (!files.length) {
-    refs.field.replaceChildren();
-    return;
-  }
-  if (kind === 'database') {
-    refs.field.innerHTML = asHtml(
-      versionStatic(
-        String(state.config?.dbVersion ?? text.row.unknownVersion),
-        versionOf(files[0]),
-      ),
+  refs.field.hidden ||= !files.length;
+  if (!files.length) return;
+  const statement = kind === 'database';
+  refs.staticBox.hidden = !statement;
+  refs.select.hidden = statement;
+  if (statement) {
+    slot(refs.staticBox, 'static-from').textContent = String(
+      state.config?.dbVersion ?? text.row.unknownVersion,
     );
+    slot(refs.staticBox, 'static-to').textContent = versionOf(files[0]);
     return;
   }
   const signature = files.map((file) => file.url).join('|');
-  if (refs.field.dataset.signature === signature) return;
-  refs.field.innerHTML = asHtml(versionSelect(files, state.variant[kind]));
-  refs.field.dataset.signature = signature;
-  refs.field.querySelector('select')?.addEventListener('change', (event) => {
-    state.variant[kind] = Number((event.target as HTMLSelectElement).value);
-    state.ready[kind] = null;
-    render(kind);
-  });
+  if (refs.field.dataset.signature !== signature) {
+    refs.select.innerHTML = asHtml(versionOptions(files, state.variant[kind]));
+    refs.field.dataset.signature = signature;
+  }
 };
 
-/** One line of help per row, and only for a file the person can act on. The longer reason for a
-    listing failure lives in the tooltip: in the row it would wrap and grow the screen. */
 const rowProblem = (
   kind: ImageKind,
   ready: ReadyFile | null,
