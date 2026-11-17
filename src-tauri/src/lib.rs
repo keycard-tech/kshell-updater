@@ -116,8 +116,9 @@ pub async fn catalogue_for(kind: Kind) -> Result<Listing, String> {
     let offered = releases::offerable(files);
     if offered.dropped_without_hash > 0 {
         eprintln!(
-            "{} {kind} files offer nothing, for want of a published hash",
-            offered.dropped_without_hash
+            "{} of {} {kind} files offer nothing, for want of a published hash",
+            offered.dropped_without_hash,
+            offered.dropped_without_hash + offered.files.len(),
         );
     }
     Ok(Listing {

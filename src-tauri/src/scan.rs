@@ -138,7 +138,7 @@ fn open_one(id: &str) -> Result<SessionHandle, String> {
         }
         why
     };
-    
+
     let asked = CameraFormat::new(1280, 720, 30.0);
     detail(format!(
         "{id}: opening, asking {}x{} @ {} fps",
@@ -376,9 +376,10 @@ pub async fn scan_frame(app: AppHandle) -> Result<ipc::Response, String> {
             )
             .map_err(|why| format!("could not encode the picture: {why}"))?;
         let encoded = ms(began.elapsed());
-       
+
         detail(format!(
-            "{telling}: waited {waited} ms, converted {converted}, cropped {cropped}, read {read},              jpeg {encoded}, {} bytes of jpeg{}",
+            "{telling}: waited {waited} ms, converted {converted}, cropped {cropped}, read {read}, \
+             jpeg {encoded}, {} bytes of jpeg{}",
             jpeg.len(),
             match &code {
                 Some(code) => format!(" read \"{}\"", shorten(code)),
@@ -409,7 +410,7 @@ pub fn picture_of(width: u32, height: u32, data: Vec<u8>) -> Result<RgbImage, St
             bytes as f64 / pixels.max(1) as f64,
         )
     };
-    
+
     if data.starts_with(&[0xFF, 0xD8]) {
         if let Some(picture) = coded(&data) {
             detail(String::from("a frame of coded jpeg, padded by the driver"));
