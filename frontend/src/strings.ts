@@ -62,6 +62,11 @@ export const summary = {
   transferTo: 'Transfer to device',
 };
 
+export const listing = {
+  newestUnhashed: 'The newest release publishes no hash, so this list stops at the one before it.',
+  hashList: 'A published hash list could not be read, so some files are not offered.',
+};
+
 export const row = {
   choose: 'Choose a .bin file',
   fromFileVersion: (version: string, variant: string): string =>

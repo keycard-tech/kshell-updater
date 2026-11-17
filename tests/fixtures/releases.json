@@ -10,7 +10,7 @@
         "version": null
       }
     ],
-    "note": null,
+    "newestOffered": true,
     "unofferable": 0,
     "verified": true
   },
@@ -33,7 +33,7 @@
         "version": "1.5.3"
       }
     ],
-    "note": null,
+    "newestOffered": true,
     "unofferable": 27,
     "verified": true
   },

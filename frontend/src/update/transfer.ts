@@ -30,7 +30,7 @@ export const startTransfer = async (): Promise<void> => {
   if (state.busy || !wanted.length || wanted.some((kind) => !isReadyToFlash(kind))) return;
 
   state.queue = wanted.map((kind) => {
-    const status = rowState(kind).status;
+    const row = rowState(kind);
     const key = keyFor(kind) ?? '';
     return {
       kind,
@@ -38,13 +38,14 @@ export const startTransfer = async (): Promise<void> => {
       label: itemLabel(kind),
       bytes: state.prepared[key]?.bytes ?? 0,
       done: false,
-      allowVariantSwitch: status === text.status.variantSwitch,
-      allowDowngrade: false,
+      allowVariantSwitch: row.variantSwitch,
+      allowDowngrade: row.downgrade,
     };
   });
   state.step = 0;
   state.transfer = null;
   state.transferError = null;
+  el<HTMLButtonElement>('btn-cancel').disabled = false;
   show('screen-transfer');
   await runQueue();
 };

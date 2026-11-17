@@ -142,8 +142,12 @@ pub fn attach_sha256(files: &mut [ReleaseFile], index: &HashMap<String, String>)
     }
 }
 
+pub fn newest_date(files: &[ReleaseFile]) -> Option<String> {
+    files.iter().map(|f| f.date.clone()).max()
+}
+
 pub fn latest(files: &[ReleaseFile]) -> Vec<ReleaseFile> {
-    let Some(newest) = files.iter().map(|f| f.date.clone()).max() else {
+    let Some(newest) = newest_date(files) else {
         return Vec::new();
     };
     files.iter().filter(|f| f.date == newest).cloned().collect()
@@ -369,6 +373,28 @@ mod tests {
                 "shellos-20261112-1.5.3-btc-only.bin"
             ],
             "both variants of the newest date, nothing older"
+        );
+    }
+
+    #[test]
+    fn the_newest_release_without_a_hash_is_missed_rather_than_hidden() {
+        let index = HashMap::from([("shellos-20261031-1.5.2.bin".to_string(), "c".repeat(64))]);
+        let mut files = vec![
+            parse_firmware_asset("shellos-20261112-1.5.3.bin", "u").unwrap(),
+            parse_firmware_asset("shellos-20261031-1.5.2.bin", "u").unwrap(),
+        ];
+        attach_sha256(&mut files, &index);
+        let published = newest_date(&files);
+        let offered = latest(&offerable(files).files);
+        assert_eq!(
+            newest_date(&offered).as_deref(),
+            Some("20261031"),
+            "the list goes down to what has a hash"
+        );
+        assert_ne!(
+            published,
+            newest_date(&offered),
+            "and the person has to be told the list stops early"
         );
     }
 

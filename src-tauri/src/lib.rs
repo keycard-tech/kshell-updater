@@ -71,14 +71,16 @@ impl PreparedImages {
 pub struct Catalogue {
     pub files: Vec<releases::ReleaseFile>,
     pub verified: bool,
-    pub note: Option<String>,
+    pub unofferable: usize,
+    pub newest_offered: bool,
 }
 
-fn catalogue(files: Vec<releases::ReleaseFile>, failures: Vec<String>) -> Catalogue {
+fn catalogue(listing: &Listing) -> Catalogue {
     Catalogue {
-        files,
-        verified: failures.is_empty(),
-        note: (!failures.is_empty()).then(|| failures.join("; ")),
+        files: listing.files.clone(),
+        verified: listing.failures.is_empty(),
+        unofferable: listing.unofferable,
+        newest_offered: listing.newest_offered,
     }
 }
 
@@ -86,6 +88,8 @@ pub struct Listing {
     pub files: Vec<releases::ReleaseFile>,
     pub index: HashMap<String, String>,
     pub failures: Vec<String>,
+    pub unofferable: usize,
+    pub newest_offered: bool,
 }
 
 fn endpoint(kind: Kind) -> &'static str {
@@ -104,6 +108,7 @@ pub async fn catalogue_for(kind: Kind) -> Result<Listing, String> {
         .await
         .map_err(|e| e.to_string())?;
     let mut files = releases::release_files(&json, kind.name());
+    let published = releases::newest_date(&files);
     let mut index = HashMap::new();
     let mut failures = Vec::new();
     for hash_url in releases::sha256_urls(&json) {
@@ -121,16 +126,22 @@ pub async fn catalogue_for(kind: Kind) -> Result<Listing, String> {
             offered.dropped_without_hash + offered.files.len(),
         );
     }
+    for failure in &failures {
+        eprintln!("{kind} published hashes: {failure}");
+    }
+    let files = releases::latest(&offered.files);
     Ok(Listing {
-        files: releases::latest(&offered.files),
+        newest_offered: published == releases::newest_date(&files),
+        unofferable: offered.dropped_without_hash,
         index,
         failures,
+        files,
     })
 }
 
 pub async fn build_catalogue(kind: &str) -> Result<Catalogue, String> {
     let listing = catalogue_for(Kind::parse(kind)?).await?;
-    Ok(catalogue(listing.files, listing.failures))
+    Ok(catalogue(&listing))
 }
 
 pub async fn download_verified(
@@ -168,8 +179,9 @@ async fn list_releases(app: AppHandle, kind: String) -> Result<Catalogue, String
     let listing = catalogue_for(Kind::parse(&kind)?)
         .await
         .inspect_err(|error| eprintln!("{kind} release list refused: {error}"))?;
+    let catalogue = catalogue(&listing);
     app.state::<PreparedImages>().remember_hashes(listing.index);
-    Ok(catalogue(listing.files, listing.failures))
+    Ok(catalogue)
 }
 
 #[derive(Debug, Deserialize)]

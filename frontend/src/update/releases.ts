@@ -4,7 +4,7 @@ import * as text from '../strings.js';
 import { listRetryMs } from '../config.js';
 import { sentence } from '../errors.js';
 import { el, reason } from '../utils.js';
-import { filesFor } from './files.js';
+import { checkedOf, filesFor } from './files.js';
 import { renderHome } from './home.js';
 import { renderRows, renderSummary } from './rows.js';
 
@@ -13,9 +13,14 @@ let lastPass = 0;
 export const loadReleases = async (): Promise<void> => {
   lastPass = Date.now();
   let failure: string | null = null;
+  let said = '';
   for (const { kind } of text.kinds) {
     try {
-      state.files[kind] = (await listReleases(kind)).files;
+      const catalogue = await listReleases(kind);
+      state.files[kind] = catalogue.files;
+      if (!catalogue.newestOffered) said = text.listing.newestUnhashed;
+      else if (!catalogue.verified) said = text.listing.hashList;
+      console.info(`${kind}: ${catalogue.unofferable} files have no published hash`);
     } catch (error) {
       console.warn(`could not list ${kind} releases:`, reason(error));
       failure = reason(error);
@@ -23,17 +28,16 @@ export const loadReleases = async (): Promise<void> => {
     }
     renderRows();
   }
-  
+
   state.listError = failure;
-  el('status-note').textContent = failure ? sentence.offline : '';
+  el('status-note').textContent = failure ? sentence.offline : said;
   renderHome();
 };
 
-/** A list that could not be read stays missing until a pass succeeds, so the app asks again by
-    itself: at once when the person says so or the browser announces a network, and slowly by itself
-    for a system that announces nothing - where the app usually starts before the network is up. */
 export const retryListing = async (immediate: boolean): Promise<void> => {
-  if (!state.listError || state.busy) return;
+  if (state.busy) return;
+  const waiting = state.listError || text.kinds.some(({ kind }) => checkedOf(kind) === 'failed');
+  if (!waiting) return;
   if (!immediate && Date.now() - lastPass < listRetryMs) return;
   await loadReleases();
   await preload();
@@ -42,7 +46,7 @@ export const retryListing = async (immediate: boolean): Promise<void> => {
 export const preload = async (): Promise<void> => {
   const files = text.kinds
     .flatMap(({ kind }) => filesFor(kind).map((file) => ({ kind, url: file.url })))
-    .filter((file) => !state.cache[file.url]);
+    .filter((file) => !state.cache[file.url]?.ok);
   if (!files.length) {
     state.preloading = false;
     renderSummary();

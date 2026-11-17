@@ -173,11 +173,14 @@ fn minutes_until(reset: u64, now: u64) -> u64 {
     reset.saturating_sub(now).div_ceil(60)
 }
 
+const CONNECT_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+
 fn client() -> &'static reqwest::Client {
     static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
             .user_agent(concat!("kshell-updater/", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(CONNECT_WAIT)
             .build()
             .expect("a default HTTP client builds")
     })

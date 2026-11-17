@@ -35,7 +35,27 @@ interface RowStatus {
   status: string;
   modifier: '' | 'empty' | 'latest';
   wanted: boolean;
+  variantSwitch: boolean;
+  downgrade: boolean;
 }
+
+const rowOf = (
+  status: string,
+  modifier: RowStatus['modifier'] = '',
+  wanted = false,
+  agreed: { variantSwitch?: boolean; downgrade?: boolean } = {},
+): RowStatus => ({
+  status,
+  modifier,
+  wanted,
+  variantSwitch: agreed.variantSwitch ?? false,
+  downgrade: agreed.downgrade ?? false,
+});
+
+const switchesVariant = (arriving: number | null): boolean => {
+  const onDevice = state.config?.fwVariant ?? null;
+  return arriving !== null && onDevice !== null && arriving !== onDevice;
+};
 
 export const buildRows = (): void => {
   for (const entry of text.kinds) {
@@ -87,40 +107,40 @@ export const buildRows = (): void => {
 export const rowState = (kind: ImageKind): RowStatus => {
   if (state.mode[kind] === 'file') {
     const picked = state.ready[kind]?.info;
-    if (!picked) return { status: text.status.noFile, modifier: 'empty', wanted: false };
+    if (!picked) return rowOf(text.status.noFile, 'empty');
     const onDevice = deviceVersion(kind);
-    if (onDevice && olderThan(picked.version, onDevice))
-      return { status: text.status.older, modifier: 'empty', wanted: false };
-    return {
-      status: text.row.fromFileVersion(picked.version, text.variants[picked.fwVariant ?? -1] ?? ''),
-      modifier: '',
-      wanted: true,
-    };
+    if (onDevice && olderThan(picked.version, onDevice)) return rowOf(text.status.older, 'empty');
+    return rowOf(
+      text.row.fromFileVersion(picked.version, text.variants[picked.fwVariant ?? -1] ?? ''),
+      '',
+      true,
+      { variantSwitch: switchesVariant(picked.fwVariant) },
+    );
   }
 
   const file = selectedFile(kind);
   if (!file) {
     return state.listError
-      ? { status: text.status.noList, modifier: 'empty', wanted: false }
-      : { status: text.status.reading, modifier: 'empty', wanted: false };
+      ? rowOf(text.status.noList, 'empty')
+      : rowOf(text.status.reading, 'empty');
   }
 
   if (kind === 'database') {
     return sameOrNew(String(state.config?.dbVersion ?? ''), versionOf(file));
   }
-  const deviceVariant = state.config?.fwVariant ?? null;
-  if (deviceVariant !== null && file.variant !== deviceVariant) {
-    return { status: text.status.variantSwitch, modifier: '', wanted: true };
+  if (switchesVariant(file.variant)) {
+    return rowOf(text.status.variantSwitch, '', true, { variantSwitch: true });
   }
 
-  if (state.config?.fwBeta) return { status: text.status.newVersion, modifier: '', wanted: true };
+  if (state.config?.fwBeta)
+    return rowOf(text.status.newVersion, '', true, { downgrade: true });
   return sameOrNew(state.config?.fwVersion ?? '', versionOf(file));
 };
 
 const sameOrNew = (onDevice: string, offered: string): RowStatus =>
-  onDevice && onDevice === offered
-    ? { status: text.status.upToDate, modifier: 'latest', wanted: false }
-    : { status: text.status.newVersion, modifier: '', wanted: true };
+  onDevice && !olderThan(onDevice, offered)
+    ? rowOf(text.status.upToDate, 'latest')
+    : rowOf(text.status.newVersion, '', true);
 
 export const wantedKinds = (): ImageKind[] =>
   text.kinds

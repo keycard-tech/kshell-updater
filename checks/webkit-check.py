@@ -58,6 +58,9 @@ BEHIND = {
     'fwBeta': False,
 }
 CURRENT = dict(BEHIND, fwVersion=FW['version'], dbVersion=int(DB['date']))
+BETA = dict(BEHIND, fwVersion='1.6.0', fwBeta=True)
+AHEAD = dict(BEHIND, fwVersion='1.6.0', dbVersion=int(DB['date']))
+CONFIGS = {'current': CURRENT, 'beta': BETA, 'ahead': AHEAD}
 
 MEASURE = """JSON.stringify((() => {
   const shown = (n) => !n.hidden && getComputedStyle(n).display !== 'none';
@@ -143,6 +146,12 @@ MEASURE = """JSON.stringify((() => {
       ['challengeText', String(window.kshell.verify.challengeText || '')],
       ['cameraCount', String(document.querySelectorAll('#scan-camera option').length)],
       ['cameraChoice', document.querySelector('#scan-camera option:checked')?.textContent.trim() ?? ''],
+      ['transferButton', ((n) => n
+        ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
+        : null)(document.getElementById('btn-transfer'))],
+      ['cancelButton', ((n) => n
+        ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
+        : null)(document.getElementById('btn-cancel'))],
       ['cameraButton', ((n) => n
         ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ''}`
         : null)(document.getElementById('btn-camera'))],
@@ -248,6 +257,18 @@ STATES = {
     'ready-up-to-date': ({'config': 'current'},
                          ["document.getElementById('card-update').click()"], 'screen-ready',
                          {'device-line': 'Installed on Shell · firmware 1.5.3'}),
+    # A Shell running ahead of every published build has nothing to take: the public release is not
+    # offered as if it were newer, which is also the write the Shell would refuse.
+    'ready-ahead': ({'config': 'ahead'},
+                    ["document.getElementById('card-update').click()"], 'screen-ready',
+                    {'device-line': 'Installed on Shell · firmware 1.6.0',
+                     'transferButton': 'Transfer · disabled'}),
+    # A beta Shell is offered the public release by the same rule as the web updater, so the write has
+    # to reach the Shell instead of coming back as a refusal nobody can read.
+    'beta-to-release': ({'config': 'beta', 'flash': 'ok'}, [
+        "document.getElementById('card-update').click()",
+        "document.getElementById('btn-transfer').click()",
+    ], 'screen-done'),
     'ready-list-error': ({'listError': True},
                          ["document.getElementById('card-update').click()"], 'screen-ready',
                          {'status-note': 'Offline - no list available, connection error',
@@ -259,12 +280,19 @@ STATES = {
         "window.__backOnline = true;",
         "window.dispatchEvent(new Event('online'));",
     ], 'screen-home', {'status-note': ''}),
+    'list-newest-unhashed': ({'newestOffered': False},
+                             ["document.getElementById('card-update').click()"], 'screen-ready',
+                             {'status-note': 'publishes no hash', 'noteShown': 'shown'}),
     'transfer': ({'flash': 'pending'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",
     ], 'screen-transfer', {'transfer-bytes': None, 'transfer-step': None}),
     'ready-checksum-mismatch': ({'preloadFail': True},
                                 ["document.getElementById('card-update').click()"], 'screen-ready'),
+    'preload-retried': ({'preloadFail': 'once'}, [
+        "document.getElementById('card-update').click()",
+        "window.dispatchEvent(new Event('online'));",
+    ], 'screen-ready', {'transferButton': 'Transfer to device · enabled'}),
     'verify': ({}, ["document.getElementById('card-verify').click()"], 'screen-verify',
                {'verify-qr-note': '',
                 'verify-list-line': 'Units list fetched 2026-11-13',
@@ -402,7 +430,12 @@ STATES = {
         "document.querySelector('[data-kind=firmware] [data-mode=file]').click()",
         "document.querySelector('[data-kind=firmware] [data-slot=pick]').click()",
     ], 'screen-ready', {'rowHint': 'older than the firmware 1.5.2 on your Shell'}),
-    # A stopped write is a screen of its own now: one sentence, one action.
+    'ready-own-file-variant': ({'ownFile': True, 'ownFileVariant': 1, 'flash': 'ok'}, [
+        "document.getElementById('card-update').click()",
+        "document.querySelector('[data-kind=firmware] [data-mode=file]').click()",
+        "document.querySelector('[data-kind=firmware] [data-slot=pick]').click()",
+        "document.getElementById('btn-transfer').click()",
+    ], 'screen-done'),
     'failed': ({'flash': 'error'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",
@@ -420,7 +453,13 @@ STATES = {
         'failed-title': 'The transfer was cancelled.',
         'button:btn-failed-back': 'Back to updates',
     }),
-    # Back to updates re-reads the device, so the rows say what it runs after a half-finished queue.
+    'cancel-again': ({'flash': 'cancelled', 'cancelAgain': True}, [
+        "document.getElementById('card-update').click()",
+        "document.getElementById('btn-transfer').click()",
+        "document.getElementById('btn-cancel').click()",
+        "document.getElementById('btn-failed-back').click()",
+        "document.getElementById('btn-transfer').click()",
+    ], 'screen-transfer', {'cancelButton': 'Cancel · enabled'}),
     'failed-back': ({'flash': 'error'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",
@@ -432,12 +471,15 @@ STATES = {
 }
 
 
+def settle(options):
+    return 500 if options.get('scan') or options.get('flash') else 300
+
+
 def stub(name):
     options = STATES[name][0]
-    config = None if options.get('noDevice') else (
-        CURRENT if options.get('config') == 'current' else BEHIND)
+    config = None if options.get('noDevice') else CONFIGS.get(options.get('config'), BEHIND)
     bridge = {
-        'preloadFail': bool(options.get('preloadFail')),
+        'preloadFail': options.get('preloadFail', False),
         'devices': [] if options.get('noDevice') else [DEVICE],
         'config': config,
         'fixtures': FIXTURES,
@@ -464,6 +506,9 @@ def stub(name):
         'ownFile': bool(options.get('ownFile')),
         'fileFails': bool(options.get('fileFails')),
         'ownFileOld': bool(options.get('ownFileOld')),
+        'ownFileVariant': options.get('ownFileVariant'),
+        'newestOffered': options.get('newestOffered', True),
+        'cancelAgain': bool(options.get('cancelAgain')),
         'qr': QR_SVG,
     }
     template = """
@@ -488,11 +533,14 @@ def stub(name):
                 if (!one) return null;
                 // The longest message the update screen ever shows: a published hash the download
                 // does not match. The window is sized for this, not for the tidy case.
-                if (b.preloadFail && file.kind === 'firmware') {
-                  window.__events__['shell://preloaded']({
-                    payload: { key: file.url, ok: false,
-                      note: one.name + ' did not match its published checksum' } });
-                  return null;
+                if (b.preloadFail === true || (b.preloadFail === 'once' && !window.__preloaded)) {
+                  window.__preloaded = true;
+                  if (file.kind === 'firmware') {
+                    window.__events__['shell://preloaded']({
+                      payload: { key: file.url, ok: false,
+                        note: one.name + ' did not match its published checksum' } });
+                    return null;
+                  }
                 }
                 return {
                   info: { ...b.imageInfo, kind: file.kind, version: one.version ?? one.date,
@@ -507,8 +555,38 @@ def stub(name):
               const emit = window.__events__['shell://flash-progress'];
               emit({ payload: { kind: args.request.kind, done: Math.round(total * 0.42), total } });
               if (b.flash === 'pending') return new Promise(() => {});
+              // Two writes are refused until the row says the person meant them, as the Rust puts it.
+              const steps = (value) => String(value).split(/[.\s_-]+/).filter(Boolean).map(Number);
+              const behind = (wanted, onDevice) => {
+                const [a, c] = [steps(wanted), steps(onDevice)];
+                for (let i = 0; i < Math.max(a.length, c.length); i += 1) {
+                  const gap = (a[i] ?? 0) - (c[i] ?? 0);
+                  if (gap !== 0) return gap < 0;
+                }
+                return false;
+              };
+              const listed = args.request.kind === 'firmware'
+                ? b.fixtures.firmware.files[0] : b.fixtures.database.files[0];
+              const picked = args.request.key.startsWith('file://') && window.__picked;
+              const image = picked
+                ? { version: window.__picked.version, variant: window.__picked.variant }
+                : { version: listed.version ?? listed.date, variant: listed.variant ?? null };
+              const device = args.request.kind === 'firmware'
+                ? { version: b.config.fwVersion, variant: b.config.fwVariant ?? null }
+                : { version: String(b.config.dbVersion), variant: null };
+              if (image.variant !== null && device.variant !== null
+                  && image.variant !== device.variant
+                  && args.request.allowVariantSwitch !== true) {
+                return fail('confirm:variant-switch');
+              }
+              if (behind(image.version, device.version)
+                  && args.request.allowDowngrade !== true) {
+                return fail('confirm:downgrade');
+              }
               // A Rust error arrives as a sentence, first one the headline of the failure screen.
               if (b.flash === 'cancelled') {
+                window.__flashTries = (window.__flashTries || 0) + 1;
+                if (b.cancelAgain && window.__flashTries > 1) return new Promise(() => {});
                 return new Promise((_, reject) => setTimeout(
                   () => reject('The transfer was cancelled. Nothing more was written.'), 120));
               }
@@ -531,10 +609,21 @@ def stub(name):
                 info: {
                   ...b.imageInfo,
                   kind: args.file.kind,
-                  version: b.ownFileOld ? '1.4.0' : b.imageInfo.version,
+                  version: b.ownFileOld
+                    ? '1.4.0'
+                    : (args.file.kind === 'firmware'
+                      ? b.fixtures.firmware.files[0].version
+                      : b.fixtures.database.files[0].date),
+                  fwVariant: b.ownFileVariant ?? b.imageInfo.fwVariant,
                   matchesRelease: null,
                 },
                 key: 'file://' + args.file.path,
+              }).then((prepared) => {
+                window.__picked = {
+                  version: prepared.info.version,
+                  variant: prepared.info.fwVariant ?? null,
+                };
+                return prepared;
               });
             case 'load_update_record':
               return Promise.resolve(null);
@@ -546,7 +635,10 @@ def stub(name):
               // list is unreachable until the network returns, and reachable afterwards, so a badge
               // that never came back down fails here rather than in a browser.
               if (b.listError && !window.__backOnline) return fail(b.listError);
-              return Promise.resolve(b.fixtures[args.kind]);
+              return Promise.resolve({
+                ...b.fixtures[args.kind],
+                newestOffered: args.kind === 'firmware' ? b.newestOffered : true,
+              });
             // The verify screens: a list, a challenge, and a verdict.
             case 'units_status':
               // As the command answers: an empty status, not an error, when nothing is loaded.
@@ -641,7 +733,7 @@ def page(name):
 def render(name, report):
     options, actions = STATES[name][0], STATES[name][1]
     # A frame has to arrive and be painted before the scan screens are measured.
-    settle_ms = 500 if options.get('scan') or name == 'transfer' else 300
+    settle_ms = settle(options)
     loop = GLib.MainLoop()
     win = Gtk.OffscreenWindow()
     view = WebKit2.WebView()

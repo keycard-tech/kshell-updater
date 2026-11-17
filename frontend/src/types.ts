@@ -12,7 +12,8 @@ export interface ReleaseFile {
 export interface Catalogue {
   files: ReleaseFile[];
   verified: boolean;
-  note: string | null;
+  unofferable: number;
+  newestOffered: boolean;
 }
 
 export interface ImageInfo {

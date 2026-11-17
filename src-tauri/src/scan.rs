@@ -367,6 +367,7 @@ pub async fn scan_frame(app: AppHandle) -> Result<ipc::Response, String> {
         let read = ms(began.elapsed());
 
         let mut jpeg = Vec::new();
+        let began = Instant::now();
         image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg, JPEG_QUALITY)
             .write_image(
                 square.as_raw(),

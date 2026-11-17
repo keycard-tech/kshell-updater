@@ -21,7 +21,7 @@ export const shaFromFile = (ready: ReadyFile | null): ShaView => {
       : html`<i class="ksh__sha-state">${text.hash.fromFile}</i>`;
   return {
     content: html`${text.hash.label} <b>${shortHash(info.sha256)}</b>${mark}`,
-    verified: !ready?.error,
+    verified: Boolean(info.matchesRelease),
   };
 };
 
