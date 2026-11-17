@@ -69,7 +69,6 @@ pub struct Scan {
 
 fn listed() -> Result<Vec<Node>, String> {
     let listed = list_devices().map_err(|why| format!("the cameras would not list: {why}"))?;
-    said(format!("{} camera(s) listed", listed.len()));
     for found in &listed {
         detail(format!(
             "{}: {} [{}] {}",
@@ -166,10 +165,10 @@ fn open_one(id: &str) -> Result<SessionHandle, String> {
             ))
         })?;
     said(format!(
-        "{id}: {opened} ms to open, {started} ms to start, then {} — {}",
-        told(&first),
-        anatomy(&first.data)
+        "{id}: {opened} ms to open, {started} ms to start, {}x{}",
+        first.width, first.height
     ));
+    detail(format!("{} — {}", told(&first), anatomy(&first.data)));
     Ok(session)
 }
 
@@ -229,7 +228,7 @@ fn open_any(order: &[String]) -> Result<(SessionHandle, String), String> {
             Ok(session) => return Ok((session, id.clone())),
             Err(why) => {
                 refusals.push(format!("{id}: {why}"));
-                said(format!("{id}: not this one, going on"));
+                detail(format!("{id}: not this one, going on"));
             }
         }
     }
@@ -292,7 +291,7 @@ async fn asked_for_access() -> Result<(), String> {
     let answer = crabcamera::commands::permissions::request_camera_permission()
         .await
         .map_err(|why| refused(&format!("camera permission: {why}")))?;
-    said(format!("camera permission {}", answer.status));
+    detail(format!("camera permission {}", answer.status));
     if matches!(
         answer.status,
         PermissionStatus::Denied | PermissionStatus::Restricted
@@ -312,10 +311,6 @@ async fn asked_for_access() -> Result<(), String> {
 #[tauri::command]
 pub async fn scan_start(app: AppHandle, device: Option<String>) -> Result<Scan, String> {
     let scanner = app.state::<Scanner>().inner().clone();
-    match &device {
-        Some(id) => said(format!("asked to scan {id}")),
-        None => said("asked to scan, any camera"),
-    }
     asked_for_access().await?;
     tauri::async_runtime::spawn_blocking(move || -> Result<Scan, String> {
         let nodes = listed()?;
@@ -327,7 +322,6 @@ pub async fn scan_start(app: AppHandle, device: Option<String>) -> Result<Scan, 
         }
         scanner.give_up();
         let (session, running) = open_any(&tries(&nodes, device.as_deref()))?;
-        said(format!("{running}: scanning"));
         *scanner
             .0
             .lock()
@@ -422,14 +416,13 @@ pub async fn scan_frame(app: AppHandle) -> Result<ipc::Response, String> {
 
 #[tauri::command]
 pub fn scan_stop(scanner: State<'_, Scanner>) {
-    said("asked to stop");
     scanner.give_up();
 }
 
 pub fn picture_of(width: u32, height: u32, data: Vec<u8>) -> Result<RgbImage, String> {
     let pixels = width as usize * height as usize;
     let bytes = data.len();
-    let said = |because: &str| {
+    let warned = |because: &str| {
         log::warn!(
             "[scan] {width}x{height} of {bytes} bytes ({:.1} per pixel) is {because}",
             bytes as f64 / pixels.max(1) as f64,
@@ -450,12 +443,12 @@ pub fn picture_of(width: u32, height: u32, data: Vec<u8>) -> Result<RgbImage, St
         shades(width, height, &data)
     } else {
         coded(&data).or_else(|| {
-            said("neither RGB, YUYV, luma nor a coded picture");
+            warned("neither RGB, YUYV, luma nor a coded picture");
             None
         })
     };
     picture.ok_or_else(|| {
-        said("a picture this app cannot read");
+        warned("a picture this app cannot read");
         String::from("The camera sent a picture this app could not read.")
     })
 }
