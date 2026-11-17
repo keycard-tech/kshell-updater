@@ -21,12 +21,9 @@ thiserror = "2"
 sha2 = "0.10"
 # `system-proxy` is a reqwest default that `default-features = false` drops, and it is the one
 # that matters here: a computer that reaches GitHub only through $HTTPS_PROXY lists releases
-# with it and sits offline without it, while its browser works.
-reqwest = {
-  version = "0.13",
-  default-features = false,
-  features = ["json", "rustls", "system-proxy"],
-}
+# with it and sits offline without it, while its browser works. One line because a TOML inline
+# table may not span lines, and tauri-action reads this file with a parser that enforces it.
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "system-proxy"] }
 hidapi = { version = "2", features = ["linux-static-hidraw"] }
 k256 = { version = "0.13", features = ["ecdsa"] }
 getrandom = "0.3"
