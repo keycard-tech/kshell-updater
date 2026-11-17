@@ -47,6 +47,7 @@ jobs:
       - run: npm ci
 
       - name: installers and release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,8 +58,15 @@ jobs:
           # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         with:
-          skipInstall: true
-          # The tag is what makes a release; a hand-started build only leaves the files behind.
-          includeRelease: ${{ github.event_name == 'push' }}
+          includeRelease: true
           includeDebug: false
+          tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          includeUpdaterJson: false
           args: ${{ matrix.args }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            src-tauri/target/release/bundle/**
+            src-tauri/target/*/release/bundle/**
