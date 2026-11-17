@@ -17,9 +17,7 @@ jobs:
         include:
           - os: ubuntu-22.04
             args: --bundles deb,appimage
-          # Universal, so the same file opens on an Apple silicon machine and an Intel one: the
-          # updater is not in the app yet, and one download link should serve both.
-          - os: macos-14
+          - os: macos-15
             args: --target universal-apple-darwin --bundles dmg
           - os: windows-latest
             args: --bundles msi,nsis
