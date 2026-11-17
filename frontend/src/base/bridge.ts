@@ -2,6 +2,7 @@ import type {
   AppConfiguration,
   Catalogue,
   Challenge,
+  Scan,
   DeviceInfo,
   FlashRequest,
   ImageKind,
@@ -54,6 +55,15 @@ export const unitsChallenge = (renew: boolean): Promise<Challenge> =>
 
 export const unitsCheck = (text: string): Promise<Verdict> => call('units_check', { text });
 
+export const scanStart = (device?: string): Promise<Scan> => call('scan_start', { device });
+
+export const scanStop = (): Promise<undefined> => call('scan_stop');
+
+export const scanFrame = (): Promise<ArrayBuffer> =>
+  window.__TAURI__.core.invoke('scan_frame', {}, { responseType: 'arraybuffer' }) as Promise<
+    ArrayBuffer
+  >;
+
 export const chooseFile = (options: {
   title: string;
   filterName: string;
@@ -75,6 +85,7 @@ export const events = {
   disconnected: 'shell://disconnected',
   flashProgress: 'shell://flash-progress',
   preloaded: 'shell://preloaded',
+  scanned: 'scan://code',
 };
 
 export const listen = <T>(event: string, handler: (payload: T) => void): void => {

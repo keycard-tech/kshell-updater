@@ -16,7 +16,7 @@ import {
   retryTransfer,
   startTransfer,
 } from './update/transfer.js';
-import { cameraStart, discoverCameras, stopCamera } from './verify/camera.js';
+import { scanRun, stopScan } from './verify/scan.js';
 import {
   ensureChallenge,
   fetchList,
@@ -57,16 +57,14 @@ el<HTMLButtonElement>('verify-list-online').addEventListener('click', () => void
 el<HTMLButtonElement>('verify-list-file').addEventListener('click', () => void useOwnList());
 el<HTMLButtonElement>('btn-camera').addEventListener('click', () => void startCamera());
 el<HTMLButtonElement>('btn-scan-back').addEventListener('click', () => {
-  stopCamera();
+  stopScan();
   show('screen-verify');
 });
 el<HTMLSelectElement>('scan-camera').addEventListener(
   'change',
-  (event) => void switchCamera((event.target as HTMLSelectElement).value),
+  (event) => void scanRun((event.target as HTMLSelectElement).value),
 );
 el<HTMLButtonElement>('btn-verdict').addEventListener('click', verdictButton);
-
-navigator.mediaDevices?.addEventListener?.('devicechange', () => void discoverCameras());
 
 listen(events.connected, () => {
   if (!state.busy) void refresh().then(renderVerify);
@@ -90,6 +88,11 @@ listen<Preloaded>(events.preloaded, (file) => {
   }
 });
 
+listen<string>(events.scanned, (code) => {
+  stopScan();
+  void answer(code);
+});
+
 async function useOnlineList(): Promise<void> {
   if (verify.mode === 'online' && verify.status) return;
   verify.mode = 'online';
@@ -105,12 +108,7 @@ async function startCamera(): Promise<void> {
     return;
   }
   await ensureChallenge(false);
-  await cameraStart(answer);
-}
-
-async function switchCamera(deviceId: string): Promise<void> {
-  stopCamera();
-  await cameraStart(answer, deviceId);
+  await scanRun();
 }
 
 async function poll(): Promise<void> {

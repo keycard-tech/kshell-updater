@@ -35,6 +35,16 @@ export interface DeviceInfo {
   serialNumber: string | null;
 }
 
+export interface Camera {
+  id: string;
+  label: string;
+}
+
+export interface Scan {
+  cameras: Camera[];
+  device: string;
+}
+
 export interface AppConfiguration {
   fwVersion: string;
   dbVersion: number;

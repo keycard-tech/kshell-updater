@@ -18,7 +18,7 @@ spec.loader.exec_module(harness)
 state = sys.argv[1] if len(sys.argv) > 1 else 'home'
 options, actions = harness.STATES[state][0], harness.STATES[state][1]
 # the same settling time the check harness allows this state
-settle = 1200 if options.get('camera') else 300
+settle = 500 if options.get('scan') else 300
 
 WATCH = """
 <script>

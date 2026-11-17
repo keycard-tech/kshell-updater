@@ -5,12 +5,12 @@ import { human } from '../errors.js';
 import * as text from '../strings.js';
 import type { Verdict } from '../types.js';
 import { el, reason } from '../utils.js';
-import { stopCamera } from './camera.js';
+import { stopScan } from './scan.js';
 import { openVerify } from './screen.js';
 import { verify } from './state.js';
 
 export const answer = async (code: string): Promise<void> => {
-  stopCamera();
+  stopScan();
   let verdict: Verdict;
   try {
     verdict = await unitsCheck(code);

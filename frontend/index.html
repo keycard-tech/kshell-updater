@@ -23,9 +23,9 @@
           <div class="ksh__card-body">
             <div class="ksh__card-text">
               <p class="ksh__prompt" id="home-text">
-                Connect the Shell with a USB-C cable and unlock it to choose what to write.
+                Unlock Keycard Shell, connect it with a USB-C cable to upgrade to the latest firmware &amp; database.
               </p>
-              <span class="ksh__hint" id="home-sub">Nothing to choose until the Shell is connected</span>
+              <span class="ksh__hint" id="home-sub"></span>
             </div>
             <img class="ksh__card-img" src="img/panel_shell.png" alt="" id="home-img" />
           </div>
@@ -39,7 +39,7 @@
           <div class="ksh__card-body">
             <div class="ksh__card-text">
               <p class="ksh__prompt">
-                Scan a challenge with your Shell, then scan the QR code it answers with.
+                Scan a challenge with your Keycard Shell, then scan the QR code it answers with.
               </p>
               <span class="ksh__hint">No USB cable · Settings/Shell/Verify on the Shell</span>
             </div>
@@ -48,7 +48,6 @@
         </button>
       </div>
 
-      <!-- Verify: the challenge is written here and read back from the Shell's screen -->
       <div class="ksh__verify" id="screen-verify" hidden>
         <div class="ksh__head">
           <div>
@@ -62,11 +61,11 @@
             <ol class="ksh__steps ksh__prompt">
               <li>
                 <span class="ksh__step-num">1</span>
-                <span>Open <b>Settings/Shell/Verify</b> and scan this code.</span>
+                <span>Open <b>Settings/Shell/Verify</b> and scan this QR code.</span>
               </li>
               <li>
                 <span class="ksh__step-num">2</span>
-                <span>The Shell shows a response code.</span>
+                <span>Keycard Shell shows a response QR code.</span>
               </li>
               <li>
                 <span class="ksh__step-num">3</span>
@@ -106,11 +105,10 @@
         </div>
       </div>
 
-      <!-- The camera lives on one screen: the preview and the camera it uses never split -->
       <div class="ksh__verify" id="screen-scan" hidden>
         <div class="ksh__head">
           <div>
-            <h1 class="ksh__h1">Now scan the Shell QR code</h1>
+            <h1 class="ksh__h1">Scan the Shell QR code</h1>
           </div>
           <span class="ksh__badge">Scanning…</span>
         </div>
@@ -127,7 +125,7 @@
 
           <figure class="ksh__qr">
             <div class="ksh__video">
-              <video id="scan-video" autoplay playsinline muted></video>
+              <canvas id="scan-frame"></canvas>
               <i class="ksh__video-frame"></i>
             </div>
             <figcaption>
@@ -226,7 +224,7 @@
           </div>
           <div class="ksh__chip">
             <span class="ksh__chip-title">
-              <span class="ksh__step-num">2</span>Approve on the Shell
+              <span class="ksh__step-num">2</span>Approve update
             </span>
             <span class="ksh__chip-text">
               Shell's screen will ask you to confirm the firmware / database transfer.
@@ -282,8 +280,8 @@
 
       <section class="ksh__done" id="screen-failed" hidden>
         <img src="img/fail.svg" alt="" />
-        <h1 class="ksh__h1" id="failed-title">The transfer failed.</h1>
-        <span class="ksh__hint" id="failed-detail"></span>
+        <h1 class="ksh__h1" id="failed-title">Transfer failed</h1>
+        <span class="ksh__hint" id="failed-detail">Something went wrong.</span>
         <button class="ksh__btn ksh__btn--primary" id="btn-retry">Try again</button>
         <button class="ksh__link ksh__link--button" id="btn-failed-back">Back to updates</button>
       </section>
@@ -304,8 +302,6 @@
         <span id="status-note">reading the release list…</span>
       </div>
     </div>
-    <!-- https://github.com/cozmo/jsQR (Apache-2.0), vendored: the CSP allows no remote script -->
-    <script src="vendor/jsQR.js"></script>
     <script type="module" src="dist/main.js"></script>
   </body>
 </html>

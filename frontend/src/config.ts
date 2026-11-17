@@ -7,13 +7,3 @@ export const images = {
 export const presencePollMs = 1500;
 
 export const listRetryMs = 30000;
-
-export const cameraRetryPauseMs = 400;
-
-export const decodeWindowPx = 340;
-
-export const scanIntervalMs = 120;
-
-export const silentCamera = { firstWaitMs: 3000, secondWaitMs: 4000 };
-
-export const slowCamera = { windowMs: 4000, minFrames: 2, minFps: 0.5 };

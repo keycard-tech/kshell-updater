@@ -42,9 +42,9 @@ export const home = {
   badgeUpToDate: 'Up to date',
   badgeOwed: 'Update owed',
   badgeUpdates: (count: number): string => `${count} update${count > 1 ? 's' : ''}`,
-  connect: 'Connect your Shell with a USB-C cable and unlock it to upgrade firmware / database.',
-  connectHint: 'Nothing to choose until the Shell is connected',
-  prompt: 'Write the newest firmware and the newest Ethereum database to the Shell.',
+  connect: 'Unlock your Keycard Shell, connect it with a USB-C cable to upgrade to the latest firmware & database.',
+  connectHint: 'Update is unavailable until the Keycard Shell is connected',
+  prompt: 'Transfer the newest firmware and the newest Ethereum database to the Shell.',
   runs: (firmware: string, variant: string, database: string): string =>
     `Firmware - ${firmware}${variant}, Database - ${database}`,
   silentDevice: 'The Shell did not answer. Unlock it and try again.',
@@ -123,26 +123,10 @@ export const verify = {
   fromFile: (name: string): string => `Units list from ${name}`,
   noList: 'Load own list to verify offline.',
   enableCamera: 'Enable camera',
-  noCamera: 'No camera found',
-  findingCameras: 'Looking for a camera…',
   updateShell: 'Update Shell',
-  goHome: 'Home',
+  goHome: 'Back to Home',
   fetchingList: 'Fetching units list…',
   loadList: 'Fetch units list',
-};
-
-export const camera = {
-  none: 'No camera is connected. Plug one in and try again.',
-  blocked: 'This app is not allowed to use the camera.',
-  busy: 'Another app is using the camera. Close it and try again.',
-  refused: 'The camera refused every mode this app asked for. Try another one below.',
-  silent: 'Selected camera opened but sent no picture. Try another one below.',
-  slow: (rate: string): string =>
-    `Selected camera manages about ${rate} pictures a second, too slow to read a code. Try another one below.`,
-  stopped: 'This camera stopped by itself. Pick another one below.',
-  didNotWork: 'did not open',
-  sentNothing: 'sent no picture',
-  unnamed: (index: number): string => `Camera ${index}`,
 };
 
 export interface Shown {
@@ -161,10 +145,10 @@ export const verdict = {
     button: 'Done',
   }),
   notRegistered: (uid: string): Shown => ({
-    title: `No device ${uid} is in the produced units list`,
+    title: `No device ${uid} found in the produced units list`,
     text: 'Contact our team to check it.',
     sub: uid,
-    button: 'Home',
+    button: 'Back to Home',
   }),
   refused: (reason: string): Shown => ({
     title: 'Shell could not be verified',

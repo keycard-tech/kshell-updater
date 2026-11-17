@@ -2,13 +2,9 @@
 #
 #   makepkg -si
 #
-# This exists because of the camera. The app renders in WebKitGTK and reaches a webcam through
-# GStreamer's v4l2 device provider, so it only sees cameras that the GStreamer inside its own process
-# can enumerate. An AppImage carries a private GStreamer, and without the media framework copied into
-# it there is no device provider at all: the page asks, `enumerateDevices()` answers with an empty
-# list, and the app correctly says no camera is connected while `npm run tauri dev` on the same
-# machine works. Installing natively means the app uses the system WebKitGTK and the system plugins,
-# which is the arrangement the camera code was written against.
+# The camera is opened by the app itself, over V4L2, so nothing here needs a media framework: the
+# webkit2gtk dependency is the window, not the picture. Installing natively is also how the app gets
+# the system's own SSL and proxy arrangement rather than an AppImage's private copy of things.
 #
 # To package a tree of your own instead of the published one:
 #
@@ -21,7 +17,7 @@ pkgdesc='Update the firmware and database of a Keycard Shell, and verify its aut
 arch=('x86_64')
 url='https://github.com/choppu/kshell-updater'
 license=('MIT')
-depends=('webkit2gtk-4.1' 'gtk3' 'gst-plugins-base' 'gst-plugins-good' 'hidapi')
+depends=('webkit2gtk-4.1' 'gtk3' 'hidapi')
 makedepends=('cargo' 'nodejs' 'npm')
 _repo=${KSHELL_REPO:-https://github.com/choppu/kshell-updater.git}
 source=("kshell-updater::git+${_repo}")

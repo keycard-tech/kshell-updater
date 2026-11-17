@@ -2,6 +2,7 @@ pub mod bytewords;
 pub mod image;
 pub mod net;
 pub mod releases;
+pub mod scan;
 mod shell;
 pub mod units;
 pub mod ur;
@@ -12,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use shell::{AppConfiguration, DeviceInfo, Shell};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use tauri::webview::{PermissionKind, PermissionResponse, WebviewWindowBuilder};
 use tauri::{AppHandle, Emitter, Manager};
 
 struct SharedUsb(Mutex<hidapi::HidApi>);
@@ -515,6 +515,15 @@ fn watch_presence(app: AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .try_init()
+        .ok();
+    log::info!(
+        "[app] kshell-updater {} on {} {}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
@@ -523,22 +532,11 @@ pub fn run() {
             app.manage(CancelFlag::default());
             app.manage(PreparedImages::default());
             app.manage(verify::Units::default());
+            app.manage(scan::Scanner::default());
             if let Ok(dir) = app.path().app_config_dir() {
                 net::keep_reads_in(dir.join("reads"));
             }
             watch_presence(app.handle().clone());
-            let config = app.config().clone();
-            let window = config
-                .app
-                .windows
-                .first()
-                .ok_or("tauri.conf.json declares no window")?;
-            WebviewWindowBuilder::from_config(&*app, window)?
-                .on_permission_request(|_, kind| match kind {
-                    PermissionKind::Camera => PermissionResponse::Allow,
-                    _ => PermissionResponse::Deny,
-                })
-                .build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -556,7 +554,10 @@ pub fn run() {
             verify::units_fetch,
             verify::units_use_file,
             verify::units_challenge,
-            verify::units_check
+            verify::units_check,
+            scan::scan_start,
+            scan::scan_frame,
+            scan::scan_stop
         ])
         .run(tauri::generate_context!())
         .expect("error while running Keycard Shell Updater");

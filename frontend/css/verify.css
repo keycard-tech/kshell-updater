@@ -129,10 +129,9 @@
   overflow: hidden;
 }
 
-.ksh__video video {
+.ksh__video canvas {
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
 }
 

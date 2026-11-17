@@ -21,6 +21,11 @@ FIXTURES = json.load(open(f'{ROOT}/tests/fixtures/releases.json'))
 # refuses to paint, which is the one thing about it worth looking at.
 QR_SVG = open(f'{ROOT}/tests/fixtures/challenge.svg').read()
 WINDOW = json.load(open(f'{ROOT}/src-tauri/tauri.conf.json'))['app']['windows'][0]
+JPEG = ('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko'
+        '+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//2wBDAQ4ODhMREyYVFSZPNS01T09PT09PT09PT09PT09PT09P'
+        'T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0//wAARCAACAAIDASIAAhEBAxEB/8QAFQABAQAAAAAA'
+        'AAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwT/xAAUEQEAAAAA'
+        'AAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCTAOlf/9k=')
 SCALE = float(open(f'{FRONTEND}/css/tokens.css').read().split('--scale:')[1].split(';')[0])
 
 _served = None
@@ -121,8 +126,7 @@ MEASURE = """JSON.stringify((() => {
     words: Object.fromEntries(['home-sub', 'status-note', 'failed-title', 'failed-detail',
                                'verdict-sub',
                                'verify-qr-note', 'scan-problem', 'transfer-bytes', 'transfer-step',
-                               'verify-list-line', 'device-line',
-                               'verify-net'].map((id) => {
+                               'verify-list-line', 'device-line'].map((id) => {
       const n = document.getElementById(id);
       return [id, !n ? null : n.hidden ? '' : (n.textContent || '').trim()];
     }).concat([['pickLabel',
@@ -230,8 +234,10 @@ MEASURE = """JSON.stringify((() => {
 # name -> (bridge settings, what to click after load, ms to wait before the snapshot)
 STATES = {
     # (what the bridge double answers, how to get there, which screen must be visible)
+    # The markup leaves home-sub to the app, so this can only be satisfied by a rendered hint: the
+    # sentence lives in strings.ts and nowhere else.
     'home': ({'noDevice': True}, [], 'screen-home',
-             {'home-sub': 'Nothing to choose', 'homeTitle': 'Update Shell',
+             {'home-sub': 'unavailable until the Keycard Shell', 'homeTitle': 'Update Shell',
               'segMatch': 'identical', 'titleMatch': 'identical',
               'homeImg': 'panel_shell.png'}),
     'ready': ({}, ["document.getElementById('card-update').click()"], 'screen-ready',
@@ -260,7 +266,7 @@ STATES = {
     'ready-checksum-mismatch': ({'preloadFail': True},
                                 ["document.getElementById('card-update').click()"], 'screen-ready'),
     'verify': ({}, ["document.getElementById('card-verify').click()"], 'screen-verify',
-               {'verify-net': None, 'verify-qr-note': '',
+               {'verify-qr-note': '',
                 'verify-list-line': 'Units list fetched 2026-11-13',
                 'challengeMints': '1', 'note': '',
                 'button:btn-verify-update': 'Update Shell', 'cameraButton': 'Enable camera',
@@ -299,48 +305,33 @@ STATES = {
     'verify-fetching':  ({'units': 'none', 'fetchHangs': True},
                         ["document.getElementById('card-verify').click()"], 'screen-verify',
                         {'note': ''}),
-    'verify-scan': ({'camera': True}, [
+    'verify-scan': ({'scan': 'ok'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
-    ], 'screen-scan', {'cameraCount': '1'}),
-    # A webcam can open and send nothing. On 2026-11-13 a real one did, showing a black frame and no
-    # explanation, because the failure line lived on the challenge screen behind it. It must speak here.
-    # The camera has to open even when the request it is given is refused: the ladder loosens.
-    'verify-scan-overconstrained': ({'camera': 'overconstrained'}, [
+    ], 'screen-scan', {'cameraCount': '2', 'cameraChoice': 'External Camera', 'scan-problem': ''}),
+    # The pick follows the answer rather than the click: choosing the integrated camera when the Rust
+    # says the external one is running must leave the external one named. It once bounced to the first
+    # entry on every switch, and the replaced loop kept pulling frames beside the one replacing it.
+    'scan-switched': ({'scan': 'ok'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
-    ], 'screen-scan', {'scan-problem': None, 'cameraCount': '2'}),
-    
-    'camera-absent': ({'camera': 'absent'}, [
+        "(() => { const pick = document.getElementById('scan-camera'); pick.value = '0';"
+        " pick.dispatchEvent(new Event('change')); })()",
+    ], 'screen-scan', {'cameraCount': '2', 'cameraChoice': 'External Camera', 'scan-problem': ''}),
+    # The camera is asked for in the Rust, so these are the answers the harness can give it: none, one
+    # held by another app, one that opened and sent nothing. The first two are said on the challenge
+    # screen, where the press happened; the last on the scanning screen, where the picture is missing.
+    'scan-none': ({'scan': 'none'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
-    ], 'screen-verify', {'note': 'No camera is connected', 'cameraButton': 'No camera found'}),
-    'camera-unknown': ({'camera': 'unknownEnumeration'}, [
-        "document.getElementById('card-verify').click()",
-    ], 'screen-verify', {'cameraButton': 'Looking for a camera… \u00b7 disabled'}),
-    'camera-busy': ({'camera': 'busy'}, [
+    ], 'screen-verify', {'note': 'No camera is connected'}),
+    'scan-busy': ({'scan': 'busy'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
     ], 'screen-verify', {'note': 'Another app is using the camera'}),
-    'camera-blocked': ({'camera': 'blocked'}, [
+    'scan-silent': ({'scan': 'silent'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
-    ], 'screen-verify', {'note': 'not allowed to use the camera'}),
-    'camera-refused-every-mode': ({'camera': 'refusedEvery'}, [
-        "document.getElementById('card-verify').click()",
-        "document.getElementById('btn-camera').click()",
-    ], 'screen-verify', {'note': 'refused every mode'}),
-    
-    'verify-scan-mode-refused': ({'camera': 'modeRefused'}, [
-        "document.getElementById('card-verify').click()",
-        "document.getElementById('btn-camera').click()",
-    ], 'screen-scan', {'cameraChoice': 'Anker 4K UHD Webcam'}),
-    'verify-scan-silent-camera': ({'camera': True}, [
-        "document.getElementById('card-verify').click()",
-        "document.getElementById('btn-camera').click()",
-        "window.kshell.verify.problem ="
-        " 'This camera opened but sent no picture. Try another one below.';"
-        " window.kshell.renderScan();",
     ], 'screen-scan', {'scan-problem': 'sent no picture'}),
     'verdict-authentic': ({'verdict': 'authentic'}, [
         "document.getElementById('card-verify').click()",
@@ -369,7 +360,7 @@ STATES = {
         "document.getElementById('card-verify').click()",
         "window.kshell.scanAnswer('UR:DEV-AUTH/oeadadamhdcx')",
     ], 'screen-verdict',
-        {'button:btn-verdict': 'Home', 'button:btn-verdict-guide': 'Learn more'}),
+        {'button:btn-verdict': 'Back to Home', 'button:btn-verdict-guide': 'Learn more'}),
     'verdict-not-registered-home': ({'verdict': 'notRegistered'}, [
         "document.getElementById('card-verify').click()",
         "window.kshell.scanAnswer('UR:DEV-AUTH/oeadadamhdcx')",
@@ -379,7 +370,7 @@ STATES = {
     # send the person to a screen that cannot do the thing its button promises.
     'verify-no-device': ({'noDevice': True}, [
         "document.getElementById('card-verify').click()",
-    ], 'screen-verify', {'button:btn-verify-update': 'Home'}),
+    ], 'screen-verify', {'button:btn-verify-update': 'Back to Home'}),
     'verify-no-device-home': ({'noDevice': True}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-verify-update').click()",
@@ -466,6 +457,10 @@ def stub(name):
         'fetchHangs': bool(options.get('fetchHangs')),
         'longReason': bool(options.get('longReason')),
         'verdict': options.get('verdict'),
+        'scan': options.get('scan'),
+        # Two pixels of picture: enough for the canvas to have been painted without the harness
+        # carrying a webcam it cannot have.
+        'jpeg': JPEG,
         'ownFile': bool(options.get('ownFile')),
         'fileFails': bool(options.get('fileFails')),
         'ownFileOld': bool(options.get('ownFileOld')),
@@ -600,6 +595,29 @@ def stub(name):
                 : b.verdict === 'notRegistered'
                   ? { outcome: 'notRegistered', uid: 'ff11aa22bb33cc44dd55ee6677889900' }
                   : { outcome: 'refused', reason: 'bytewords checksum does not match its content' });
+            // The scanner: a camera list from the Rust, and frames pulled one at a time. The answer is
+            // on a timer so the app's pull loop runs at a frame rate rather than as fast as the CPU.
+            case 'scan_start':
+              if (b.scan === 'none') return fail('No camera is connected. Plug one in and try again.');
+              if (b.scan === 'busy') return fail('Another app is using the camera. Close it and try again.');
+              // What the Rust answers: one entry per camera, and which one is running — the second, no
+              // matter what was asked for, because the camera asked for may not be the one that opened.
+              return Promise.resolve({
+                cameras: [
+                  { id: '0', label: 'Integrated Camera' },
+                  { id: '4', label: 'External Camera' },
+                ],
+                device: '4',
+              });
+            case 'scan_frame':
+              if (b.scan === 'silent') {
+                return new Promise((_, reject) => setTimeout(
+                  () => reject('The camera sent no picture. Try another one below.'), 120));
+              }
+              return new Promise((resolve) => setTimeout(
+                () => resolve(Uint8Array.from(atob(b.jpeg), (c) => c.charCodeAt(0))), 60));
+            case 'scan_stop':
+              return Promise.resolve(null);
             default: return fail('unexpected command ' + command);
           }
         } },
@@ -614,107 +632,16 @@ def stub(name):
     return template.replace('__BRIDGE__', json.dumps(bridge))
 
 
-def page(name, camera_stub=True):
+def page(name):
     html = open(f'{FRONTEND}/index.html').read()
-    script = f'<script>{stub(name)}</script>\n'
-    stream = """
-          const canvas = document.createElement('canvas');
-          canvas.width = 640; canvas.height = 480;
-          const context = canvas.getContext('2d');
-          context.fillStyle = '#204050';
-          context.fillRect(0, 0, 640, 480);
-          return Promise.resolve(canvas.captureStream ? canvas.captureStream(5) : {
-            getTracks: () => [], getVideoTracks: () => [{ getSettings: () => ({ deviceId: 'fake' }) }],
-          });"""
-    camera = f"""
-      <script>
-        if (!navigator.mediaDevices) navigator.mediaDevices = {{}};
-        const opened = () => {{ {stream} }};
-        navigator.mediaDevices.getUserMedia = () => opened();
-        navigator.mediaDevices.enumerateDevices = () => Promise.resolve([
-          {{ kind: 'videoinput', deviceId: 'fake', label: 'Integrated Camera' }},
-          {{ kind: 'videoinput', deviceId: 'fake-2', label: 'Integrated Camera' }},
-          {{ kind: 'videoinput', deviceId: 'fake-3', label: 'Integrated Camera' }}]);
-      </script>
-    """
-    overconstrained = f"""
-      <script>
-        if (!navigator.mediaDevices) navigator.mediaDevices = {{}};
-        const opened = () => {{ {stream} }};
-        navigator.mediaDevices.getUserMedia = (requested) => {{
-          const video = (requested && requested.video) || {{}};
-          if (video.frameRate) {{
-            return Promise.reject(new DOMException('over-constrained', 'OverconstrainedError'));
-          }}
-          return opened();
-        }};
-        navigator.mediaDevices.enumerateDevices = () => Promise.resolve([
-          {{ kind: 'videoinput', deviceId: 'pw-1', label: 'UHD 4K Webcam' }},
-          {{ kind: 'videoinput', deviceId: 'pw-2', label: 'UHD 4K Webcam' }},
-          {{ kind: 'videoinput', deviceId: 'fake', label: 'UHD 4K Webcam' }},
-          {{ kind: 'videoinput', deviceId: 'v4l2-1', label: 'Integrated Camera' }}]);
-      </script>
-    """
-    mode_refused = f"""
-      <script>
-        if (!navigator.mediaDevices) navigator.mediaDevices = {{}};
-        const opened = () => {{ {stream} }};
-        navigator.mediaDevices.getUserMedia = (requested) => {{
-          const video = (requested && requested.video) || {{}};
-          if (!video.width) {{
-            return Promise.reject(new DOMException('over-constrained', 'OverconstrainedError'));
-          }}
-          return opened();
-        }};
-        navigator.mediaDevices.enumerateDevices = () => Promise.resolve([
-          {{ kind: 'videoinput', deviceId: 'anker-1', label: 'Anker 4K UHD Webcam' }}]);
-      </script>
-    """
-    
-    refusals = {
-        'unknownEnumeration': ('NotSupportedError', 'media devices are not exposed', 'null'),
-        'absent': ('NotFoundError', 'Requested device could not be found', '[]'),
-        'busy': ('NotReadableError', 'Device or resource busy',
-                 "[{ kind: 'videoinput', deviceId: 'busy-1', label: 'Built-in Camera' }]"),
-        'blocked': ('NotAllowedError', 'Permission denied',
-                    "[{ kind: 'videoinput', deviceId: 'blocked-1', label: 'Built-in Camera' }]"),
-        'refusedEvery': ('OverconstrainedError', 'no mode answers this',
-                         "[{ kind: 'videoinput', deviceId: 'stub-1', label: 'Stub Camera' }]"),
-    }
-    
-    if camera_stub:
-        script = """
-      <script>
-        if (!navigator.mediaDevices) navigator.mediaDevices = {};
-        navigator.mediaDevices.enumerateDevices = () => Promise.resolve([
-          { kind: 'videoinput', deviceId: 'fake', label: 'Integrated Camera' }]);
-      </script>
-    """ + script
-
-    if STATES[name][0].get('camera') in refusals:
-        kind, message, listed = refusals[STATES[name][0]['camera']]
-        verb = 'reject' if listed == 'null' else 'resolve'
-        script += f"""
-      <script>
-        if (!navigator.mediaDevices) navigator.mediaDevices = {{}};
-        navigator.mediaDevices.getUserMedia = () =>
-          Promise.reject(new DOMException('{message}', '{kind}'));
-        navigator.mediaDevices.enumerateDevices = () => Promise.{verb}({listed});
-      </script>
-    """
-    elif STATES[name][0].get('camera') == 'overconstrained':
-        script += overconstrained
-    elif STATES[name][0].get('camera') == 'modeRefused':
-        script += mode_refused
-    elif STATES[name][0].get('camera'):
-        script += camera
     entry = '<script type="module" src="dist/main.js"></script>'
-    return html.replace(entry, script + entry)
+    return html.replace(entry, f'<script>{stub(name)}</script>\n' + entry)
 
 
 def render(name, report):
     options, actions = STATES[name][0], STATES[name][1]
-    settle_ms = 1200 if options.get('camera') else 400 if name == 'transfer' else 300
+    # A frame has to arrive and be painted before the scan screens are measured.
+    settle_ms = 500 if options.get('scan') or name == 'transfer' else 300
     loop = GLib.MainLoop()
     win = Gtk.OffscreenWindow()
     view = WebKit2.WebView()

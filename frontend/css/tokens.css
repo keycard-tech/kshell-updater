@@ -82,7 +82,7 @@
   --seg-pad-inline: calc(12px * var(--scale));
   --seg-line: calc(18px * var(--scale));
 
-  --fs-sm: calc(12px * var(--scale));
+  --fs-sm: calc(11px * var(--scale));
   --fs-md: calc(14px * var(--scale));
   --fs-lg: calc(16px * var(--scale));
 

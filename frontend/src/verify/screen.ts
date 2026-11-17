@@ -6,7 +6,6 @@ import {
   unitsUseFile,
 } from '../base/bridge.js';
 import { state } from '../base/state.js';
-import { discoverCameras } from './camera.js';
 import { show } from '../base/screens.js';
 import { human } from '../errors.js';
 import * as text from '../strings.js';
@@ -17,7 +16,6 @@ import { listReady, verify } from './state.js';
 export const openVerify = async (): Promise<void> => {
   show('screen-verify');
   verify.problem = null;
-  void discoverCameras();
   verify.listProblem = false;
   verify.status = (await unitsStatus().catch(() => null)) ?? null;
   renderVerify();
@@ -55,11 +53,9 @@ export const fetchList = async (): Promise<void> => {
   renderVerify();
   try {
     verify.status = await unitsFetch();
-    verify.net = 'online';
     verify.problem = null;
     verify.listProblem = false;
   } catch (error) {
-    verify.net = 'offline';
     verify.status = (await unitsStatus().catch(() => null)) ?? verify.status;
     console.warn('the units list would not be fetched:', reason(error));
     verify.problem = human(reason(error));
@@ -100,22 +96,16 @@ export const renderVerify = (): void => {
   el('verify-qr-tile').classList.toggle('ksh__qr-tile--blurred', !loaded);
   el('verify-qr-note').hidden = loaded;
 
-  const note = verify.cameras === 0 ? text.camera.none : verify.problem;
+  const note = verify.problem;
   el('verify-note').hidden = !note;
   el('verify-note-text').textContent = note ?? '';
   el('btn-verify-update').textContent =
     state.device && state.config ? text.verify.updateShell : text.verify.goHome;
 
   const button = el<HTMLButtonElement>('btn-camera');
-  // The press waits for the count, because a machine with nothing to start has no good answer to it.
-  // A count of zero does not disable it: an engine that cannot see the camera in front of it is a
-  // failure this app has been shown making, and a press is the only thing that says which failure -
-  // `no camera`, `busy`, `blocked` - rather than a button that refuses to be asked.
   let label = text.verify.enableCamera;
   if (!loaded) label = verify.fetching ? text.verify.fetchingList : text.verify.loadList;
-  else if (verify.cameras === null) label = text.verify.findingCameras;
-  else if (verify.cameras === 0) label = text.verify.noCamera;
   button.textContent = label;
-  button.disabled = verify.fetching || (loaded && verify.cameras === null);
+  button.disabled = verify.fetching;
   button.classList.toggle('ksh__btn--primary', loaded);
 };
