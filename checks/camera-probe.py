@@ -250,7 +250,11 @@ def main():
         drive()
 
     view.connect('load-changed', opened)
-    view.load_html(harness.page('verify' if args.ladder else 'verify-scan'), harness.base_uri())
+    view.load_html(
+        harness.page('verify', camera_stub=False) if args.ladder
+        else harness.page('verify-scan'),
+        harness.base_uri(),
+    )
     print(f'{args.offscreen and "offscreen" or "real"} window, '
           f'{harness.WINDOW["width"]}x{harness.WINDOW["height"]}, WebKitGTK stream probe', flush=True)
     GLib.timeout_add(30000 if not args.ladder else 180000, lambda: (Gtk.main_quit(), False)[1])

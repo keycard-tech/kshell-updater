@@ -11,6 +11,7 @@ export interface VerifyState {
   status: UnitsStatus | null;
   mode: 'online' | 'file';
   net: 'unknown' | 'online' | 'offline';
+  cameras: number | null;
   problem: string | null;
   listProblem: boolean;
   stream: MediaStream | null;
@@ -35,6 +36,7 @@ export const verify: VerifyState = {
   status: null,
   mode: 'online',
   net: 'unknown',
+  cameras: null,
   problem: null,
   listProblem: false,
   stream: null,

@@ -123,6 +123,8 @@ export const verify = {
   fromFile: (name: string): string => `Units list from ${name}`,
   noList: 'Load own list to verify offline.',
   enableCamera: 'Enable camera',
+  noCamera: 'No camera found',
+  findingCameras: 'Looking for a camera…',
   updateShell: 'Update Shell',
   goHome: 'Home',
   fetchingList: 'Fetching units list…',
@@ -130,6 +132,10 @@ export const verify = {
 };
 
 export const camera = {
+  none: 'No camera is connected. Plug one in and try again.',
+  blocked: 'This app is not allowed to use the camera.',
+  busy: 'Another app is using the camera. Close it and try again.',
+  refused: 'The camera refused every mode this app asked for. Try another one below.',
   silent: 'Selected camera opened but sent no picture. Try another one below.',
   slow: (rate: string): string =>
     `Selected camera manages about ${rate} pictures a second, too slow to read a code. Try another one below.`,

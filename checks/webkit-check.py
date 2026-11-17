@@ -139,6 +139,9 @@ MEASURE = """JSON.stringify((() => {
       ['challengeText', String(window.kshell.verify.challengeText || '')],
       ['cameraCount', String(document.querySelectorAll('#scan-camera option').length)],
       ['cameraChoice', document.querySelector('#scan-camera option:checked')?.textContent.trim() ?? ''],
+      ['cameraButton', ((n) => n
+        ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ''}`
+        : null)(document.getElementById('btn-camera'))],
       // Which note the app is showing: a stuck verify screen says why in this box, and so does a
       // bridge double that throws - which is how every verify screen once showed a ReferenceError
       // while the harness printed ok for all of them.
@@ -260,7 +263,7 @@ STATES = {
                {'verify-net': None, 'verify-qr-note': '',
                 'verify-list-line': 'Units list fetched 2026-11-13',
                 'challengeMints': '1', 'note': '',
-                'button:btn-verify-update': 'Update Shell',
+                'button:btn-verify-update': 'Update Shell', 'cameraButton': 'Enable camera',
                 'challengeText': 'UR:DEV-AUTH/oeadadamhdcx0'}),
     'verify-cached-list': ({'units': 'cached'},
                            ["document.getElementById('card-verify').click()"], 'screen-verify',
@@ -307,8 +310,27 @@ STATES = {
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
     ], 'screen-scan', {'scan-problem': None, 'cameraCount': '2'}),
-    # Refused at first is not the same as refused: the sized rung behind the plain ask has to be
-    # reached, and the camera named on the scan screen has to be the one that answered.
+    
+    'camera-absent': ({'camera': 'absent'}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('btn-camera').click()",
+    ], 'screen-verify', {'note': 'No camera is connected', 'cameraButton': 'No camera found'}),
+    'camera-unknown': ({'camera': 'unknownEnumeration'}, [
+        "document.getElementById('card-verify').click()",
+    ], 'screen-verify', {'cameraButton': 'Looking for a camera… \u00b7 disabled'}),
+    'camera-busy': ({'camera': 'busy'}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('btn-camera').click()",
+    ], 'screen-verify', {'note': 'Another app is using the camera'}),
+    'camera-blocked': ({'camera': 'blocked'}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('btn-camera').click()",
+    ], 'screen-verify', {'note': 'not allowed to use the camera'}),
+    'camera-refused-every-mode': ({'camera': 'refusedEvery'}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('btn-camera').click()",
+    ], 'screen-verify', {'note': 'refused every mode'}),
+    
     'verify-scan-mode-refused': ({'camera': 'modeRefused'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
@@ -592,7 +614,7 @@ def stub(name):
     return template.replace('__BRIDGE__', json.dumps(bridge))
 
 
-def page(name):
+def page(name, camera_stub=True):
     html = open(f'{FRONTEND}/index.html').read()
     script = f'<script>{stub(name)}</script>\n'
     stream = """
@@ -648,7 +670,39 @@ def page(name):
           {{ kind: 'videoinput', deviceId: 'anker-1', label: 'Anker 4K UHD Webcam' }}]);
       </script>
     """
-    if STATES[name][0].get('camera') == 'overconstrained':
+    
+    refusals = {
+        'unknownEnumeration': ('NotSupportedError', 'media devices are not exposed', 'null'),
+        'absent': ('NotFoundError', 'Requested device could not be found', '[]'),
+        'busy': ('NotReadableError', 'Device or resource busy',
+                 "[{ kind: 'videoinput', deviceId: 'busy-1', label: 'Built-in Camera' }]"),
+        'blocked': ('NotAllowedError', 'Permission denied',
+                    "[{ kind: 'videoinput', deviceId: 'blocked-1', label: 'Built-in Camera' }]"),
+        'refusedEvery': ('OverconstrainedError', 'no mode answers this',
+                         "[{ kind: 'videoinput', deviceId: 'stub-1', label: 'Stub Camera' }]"),
+    }
+    
+    if camera_stub:
+        script = """
+      <script>
+        if (!navigator.mediaDevices) navigator.mediaDevices = {};
+        navigator.mediaDevices.enumerateDevices = () => Promise.resolve([
+          { kind: 'videoinput', deviceId: 'fake', label: 'Integrated Camera' }]);
+      </script>
+    """ + script
+
+    if STATES[name][0].get('camera') in refusals:
+        kind, message, listed = refusals[STATES[name][0]['camera']]
+        verb = 'reject' if listed == 'null' else 'resolve'
+        script += f"""
+      <script>
+        if (!navigator.mediaDevices) navigator.mediaDevices = {{}};
+        navigator.mediaDevices.getUserMedia = () =>
+          Promise.reject(new DOMException('{message}', '{kind}'));
+        navigator.mediaDevices.enumerateDevices = () => Promise.{verb}({listed});
+      </script>
+    """
+    elif STATES[name][0].get('camera') == 'overconstrained':
         script += overconstrained
     elif STATES[name][0].get('camera') == 'modeRefused':
         script += mode_refused

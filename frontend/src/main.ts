@@ -16,7 +16,7 @@ import {
   retryTransfer,
   startTransfer,
 } from './update/transfer.js';
-import { cameraStart, stopCamera } from './verify/camera.js';
+import { cameraStart, discoverCameras, stopCamera } from './verify/camera.js';
 import {
   ensureChallenge,
   fetchList,
@@ -60,14 +60,14 @@ el<HTMLButtonElement>('btn-scan-back').addEventListener('click', () => {
   stopCamera();
   show('screen-verify');
 });
-el<HTMLSelectElement>('scan-camera').addEventListener('change', (event) =>
-  void switchCamera((event.target as HTMLSelectElement).value),
+el<HTMLSelectElement>('scan-camera').addEventListener(
+  'change',
+  (event) => void switchCamera((event.target as HTMLSelectElement).value),
 );
 el<HTMLButtonElement>('btn-verdict').addEventListener('click', verdictButton);
 
+navigator.mediaDevices?.addEventListener?.('devicechange', () => void discoverCameras());
 
-// Whether a Shell is attached decides what the verify screen calls its way out, so both presence
-// events re-render it - a person watching a camera screen should not have to leave and return.
 listen(events.connected, () => {
   if (!state.busy) void refresh().then(renderVerify);
 });
@@ -139,10 +139,7 @@ function openUpdate(): void {
 }
 
 showWaiting();
-void readRecord()
-  .then(refresh)
-  .then(loadReleases)
-  .then(preload);
+void readRecord().then(refresh).then(loadReleases).then(preload);
 
 setInterval(() => void poll(), presencePollMs);
 addEventListener('online', () => void retryListing(true));

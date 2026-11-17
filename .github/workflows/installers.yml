@@ -9,6 +9,8 @@ jobs:
   build:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +44,10 @@ jobs:
       - if: runner.os == 'macOS'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
+      # The lockfile, not whatever `npm install` resolves today: the file a person downloads has to
+      # match the tree that was reviewed.
+      - run: npm ci
+
       - name: installers and release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -53,6 +59,7 @@ jobs:
           # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         with:
+          skipInstall: true
           # The tag is what makes a release; a hand-started build only leaves the files behind.
           includeRelease: ${{ github.event_name == 'push' }}
           includeDebug: false

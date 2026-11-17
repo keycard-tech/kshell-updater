@@ -38,7 +38,7 @@ const cameraAttempts = (deviceId?: string): MediaTrackConstraints[] => {
     ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
     ...extra,
   });
-  
+
   return [
     chosen({}),
     ...(deviceId ? [chosen({})] : []),
@@ -76,7 +76,7 @@ const openCamera = async (
       }
       if (deviceId) verify.broken.delete(deviceId);
       const settings = stream.getVideoTracks()[0]?.getSettings() ?? null;
-      
+
       console.info('camera opened:', JSON.stringify({ rung: index, asked: video, settings }));
       if (index && deviceId) {
         console.warn(
@@ -95,6 +95,23 @@ const openCamera = async (
   throw last;
 };
 
+const refusal = (error: unknown): string => {
+  const name = String((error as DOMException | undefined)?.name ?? '');
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return text.camera.none;
+  if (name === 'NotAllowedError' || name === 'PermissionDeniedError') return text.camera.blocked;
+  if (name === 'NotReadableError' || name === 'AbortError' || name === 'SecurityError')
+    return text.camera.busy;
+  if (name === 'OverconstrainedError') return text.camera.refused;
+  return sentence.camera;
+};
+
+export const discoverCameras = async (): Promise<void> => {
+  const offered = await navigator.mediaDevices.enumerateDevices().catch(() => null);
+  verify.cameras = offered?.filter((device) => device.kind === 'videoinput').length ?? null;
+  console.info('cameras offered:', verify.cameras ?? 'unknown');
+  renderVerify();
+};
+
 export const cameraStart = async (
   onCode: (text: string) => void,
   deviceId?: string,
@@ -108,7 +125,7 @@ export const cameraStart = async (
     stream = await openCamera(deviceId, generation);
   } catch (error) {
     console.warn('camera would not open:', reason(error));
-    verify.problem = sentence.camera;
+    verify.problem = refusal(error);
     renderVerify();
     return;
   }
