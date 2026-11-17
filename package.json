@@ -1,42 +1,18 @@
 {
   "name": "kshell-updater",
-  "version": "1.0.0",
-  "description": "Keycard Shell Updater App",
-  "main": "./out/app.js",
+  "version": "2.0.0",
+  "description": "Keycard Shell Updater",
+  "private": true,
   "scripts": {
-    "build": "tsc",
-    "start": "npm run build && electron ./out/app.js --trace-warnings",
-    "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "postinstall": "electron-builder install-app-deps"
-  },
-  "build": {
-    "appId": "com.github.choppu.kshell-updater",
-    "productName": "Keycard Shell Updater",
-    "publish": false,
-    "files": [
-      "**/*",
-      "!tsconfig.json",
-      "!README.md",
-      "!src"
-    ],
-    "mac": {
-      "category": "public.app-category.utilities",
-      "target": "zip"
-    }
-  },
-  "author": "",
-  "license": "MIT",
-  "dependencies": {
-    "@choppu/shelljs": "^1.0.1",
-    "@choppu/shelljs-node-hid": "^1.0.1",
-    "markdown-it": "^14.1.0",
-    "node-fetch": "^3.3.2",
-    "typescript": "^5.8.3"
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "ui": "tsc -p frontend",
+    "ui:watch": "npm run ui && tsc -p frontend --watch --preserveWatchOutput",
+    "icons": "tauri icon build/icon.png"
   },
   "devDependencies": {
-    "@types/node-hid": "^1.3.4",
-    "electron": "^39.2.4",
-    "electron-builder": "^26.3.3"
+    "@tauri-apps/cli": "^2",
+    "typescript": "~5.9.3"
   }
 }

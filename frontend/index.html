@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Keycard Shell Updater</title>
+    <link rel="stylesheet" href="css/tokens.css" />
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/controls.css" />
+    <link rel="stylesheet" href="css/home.css" />
+    <link rel="stylesheet" href="css/ready.css" />
+    <link rel="stylesheet" href="css/transfer.css" />
+    <link rel="stylesheet" href="css/verify.css" />
+  </head>
+  <body>
+    <div class="ksh">
+      <!-- the landing card is the button: card one updates, card two verifies -->
+      <div class="ksh__home" id="screen-home">
+        <button class="ksh__card" id="card-update" type="button">
+          <div class="ksh__card-head">
+            <h1 class="ksh__h1">Update Shell</h1>
+            <span class="ksh__badge ksh__badge--warn" id="home-badge">USB-C required</span>
+          </div>
+          <div class="ksh__card-body">
+            <div class="ksh__card-text">
+              <p class="ksh__prompt" id="home-text">
+                Unlock Keycard Shell, connect it with a USB-C cable to upgrade to the latest firmware &amp; database.
+              </p>
+              <span class="ksh__hint" id="home-sub"></span>
+            </div>
+            <img class="ksh__card-img" src="img/panel_shell.png" alt="" id="home-img" />
+          </div>
+        </button>
+
+        <button class="ksh__card ksh__card--quiet" id="card-verify" type="button">
+          <div class="ksh__card-head">
+            <h2 class="ksh__h1">Verify Shell authenticity</h2>
+            <span class="ksh__badge">Camera only</span>
+          </div>
+          <div class="ksh__card-body">
+            <div class="ksh__card-text">
+              <p class="ksh__prompt">
+                Scan a challenge with your Keycard Shell, then scan the QR code it answers with.
+              </p>
+              <span class="ksh__hint">No USB cable · Settings/Shell/Verify on the Shell</span>
+            </div>
+            <img class="ksh__card-img ksh__card-img--qr" src="img/qr-glyph-dark.svg" alt="" />
+          </div>
+        </button>
+      </div>
+
+      <div class="ksh__verify" id="screen-verify" hidden>
+        <div class="ksh__head">
+          <div>
+            <h1 class="ksh__h1">Verify authenticity of Shell</h1>
+          </div>
+          <span class="ksh__badge">Camera only</span>
+        </div>
+
+        <div class="ksh__verify-body">
+          <div class="ksh__verify-side">
+            <ol class="ksh__steps ksh__prompt">
+              <li>
+                <span class="ksh__step-num">1</span>
+                <span>Open <b>Settings/Shell/Verify</b> and scan this QR code.</span>
+              </li>
+              <li>
+                <span class="ksh__step-num">2</span>
+                <span>Keycard Shell shows a response QR code.</span>
+              </li>
+              <li>
+                <span class="ksh__step-num">3</span>
+                <span>Scan it with this camera.</span>
+              </li>
+            </ol>
+
+            <div id="verify-source">
+              <div class="ksh__segmented">
+                <button type="button" class="ksh__seg" id="verify-list-online">Fetched list</button>
+                <button type="button" class="ksh__seg" id="verify-list-file">From file</button>
+              </div>
+              <span class="ksh__hint" id="verify-list-line"></span>
+            </div>
+
+            <div class="ksh__note" id="verify-note" hidden>
+              <p id="verify-note-text"></p>
+            </div>
+
+            <button class="ksh__btn ksh__btn--primary" id="btn-camera" disabled>Enable camera</button>
+            <button
+              class="ksh__link ksh__link--button ksh__link--block"
+              type="button"
+              id="btn-verify-update"
+            >
+              Update Shell
+            </button>
+          </div>
+
+          <figure class="ksh__qr">
+            <div class="ksh__qr-tile" id="verify-qr-tile">
+              <div id="verify-qr"></div>
+              <span class="ksh__qr-note" id="verify-qr-note" hidden>No units list available</span>
+            </div>
+            <figcaption>Scan this code on the Shell</figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <div class="ksh__verify" id="screen-scan" hidden>
+        <div class="ksh__head">
+          <div>
+            <h1 class="ksh__h1">Scan the Shell QR code</h1>
+          </div>
+          <span class="ksh__badge">Scanning…</span>
+        </div>
+
+        <div class="ksh__verify-body">
+          <div class="ksh__verify-side">
+            <p class="ksh__prompt">Point the camera at the Shell screen to complete verification.</p>
+            <p class="ksh__hint ksh__hint--bad" id="scan-problem" hidden></p>
+            <p class="ksh__hint">
+              Hold it flat and steady. If it will not focus, move closer or turn the brightness up.
+            </p>
+            <button class="ksh__btn" id="btn-scan-back">Back</button>
+          </div>
+
+          <figure class="ksh__qr">
+            <div class="ksh__video">
+              <canvas id="scan-frame"></canvas>
+              <i class="ksh__video-frame"></i>
+            </div>
+            <figcaption>
+              <select class="ksh__select ksh__select--camera" id="scan-camera" aria-label="Camera"></select>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+
+      <section class="ksh__done ksh__done--verify" id="screen-verdict" hidden>
+        <img src="img/success.svg" alt="" id="verdict-icon" />
+        <h1 class="ksh__h1" id="verdict-title">Your Shell is authentic</h1>
+        <p class="ksh__prompt" id="verdict-text"></p>
+        <span class="ksh__hint" id="verdict-sub"></span>
+        <button class="ksh__btn ksh__btn--primary" id="btn-verdict">Done</button>
+        <button class="ksh__link ksh__link--button" type="button" id="btn-verdict-guide" hidden
+          >Learn more</button
+        >
+      </section>
+
+      <div class="ksh__ready" id="screen-ready" hidden>
+        <div class="ksh__device">
+          <span class="ksh__device-icon"><img src="img/check.svg" alt="" /></span>
+          <div>
+            <h1 class="ksh__h1" id="device-name">Keycard Shell connected</h1>
+            <span class="ksh__hint" id="device-line">serial –</span>
+          </div>
+          <span class="ksh__badge ksh__badge--ready" id="select-badge">Reading…</span>
+        </div>
+
+        <div class="ksh__rows" id="rows">
+          <div class="ksh__row" data-kind="firmware">
+            <div class="ksh__row-top">
+              <div class="ksh__row-title">
+                <input type="checkbox" data-slot="include" checked aria-label="Write the firmware" />
+                <h2 class="ksh__h2">Firmware</h2>
+              </div>
+              <span class="ksh__status" data-slot="status"></span>
+            </div>
+            <div class="ksh__row-mid">
+              <div class="ksh__segmented" data-slot="mode">
+                <button type="button" class="ksh__seg" data-mode="online">Online</button>
+                <button type="button" class="ksh__seg" data-mode="file">From file</button>
+              </div>
+              <div class="ksh__field" data-slot="field" hidden>
+                <select class="ksh__select" data-slot="select" hidden></select>
+                <span class="ksh__field-static" data-slot="static" hidden><span class="ksh__from" data-slot="static-from"></span
+                  ><span class="ksh__arrow">&rarr;</span><span class="ksh__to" data-slot="static-to"></span></span>
+              </div>
+              <button type="button" class="ksh__btn ksh__btn--file ksh__btn--pick" data-slot="pick" hidden>Choose file&hellip;</button>
+              <a class="ksh__link" data-slot="link" href="https://github.com/keycard-tech/kshell-updater/releases" hidden>
+                <img src="img/external.svg" alt="" /><span data-slot="link-label"></span>
+              </a>
+            </div>
+            <div class="ksh__row-foot">
+              <span class="ksh__hint" data-slot="hint"></span>
+              <span class="ksh__sha" data-slot="sha"></span>
+            </div>
+          </div>
+          <div class="ksh__row" data-kind="database">
+            <div class="ksh__row-top">
+              <div class="ksh__row-title">
+                <input type="checkbox" data-slot="include" checked aria-label="Write the database" />
+                <h2 class="ksh__h2">Database</h2>
+              </div>
+              <span class="ksh__status" data-slot="status"></span>
+            </div>
+            <div class="ksh__row-mid">
+              <div class="ksh__segmented" data-slot="mode">
+                <button type="button" class="ksh__seg" data-mode="online">Online</button>
+                <button type="button" class="ksh__seg" data-mode="file">From file</button>
+              </div>
+              <div class="ksh__field" data-slot="field" hidden>
+                <select class="ksh__select" data-slot="select" hidden></select>
+                <span class="ksh__field-static" data-slot="static" hidden><span class="ksh__from" data-slot="static-from"></span
+                  ><span class="ksh__arrow">&rarr;</span><span class="ksh__to" data-slot="static-to"></span></span>
+              </div>
+              <button type="button" class="ksh__btn ksh__btn--file ksh__btn--pick" data-slot="pick" hidden>Choose file&hellip;</button>
+              <a class="ksh__link" data-slot="link" href="https://github.com/keycard-tech/kshell-updater/releases" hidden>
+                <img src="img/external.svg" alt="" /><span data-slot="link-label"></span>
+              </a>
+            </div>
+            <div class="ksh__row-foot">
+              <span class="ksh__hint" data-slot="hint"></span>
+              <span class="ksh__sha" data-slot="sha"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="ksh__next">
+          <div class="ksh__chip">
+            <span class="ksh__chip-title"><span class="ksh__step-num">1</span>Transfer</span>
+            <span class="ksh__chip-text">
+              Each file is checked against its sha256 before transfering.
+            </span>
+          </div>
+          <div class="ksh__chip">
+            <span class="ksh__chip-title">
+              <span class="ksh__step-num">2</span>Approve update
+            </span>
+            <span class="ksh__chip-text">
+              Shell's screen will ask you to confirm the firmware / database transfer.
+            </span>
+          </div>
+          <div class="ksh__chip">
+            <span class="ksh__chip-title"><span class="ksh__step-num">3</span>Database second</span>
+            <span class="ksh__chip-text">
+              Only if both are selected: the database goes in a second pass.
+            </span>
+          </div>
+        </div>
+
+        <div class="ksh__footer">
+          <div class="ksh__flowfoot">
+            <button class="ksh__btn ksh__btn--primary" id="btn-transfer" disabled>
+              Transfer to device
+            </button>
+            <button class="ksh__link ksh__link--button ksh__link--block" type="button" id="btn-ready-verify">
+              Verify device
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ksh__transfer" id="screen-transfer" hidden>
+        <div class="ksh__panel">
+          <h1 class="ksh__h1" id="transfer-title">Transferring</h1>
+
+          <div class="ksh__progress-top">
+            <span class="ksh__percent" id="transfer-percent">0%</span>
+          </div>
+          <div class="ksh__progress">
+            <i class="ksh__progress-bar" id="transfer-bar"></i>
+          </div>
+          <span class="ksh__progress-caption" id="transfer-caption"
+            >Please do not disconnect the device.</span
+          >
+
+          <div class="ksh__checkline">
+            <img src="img/check.svg" alt="" />
+            <span>Check the Keycard Shell screen for instructions</span>
+          </div>
+
+          <div class="ksh__items" id="transfer-items">
+            <div class="ksh__item" data-item="0" hidden><span data-slot="label"></span><i class="ksh__loader" data-slot="spin" hidden><i></i><i></i></i><i class="ksh__item-state" data-slot="state" hidden></i></div>
+            <div class="ksh__item" data-item="1" hidden><span data-slot="label"></span><i class="ksh__loader" data-slot="spin" hidden><i></i><i></i></i><i class="ksh__item-state" data-slot="state" hidden></i></div>
+          </div>
+
+          <button class="ksh__btn ksh__btn--primary" id="btn-cancel">Cancel</button>
+        </div>
+      </div>
+
+      <section class="ksh__done" id="screen-failed" hidden>
+        <img src="img/fail.svg" alt="" />
+        <h1 class="ksh__h1" id="failed-title">Transfer failed</h1>
+        <span class="ksh__hint" id="failed-detail">Something went wrong.</span>
+        <button class="ksh__btn ksh__btn--primary" id="btn-retry">Try again</button>
+        <button class="ksh__link ksh__link--button" id="btn-failed-back">Back to updates</button>
+      </section>
+
+      <section class="ksh__done" id="screen-done" hidden>
+        <img src="img/success.svg" alt="" />
+        <h1 class="ksh__h1">Update complete</h1>
+        <p class="ksh__prompt" id="done-summary">Your Shell is up to date.</p>
+        <span class="ksh__hint">You can disconnect the device.</span>
+        <button class="ksh__btn ksh__btn--primary" id="btn-done">Done</button>
+      </section>
+
+      <div class="ksh__statusbar" id="statusbar">
+        <span
+          ><i class="ksh__dot ksh__dot--off" id="status-dot"></i
+          ><span id="status-device">No device connected</span></span
+        >
+        <span id="status-note">reading the release list…</span>
+      </div>
+    </div>
+    <script type="module" src="dist/main.js"></script>
+  </body>
+</html>

@@ -1,4 +1,40 @@
-out/
 node_modules/
+__pycache__/
+.pytest_cache/
+.venv/
+venv/
+
+# editors
+.vscode/
+.idea/
+*.swp
+
+out/
 dist/
 .DS_Store
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# an installer copied out of target/release/bundle to try it by hand
+*.app
+*.dmg
+*.deb
+*.AppImage
+*.msi
+*.exe
+
+# the updater keypair; `tauri signer generate` writes it into the working directory,
+# and a committed private key cannot be unsaid
+*.key
+*.p12
+*.pfx
+.env
+
+# local-only working notes and pictures of the screens
+docs/
+shots/
+
+# pictures of the running app, kept out of the repo
+real-app-shots/

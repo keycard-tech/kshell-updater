@@ -1,0 +1,156 @@
+.ksh__verify {
+  --scale: 0.95;
+  --qr: min(350px, 50vw, 52vh);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px;
+  box-sizing: border-box;
+}
+
+.ksh__head {
+  padding-top: 20px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(16px * var(--scale));
+}
+
+.ksh__verify-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(100px * var(--scale));
+}
+
+.ksh__verify-side {
+  flex: 1;
+  min-width: 0;
+  max-width: 42ch;
+  display: flex;
+  flex-direction: column;
+  gap: calc(20px * var(--scale));
+}
+
+.ksh__verify-side .ksh__btn {
+  width: 100%;
+}
+
+.ksh__steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(10px * var(--scale));
+  font-size: inherit;
+  line-height: calc(22px * var(--scale));
+  color: var(--ink-soft);
+}
+
+.ksh__steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--scale));
+}
+
+.ksh__steps b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ksh__steps .ksh__step-num {
+  border-color: var(--ink-faint);
+}
+
+#verify-source {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+}
+
+.ksh__qr {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+}
+
+.ksh__qr-tile {
+  position: relative;
+  width: var(--qr);
+  height: var(--qr);
+  padding: calc(12px * var(--scale));
+  background: var(--ink-white);
+  border-radius: var(--radius-card);
+}
+
+.ksh__qr-tile svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ksh__qr-tile--blurred svg {
+  filter: blur(7px);
+}
+
+.ksh__qr-note {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: calc(6px * var(--scale)) calc(10px * var(--scale));
+  background: var(--white-95);
+  border: 1px solid var(--line);
+  border-radius: calc(8px * var(--scale));
+  color: var(--bg);
+  font-size: calc(12px * var(--scale));
+  white-space: nowrap;
+}
+
+.ksh__qr figcaption {
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+  color: var(--ink-faint);
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--scale));
+}
+
+.ksh__video {
+  position: relative;
+  width: var(--qr);
+  height: var(--qr);
+  background: var(--surface);
+  border: solid 1px var(--line-quiet);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.ksh__video canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ksh__video-frame {
+  position: absolute;
+  inset: 9%;
+  border: solid 2px var(--accent);
+  border-radius: var(--radius-card);
+  pointer-events: none;
+}
+
+.ksh__select--camera {
+  max-width: var(--qr);
+}
+
+.ksh__done--verify {
+  --scale: 0.95;
+}
+
+.ksh__done--verify img {
+  width: calc(92px * var(--scale));
+}

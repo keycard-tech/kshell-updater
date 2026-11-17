@@ -1,0 +1,49 @@
+[package]
+name = "kshell-updater"
+version = "2.0.0"
+description = "Keycard Shell Updater"
+license = "MIT"
+edition = "2021"
+rust-version = "1.85"
+
+[lib]
+name = "kshell_updater_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+sha2 = "0.10"
+# `system-proxy` is a reqwest default that `default-features = false` drops, and it is the one
+# that matters here: a computer that reaches GitHub only through $HTTPS_PROXY lists releases
+# with it and sits offline without it, while its browser works.
+reqwest = {
+  version = "0.13",
+  default-features = false,
+  features = ["json", "rustls", "system-proxy"],
+}
+hidapi = { version = "2", features = ["linux-static-hidraw"] }
+k256 = { version = "0.13", features = ["ecdsa"] }
+getrandom = "0.3"
+fast_qr = { version = "0.13", default-features = false, features = ["svg"] }
+crabcamera = { version = "0.9.2", default-features = false, features = ["headless", "tauri"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+rqrr = "0.11"
+log = "0.4"
+env_logger = { version = "0.11", default-features = false, features = ["auto-color", "humantime"] }
+tauri-plugin-dialog = "2.7.3"
+tauri-plugin-opener = "2.4.1"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3

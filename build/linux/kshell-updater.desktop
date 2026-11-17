@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Keycard Shell Updater
+GenericName=Firmware updater
+Comment=Update the firmware and database of a Keycard Shell, and verify its authenticity
+Keywords=keycard;shell;firmware;database;verify;
+Exec=kshell-updater
+Terminal=false
+Icon=kshell-updater
+Categories=Utility;
+StartupWMClass=kshell-updater

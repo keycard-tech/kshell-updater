@@ -1,0 +1,11 @@
+#!/bin/sh
+# dpkg writes the rule file but never tells udev, so a Shell plugged in before the install keeps
+# its old 0600 node.
+set -e
+
+if [ -x /usr/sbin/udevadm ]; then
+  /usr/sbin/udevadm control --reload-rules || true
+  /usr/sbin/udevadm trigger --subsystem-match=hidraw || true
+fi
+
+exit 0

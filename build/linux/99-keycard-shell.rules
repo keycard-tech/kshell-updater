@@ -1,0 +1,3 @@
+# Without this, /dev/hidraw* is root-only and opening the Shell fails with a permission error.
+# TAG+="uaccess" lets the logged-in session in; the plugdev group covers systems without logind.
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="0001|21f7", MODE="0660", GROUP="plugdev", TAG+="uaccess"

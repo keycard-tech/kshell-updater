@@ -1,0 +1,176 @@
+.ksh__statusbar {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(12px * var(--scale));
+  font-size: var(--fs-sm);
+  line-height: calc(18px * var(--scale));
+  color: var(--ink-faint);
+}
+
+#status-note {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Update screen: device line, release rows, action. */
+.ksh__device {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(9px * var(--scale));
+}
+
+.ksh__device-icon {
+  height: calc(32px * var(--scale));
+  flex: none;
+  display: flex;
+  align-items: center;
+}
+
+.ksh__device-icon img {
+  width: calc(20px * var(--scale));
+  height: calc(20px * var(--scale));
+  display: block;
+}
+
+.ksh__device .ksh__badge {
+  margin-top: calc(4px * var(--scale));
+  margin-left: auto;
+}
+
+.ksh__rows {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  gap: calc(7px * var(--scale));
+}
+
+.ksh__row {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: calc(104px * var(--scale));
+  gap: calc(5px * var(--scale));
+  padding: calc(11px * var(--scale)) calc(20px * var(--scale));
+  background: var(--surface);
+  border: solid 1px var(--line);
+  border-radius: var(--radius-card);
+}
+
+.ksh__row-top {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(12px * var(--scale));
+}
+
+.ksh__row-title {
+  display: flex;
+  align-items: center;
+  gap: calc(10px * var(--scale));
+  flex: 1;
+  min-width: 0;
+}
+
+.ksh__row-top > .ksh__status {
+  margin-left: auto;
+  text-align: right;
+}
+
+.ksh__row-mid {
+  display: flex;
+  align-items: center;
+  gap: calc(14px * var(--scale));
+}
+
+/* Where the release lives, on the controls line rather than under the status word. */
+.ksh__row-mid .ksh__link {
+  margin-left: auto;
+}
+
+.ksh__row-foot {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: calc(12px * var(--scale));
+}
+
+.ksh__row-foot .ksh__sha {
+  margin-left: auto;
+}
+
+.ksh__row-foot .ksh__hint {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ksh__status {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.ksh__status--latest {
+  color: var(--ok);
+}
+
+.ksh__footer {
+  display: flex;
+  margin-top: calc(8px * var(--scale));
+}
+
+.ksh__flowfoot {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--scale));
+}
+
+.ksh__flowfoot .ksh__btn {
+  width: calc(300px * var(--scale));
+}
+
+.ksh__ready {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: calc(15px * var(--scale));
+  padding-top: calc(16px * var(--scale));
+}
+
+.ksh__dot {
+  display: inline-block;
+  width: calc(6px * var(--scale));
+  height: calc(6px * var(--scale));
+  margin-right: calc(6px * var(--scale));
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.ksh__dot--off {
+  background: var(--ink-faint);
+}
+
+.ksh__row--off {
+  opacity: 0.5;
+}
+
+.ksh__from {
+  color: var(--ink-faint);
+}
+
+.ksh__to {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ksh__next {
+  display: flex;
+  gap: calc(10px * var(--scale));
+}

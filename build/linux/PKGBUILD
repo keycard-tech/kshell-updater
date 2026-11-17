@@ -1,0 +1,44 @@
+pkgname=kshell-updater
+pkgrel=1
+pkgdesc='Update the firmware and database of a Keycard Shell, and verify its authenticity'
+arch=('x86_64')
+url='https://github.com/keycard-tech/kshell-updater'
+license=('MIT')
+depends=('webkit2gtk-4.1' 'gtk3' 'hidapi' 'hicolor-icon-theme' 'desktop-file-utils')
+makedepends=('cargo' 'nodejs' 'npm')
+_repo=${KSHELL_REPO:-https://github.com/keycard-tech/kshell-updater.git}
+source=("kshell-updater::git+${_repo}")
+sha256sums=('SKIP')
+options=(!debug)
+
+pkgver() {
+  sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$srcdir/$pkgname/package.json" | head -1
+}
+
+build() {
+  cd "$srcdir/$pkgname"
+  export CARGO_HOME="$srcdir/cargo-home"
+  export npm_config_cache="$srcdir/npm-cache"
+  npm ci
+  npm run ui
+  cargo build --release --manifest-path src-tauri/Cargo.toml
+}
+
+package() {
+  cd "$srcdir/$pkgname"
+  install -Dm755 src-tauri/target/release/kshell-updater "$pkgdir/usr/bin/kshell-updater"
+  install -Dm644 build/linux/kshell-updater.desktop \
+    "$pkgdir/usr/share/applications/kshell-updater.desktop"
+  install -Dm644 src-tauri/icons/32x32.png \
+    "$pkgdir/usr/share/icons/hicolor/32x32/apps/kshell-updater.png"
+  install -Dm644 src-tauri/icons/64x64.png \
+    "$pkgdir/usr/share/icons/hicolor/64x64/apps/kshell-updater.png"
+  install -Dm644 src-tauri/icons/128x128.png \
+    "$pkgdir/usr/share/icons/hicolor/128x128/apps/kshell-updater.png"
+  install -Dm644 'src-tauri/icons/128x128@2x.png' \
+    "$pkgdir/usr/share/icons/hicolor/256x256/apps/kshell-updater.png"
+  install -Dm644 src-tauri/icons/icon.png \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/kshell-updater.png"
+  install -Dm644 build/linux/99-keycard-shell.rules \
+    "$pkgdir/usr/lib/udev/rules.d/99-keycard-shell.rules"
+}

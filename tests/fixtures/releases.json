@@ -1,0 +1,48 @@
+{
+  "database": {
+    "files": [
+      {
+        "date": "20261111",
+        "name": "shelldb-20261111.bin",
+        "sha256": "63dd9d51c8f174fb1b3a6a1ed9864326f90cb2a09856d0da6db6e5e84d02b41d",
+        "url": "https://github.com/keycard-tech/keycard-eth-db/releases/download/20261111/shelldb-20261111.bin",
+        "variant": null,
+        "version": null
+      }
+    ],
+    "newestOffered": true,
+    "unofferable": 0,
+    "verified": true
+  },
+  "firmware": {
+    "files": [
+      {
+        "date": "20261112",
+        "name": "shellos-20261112-1.5.3.bin",
+        "sha256": "bb53a45e9c5e63e80aa8b9a9e9b46991aa0f597ddee014fefdf787ef685a6177",
+        "url": "https://github.com/keycard-tech/keycard-shell/releases/download/v1.5.3/shellos-20261112-1.5.3.bin",
+        "variant": 0,
+        "version": "1.5.3"
+      },
+      {
+        "date": "20261112",
+        "name": "shellos-20261112-1.5.3-btc-only.bin",
+        "sha256": "96aa0a4e651b232e665539ae2ba5079ccd5439f36d45da1eb9a0e12d1a8acc32",
+        "url": "https://github.com/keycard-tech/keycard-shell/releases/download/v1.5.3/shellos-20261112-1.5.3-btc-only.bin",
+        "variant": 1,
+        "version": "1.5.3"
+      }
+    ],
+    "newestOffered": true,
+    "unofferable": 27,
+    "verified": true
+  },
+  "imageInfo": {
+    "bytes": 0,
+    "fwVariant": 0,
+    "kind": "firmware",
+    "matchesRelease": null,
+    "sha256": "",
+    "version": "0"
+  }
+}

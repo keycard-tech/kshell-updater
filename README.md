@@ -1,20 +1,11 @@
 # Keycard Shell Updater
 
-Keycard Shell Updater is an application to update Keycard Shell firmware and database. Here are some screenshots of its functionality.
+Keycard Shell Updater is an application to update Shell firmware and database, and verify its authenticity. Here are some screenshots of its functionality.
 
-![alt text](https://github.com/user-attachments/assets/dad248a9-819b-42e5-af45-59d12fd1a497 "Keycard Shell 1")
-![alt text](https://github.com/user-attachments/assets/0c6b27cb-25c6-4fb0-b179-f022db05c95e "Keycard Shell 2")
-![alt text](https://github.com/user-attachments/assets/9e7473d8-1acf-494a-b3d0-607db6faa3cc "Keycard Shell 3")
-![alt text](https://github.com/user-attachments/assets/268495c5-65fd-4a4c-9cea-08293190bc60 "Keycard Shell 4")
+<img width="1976" height="1602" alt="Screenshot From 2026-11-17 14-09-19" src="https://github.com/user-attachments/assets/de08205f-38a0-4171-bdd0-1c25eb069182" />
 
+<img width="1976" height="1602" alt="Screenshot From 2026-11-17 14-09-39" src="https://github.com/user-attachments/assets/e7bd0340-b373-4c90-9236-152da66c7490" />
 
-## Installing Keycard Shell
+<img width="1976" height="1602" alt="Screenshot From 2026-11-17 14-09-48" src="https://github.com/user-attachments/assets/9513c263-150a-4982-9524-609d65d3244b" />
 
-Compile Keycard Shell Updater for your computer from the command line using `npm run dist`.
-
-## Functionality
-
-- Update database locally
-- Update database online
-- Update firmware locally
-- Update firmware online
+<img width="1976" height="1602" alt="Screenshot From 2026-11-17 14-10-10" src="https://github.com/user-attachments/assets/a82a8012-9740-473f-9759-8a247a93e48e" />
