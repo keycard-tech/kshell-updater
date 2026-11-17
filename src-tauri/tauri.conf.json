@@ -45,7 +45,11 @@
     },
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
+        "files": {
+          "/usr/lib/udev/rules.d/99-keycard-shell.rules": "../build/linux/99-keycard-shell.rules"
+        },
+        "postInstallScript": "../build/linux/deb-post-install",
+        "postRemoveScript": "../build/linux/deb-post-removal"
       }
     }
   }

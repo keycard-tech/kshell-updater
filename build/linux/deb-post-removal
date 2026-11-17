@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+
+if [ -x /usr/sbin/udevadm ]; then
+  /usr/sbin/udevadm control --reload-rules || true
+fi
+
+exit 0
