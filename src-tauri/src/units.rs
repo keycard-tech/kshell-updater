@@ -86,6 +86,15 @@ fn recover(sig: &Signature, digest: &[u8], id: u8) -> Result<VerifyingKey, Units
         .map_err(|_| UnitsError::Refusal("signature does not carry a recoverable point".into()))
 }
 
+fn signs(sig: &Signature, digest: &[u8], key: &VerifyingKey) -> bool {
+    let halves = [Some(*sig), sig.normalize_s()];
+    halves.iter().flatten().any(|candidate| {
+        (0..2)
+            .filter_map(|id| recover(candidate, digest, id).ok())
+            .any(|recovered| recovered == *key)
+    })
+}
+
 fn row_hash(salt: &[u8], uid: &[u8], pubkey: &[u8]) -> [u8; ROW_LEN] {
     let mut hasher = Sha256::new();
     hasher.update(salt);
@@ -142,10 +151,7 @@ pub fn load_list_with_key(bytes: &[u8], verify_key: &str) -> Result<UnitList, Un
     let sig = Signature::from_slice(signature)
         .map_err(|err| UnitsError::Refusal(format!("signature could not be read: {err}")))?;
     let digest = Sha256::digest(prefix);
-    if !(0..2)
-        .filter_map(|id| recover(&sig, &digest, id).ok())
-        .any(|recovered| recovered == key)
-    {
+    if !signs(&sig, &digest, &key) {
         return refuse("signature does not match the pinned key");
     }
 
@@ -377,5 +383,44 @@ mod tests {
     fn init_is_the_two_field_map() {
         let encoded = encode_init(&[0x07; 32]);
         assert_eq!(hex(&encoded), format!("a20101065820{}", "07".repeat(32)));
+    }
+
+    fn published_list() -> Vec<u8> {
+        std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .expect("src-tauri is under the repository")
+                .join("tests/fixtures/units-latest.bin"),
+        )
+        .expect("run `cargo run --example units` to write tests/fixtures/units-latest.bin")
+    }
+
+    #[test]
+    fn a_list_signed_on_the_other_half_of_the_curve_still_loads() {
+        use k256::elliptic_curve::PrimeField;
+        let mut bytes = published_list();
+        let at = bytes.len() - LIST_SIGNATURE_SIZE;
+        let signature: [u8; LIST_SIGNATURE_SIZE] = bytes[at..].try_into().unwrap();
+        let half: [u8; 32] = signature[32..].try_into().unwrap();
+        let mut flipped = signature;
+        flipped[32..].copy_from_slice(
+            &k256::Scalar::from_repr(half.into())
+                .unwrap()
+                .negate()
+                .to_bytes(),
+        );
+        assert_ne!(flipped, signature, "S has to have moved");
+        bytes[at..].copy_from_slice(&flipped);
+        assert!(
+            load_list(&bytes).is_ok(),
+            "the same list with the other S is the same signature"
+        );
+    }
+
+    #[test]
+    fn a_list_signed_by_nobody_is_refused() {
+        let mut bytes = published_list();
+        bytes[0] ^= 0xff;
+        assert!(load_list(&bytes).is_err());
     }
 }

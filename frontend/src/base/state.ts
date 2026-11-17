@@ -26,8 +26,6 @@ interface QueueItem {
   label: string;
   bytes: number;
   done: boolean;
-  allowVariantSwitch: boolean;
-  allowDowngrade: boolean;
 }
 
 interface State {

@@ -117,20 +117,6 @@ fn version_looks_like_a_date(version: u32) -> bool {
     (20_000_000..40_000_000).contains(&version)
 }
 
-pub fn firmware_version_older(candidate: &str, on_device: &str) -> bool {
-    fn key(version: &str) -> (u32, u32, u32) {
-        let mut parts = version
-            .split('.')
-            .map(|part| part.trim().parse().unwrap_or(0));
-        (
-            parts.next().unwrap_or(0),
-            parts.next().unwrap_or(0),
-            parts.next().unwrap_or(0),
-        )
-    }
-    key(candidate) < key(on_device)
-}
-
 pub fn inspect_firmware(image: &[u8]) -> Result<ImageInfo, ImageError> {
     let sha256 = firmware_hash(image)?;
     let (major, minor, patch) = (
@@ -187,14 +173,6 @@ mod tests {
 
     fn filler(len: usize) -> Vec<u8> {
         vec![0xff; len]
-    }
-
-    #[test]
-    fn a_minor_version_is_not_a_string_comparison() {
-        assert!(firmware_version_older("1.5.2", "1.5.3"));
-        assert!(!firmware_version_older("1.10.0", "1.9.9"));
-        assert!(!firmware_version_older("1.5.3", "1.5.3"));
-        assert!(!firmware_version_older("2.0.0", "1.99.99"));
     }
 
     #[test]

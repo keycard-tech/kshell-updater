@@ -35,27 +35,13 @@ interface RowStatus {
   status: string;
   modifier: '' | 'empty' | 'latest';
   wanted: boolean;
-  variantSwitch: boolean;
-  downgrade: boolean;
 }
 
 const rowOf = (
   status: string,
   modifier: RowStatus['modifier'] = '',
   wanted = false,
-  agreed: { variantSwitch?: boolean; downgrade?: boolean } = {},
-): RowStatus => ({
-  status,
-  modifier,
-  wanted,
-  variantSwitch: agreed.variantSwitch ?? false,
-  downgrade: agreed.downgrade ?? false,
-});
-
-const switchesVariant = (arriving: number | null): boolean => {
-  const onDevice = state.config?.fwVariant ?? null;
-  return arriving !== null && onDevice !== null && arriving !== onDevice;
-};
+): RowStatus => ({ status, modifier, wanted });
 
 export const buildRows = (): void => {
   for (const entry of text.kinds) {
@@ -104,7 +90,7 @@ export const buildRows = (): void => {
   }
 };
 
-export const rowState = (kind: ImageKind): RowStatus => {
+const rowState = (kind: ImageKind): RowStatus => {
   if (state.mode[kind] === 'file') {
     const picked = state.ready[kind]?.info;
     if (!picked) return rowOf(text.status.noFile, 'empty');
@@ -114,7 +100,6 @@ export const rowState = (kind: ImageKind): RowStatus => {
       text.row.fromFileVersion(picked.version, text.variants[picked.fwVariant ?? -1] ?? ''),
       '',
       true,
-      { variantSwitch: switchesVariant(picked.fwVariant) },
     );
   }
 
@@ -128,12 +113,12 @@ export const rowState = (kind: ImageKind): RowStatus => {
   if (kind === 'database') {
     return sameOrNew(String(state.config?.dbVersion ?? ''), versionOf(file));
   }
-  if (switchesVariant(file.variant)) {
-    return rowOf(text.status.variantSwitch, '', true, { variantSwitch: true });
+  const deviceVariant = state.config?.fwVariant ?? null;
+  if (deviceVariant !== null && file.variant !== deviceVariant) {
+    return rowOf(text.status.variantSwitch, '', true);
   }
 
-  if (state.config?.fwBeta)
-    return rowOf(text.status.newVersion, '', true, { downgrade: true });
+  if (state.config?.fwBeta) return rowOf(text.status.newVersion, '', true);
   return sameOrNew(state.config?.fwVersion ?? '', versionOf(file));
 };
 

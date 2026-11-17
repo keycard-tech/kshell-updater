@@ -8,7 +8,7 @@ import { el, reason, slot } from '../utils.js';
 import { refresh, reportConnected, showWaiting } from './device.js';
 import { isReadyToFlash, keyFor, selectedFile, versionOf } from './files.js';
 import { dropRecord, intendedVersions, onDeviceVersions, writeRecord } from './record.js';
-import { rowState, wantedKinds } from './rows.js';
+import { wantedKinds } from './rows.js';
 
 const kinds = text.kinds.map((entry) => entry.kind);
 
@@ -30,7 +30,6 @@ export const startTransfer = async (): Promise<void> => {
   if (state.busy || !wanted.length || wanted.some((kind) => !isReadyToFlash(kind))) return;
 
   state.queue = wanted.map((kind) => {
-    const row = rowState(kind);
     const key = keyFor(kind) ?? '';
     return {
       kind,
@@ -38,8 +37,6 @@ export const startTransfer = async (): Promise<void> => {
       label: itemLabel(kind),
       bytes: state.prepared[key]?.bytes ?? 0,
       done: false,
-      allowVariantSwitch: row.variantSwitch,
-      allowDowngrade: row.downgrade,
     };
   });
   state.step = 0;
@@ -68,8 +65,6 @@ const runQueue = async (): Promise<void> => {
         state.config = await flashImage({
           kind: item.kind,
           key: item.key,
-          allowVariantSwitch: item.allowVariantSwitch,
-          allowDowngrade: item.allowDowngrade,
         });
         item.done = true;
       } catch (error) {

@@ -240,17 +240,12 @@ struct PickedFile {
 }
 
 pub const EVENT_FLASH_PROGRESS: &str = "shell://flash-progress";
-pub const NEEDS_CONFIRM: &str = "confirm:";
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FlashRequest {
     kind: String,
     key: String,
-    #[serde(default)]
-    allow_variant_switch: bool,
-    #[serde(default)]
-    allow_downgrade: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -273,41 +268,17 @@ async fn flash_image(app: AppHandle, request: FlashRequest) -> Result<AppConfigu
                 kind.name()
             )
         })?;
-    let info = kind.inspect(&bytes)?;
-    tauri::async_runtime::spawn_blocking(move || flash(app, kind, bytes, info, request))
+    kind.inspect(&bytes)?;
+    tauri::async_runtime::spawn_blocking(move || flash(app, kind, bytes))
         .await
         .map_err(|e| e.to_string())?
 }
 
-fn flash(
-    app: AppHandle,
-    kind: Kind,
-    bytes: Vec<u8>,
-    info: image::ImageInfo,
-    request: FlashRequest,
-) -> Result<AppConfiguration, String> {
+fn flash(app: AppHandle, kind: Kind, bytes: Vec<u8>) -> Result<AppConfiguration, String> {
     let usb = app.state::<SharedUsb>();
     let stopping = app.state::<CancelFlag>().0.clone();
     stopping.store(false, std::sync::atomic::Ordering::Relaxed);
-    let on_device = read_configuration(&usb)?;
-
-    if kind == Kind::Firmware {
-        if !request.allow_variant_switch
-            && matches!((on_device.fw_variant, info.fw_variant), (Some(have), Some(want)) if have != want)
-        {
-            return Err(format!("{NEEDS_CONFIRM}variant-switch"));
-        }
-        if !request.allow_downgrade
-            && image::firmware_version_older(&info.version, &on_device.fw_version)
-        {
-            return Err(format!("{NEEDS_CONFIRM}downgrade"));
-        }
-    } else if !request.allow_downgrade {
-        let arriving_database = info.version.parse::<u32>().unwrap_or(u32::MAX);
-        if arriving_database < on_device.db_version {
-            return Err(format!("{NEEDS_CONFIRM}downgrade"));
-        }
-    }
+    read_configuration(&usb)?;
 
     let total = bytes.len();
     let ins = match kind {

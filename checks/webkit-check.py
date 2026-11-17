@@ -555,34 +555,6 @@ def stub(name):
               const emit = window.__events__['shell://flash-progress'];
               emit({ payload: { kind: args.request.kind, done: Math.round(total * 0.42), total } });
               if (b.flash === 'pending') return new Promise(() => {});
-              // Two writes are refused until the row says the person meant them, as the Rust puts it.
-              const steps = (value) => String(value).split(/[.\s_-]+/).filter(Boolean).map(Number);
-              const behind = (wanted, onDevice) => {
-                const [a, c] = [steps(wanted), steps(onDevice)];
-                for (let i = 0; i < Math.max(a.length, c.length); i += 1) {
-                  const gap = (a[i] ?? 0) - (c[i] ?? 0);
-                  if (gap !== 0) return gap < 0;
-                }
-                return false;
-              };
-              const listed = args.request.kind === 'firmware'
-                ? b.fixtures.firmware.files[0] : b.fixtures.database.files[0];
-              const picked = args.request.key.startsWith('file://') && window.__picked;
-              const image = picked
-                ? { version: window.__picked.version, variant: window.__picked.variant }
-                : { version: listed.version ?? listed.date, variant: listed.variant ?? null };
-              const device = args.request.kind === 'firmware'
-                ? { version: b.config.fwVersion, variant: b.config.fwVariant ?? null }
-                : { version: String(b.config.dbVersion), variant: null };
-              if (image.variant !== null && device.variant !== null
-                  && image.variant !== device.variant
-                  && args.request.allowVariantSwitch !== true) {
-                return fail('confirm:variant-switch');
-              }
-              if (behind(image.version, device.version)
-                  && args.request.allowDowngrade !== true) {
-                return fail('confirm:downgrade');
-              }
               // A Rust error arrives as a sentence, first one the headline of the failure screen.
               if (b.flash === 'cancelled') {
                 window.__flashTries = (window.__flashTries || 0) + 1;
@@ -618,12 +590,6 @@ def stub(name):
                   matchesRelease: null,
                 },
                 key: 'file://' + args.file.path,
-              }).then((prepared) => {
-                window.__picked = {
-                  version: prepared.info.version,
-                  variant: prepared.info.fwVariant ?? null,
-                };
-                return prepared;
               });
             case 'load_update_record':
               return Promise.resolve(null);

@@ -64,8 +64,6 @@ export interface UpdateRecord {
 export interface FlashRequest {
   kind: ImageKind;
   key: string;
-  allowVariantSwitch: boolean;
-  allowDowngrade: boolean;
 }
 
 export interface FlashProgress {
