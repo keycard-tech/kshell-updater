@@ -33,12 +33,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Re-running a tag adds to the release that tag already has instead of failing on it.
-          # A draft is not reachable by tag, so a re-run onto a draft makes a second one; only a
-          # re-run of a tag that was already published finds it.
-          id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" --jq .id 2>/dev/null \
-            || gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
-                 -f tag_name="$GITHUB_REF_NAME" -f name="$GITHUB_REF_NAME" -F draft=true --jq .id)"
+          tag="$GITHUB_REF_NAME"
+          # The list, not `releases/tags/{tag}`: that endpoint answers 404 for a draft, so looking
+          # there would make every retry add another draft for the same tag.
+          id="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq "map(select(.tag_name == \"$tag\")) | .[0].id // empty")"
+          if [ -z "$id" ]; then
+            id="$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
+                   -f tag_name="$tag" -f name="$tag" -F draft=true --jq .id)"
+            echo "created draft release $id"
+          else
+            echo "release $id already exists for $tag, adding to it"
+          fi
+          # An empty id here means all three build jobs fail later over a release name, which points
+          # nowhere near the cause. Stop here instead.
+          if [ -z "$id" ]; then echo "no release id came back for $tag"; exit 1; fi
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   build:
@@ -87,6 +96,13 @@ jobs:
       # match the tree that was reviewed.
       - run: npm ci
 
+      # Once failed three times over a missing release name while the cause was an id that never
+      # arrived from the job above. Both ends of that handoff in the log, so the next time it is
+      # visible rather than inferred.
+      - name: release target
+        run: |
+          echo "release id from the draft job: [${{ needs.draft.outputs.id }}]"
+
       - name: installers and release
         id: tauri
         uses: tauri-apps/tauri-action@v0
@@ -105,9 +121,13 @@ jobs:
           # nothing. It is empty on a hand-started run, which is what makes that run build without
           # touching a release at all.
           releaseId: ${{ needs.draft.outputs.id }}
-          # Left in as the way back: should the id ever fail to arrive on a tag push, the action
-          # still finds the release by name rather than losing the files.
+          # Both of these are for the case where the id does not arrive: the action then looks the
+          # release up by tag, which only works through the release list - and the list is what it
+          # reads when it believes the release is a draft. Without `releaseName` that path gives up
+          # with `"releaseName" not set`, which is the failure this replaces.
           tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          releaseName: ${{ github.ref_name }}
+          releaseDraft: true
           includeUpdaterJson: false
           args: ${{ matrix.args }}
 
