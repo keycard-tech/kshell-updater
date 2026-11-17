@@ -6,8 +6,47 @@ on:
   workflow_dispatch:
 
 jobs:
+  # One job makes the release, so three machines never race to create the same one: github cannot
+  # look a draft up by tag, and it lets two drafts carry the same tag, so the release has to be
+  # settled and its id handed down before the matrix starts.
+  draft:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      id: ${{ steps.make.outputs.id }}
+    steps:
+      - uses: actions/checkout@v5
+      # `checks` says the three files agree with each other; this says the tag agrees with them too,
+      # so a release is never named one thing while the files inside it are named another.
+      - name: tag and version agree
+        run: |
+          version="$(python3 -c "import json;print(json.load(open('package.json'))['version'])")"
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "the tag is $GITHUB_REF_NAME but the app says $version"
+            exit 1
+          fi
+          echo "$GITHUB_REF_NAME is version $version"
+      - name: draft release
+        id: make
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Re-running a tag adds to the release that tag already has instead of failing on it.
+          # A draft is not reachable by tag, so a re-run onto a draft makes a second one; only a
+          # re-run of a tag that was already published finds it.
+          id="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" --jq .id 2>/dev/null \
+            || gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
+                 -f tag_name="$GITHUB_REF_NAME" -f name="$GITHUB_REF_NAME" -F draft=true --jq .id)"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
   build:
     name: ${{ matrix.os }}
+    needs: draft
+    # A hand-started run has no tag, so its one dependency is skipped - and a skipped dependency
+    # skips this job too unless it is let through.
+    if: always() && needs.draft.result != 'failure' && needs.draft.result != 'cancelled'
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -17,6 +56,8 @@ jobs:
         include:
           - os: ubuntu-22.04
             args: --bundles deb,appimage
+          # Universal, so the same file opens on an Apple silicon machine and an Intel one: the
+          # updater is not in the app yet, and one download link should serve both.
           - os: macos-15
             args: --target universal-apple-darwin --bundles dmg
           - os: windows-latest
@@ -60,10 +101,18 @@ jobs:
         with:
           includeRelease: true
           includeDebug: false
+          # The id given when the release is already made: with it the action uploads and creates
+          # nothing. It is empty on a hand-started run, which is what makes that run build without
+          # touching a release at all.
+          releaseId: ${{ needs.draft.outputs.id }}
+          # Left in as the way back: should the id ever fail to arrive on a tag push, the action
+          # still finds the release by name rather than losing the files.
           tagName: ${{ github.event_name == 'push' && github.ref_name || '' }}
           includeUpdaterJson: false
           args: ${{ matrix.args }}
 
+      # Three artifacts, one per machine, so a run can be tried out, or its files attached to a
+      # release made by hand, without pushing a tag first.
       - uses: actions/upload-artifact@v6
         with:
           name: installers-${{ matrix.os }}
