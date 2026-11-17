@@ -357,6 +357,10 @@ STATES = {
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
     ], 'screen-verify', {'note': 'Another app is using the camera'}),
+    'scan-denied': ({'scan': 'denied'}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('btn-camera').click()",
+    ], 'screen-verify', {'note': 'Camera access is off for this app'}),
     'scan-silent': ({'scan': 'silent'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-camera').click()",
@@ -658,6 +662,9 @@ def stub(name):
             case 'scan_start':
               if (b.scan === 'none') return fail('No camera is connected. Plug one in and try again.');
               if (b.scan === 'busy') return fail('Another app is using the camera. Close it and try again.');
+              if (b.scan === 'denied') {
+                return fail('Camera access is off for this app. Turn it on in System Settings.');
+              }
               // What the Rust answers: one entry per camera, and which one is running — the second, no
               // matter what was asked for, because the camera asked for may not be the one that opened.
               return Promise.resolve({

@@ -18,8 +18,7 @@ jobs:
       - run: npm ci
       - run: npm run ui
       - run: python3 checks/dead-code.py
-      # The version is written in three files because three tools read it; a release where they
-      # disagree ships an installer that says something other than the window does.
+      - run: python3 checks/glyphs.py
       - name: one version
         run: |
           python3 - <<'PYTHON'

@@ -286,6 +286,29 @@ fn tries(nodes: &[Node], wanted: Option<&str>) -> Vec<String> {
     tries
 }
 
+#[cfg(target_os = "macos")]
+async fn asked_for_access() -> Result<(), String> {
+    use crabcamera::permissions::PermissionStatus;
+    let answer = crabcamera::commands::permissions::request_camera_permission()
+        .await
+        .map_err(|why| refused(&format!("camera permission: {why}")))?;
+    said(format!("camera permission {}", answer.status));
+    if matches!(
+        answer.status,
+        PermissionStatus::Denied | PermissionStatus::Restricted
+    ) {
+        return Err(String::from(
+            "Camera access is off for this app. Turn it on in System Settings.",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn asked_for_access() -> Result<(), String> {
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn scan_start(app: AppHandle, device: Option<String>) -> Result<Scan, String> {
     let scanner = app.state::<Scanner>().inner().clone();
@@ -293,6 +316,7 @@ pub async fn scan_start(app: AppHandle, device: Option<String>) -> Result<Scan, 
         Some(id) => said(format!("asked to scan {id}")),
         None => said("asked to scan, any camera"),
     }
+    asked_for_access().await?;
     tauri::async_runtime::spawn_blocking(move || -> Result<Scan, String> {
         let nodes = listed()?;
         if nodes.is_empty() {
