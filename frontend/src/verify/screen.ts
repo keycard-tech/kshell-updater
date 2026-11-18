@@ -108,4 +108,5 @@ export const renderVerify = (): void => {
   button.textContent = label;
   button.disabled = verify.fetching;
   button.classList.toggle('ksh__btn--primary', loaded);
+  el('btn-units-code').hidden = loaded || verify.fetching;
 };

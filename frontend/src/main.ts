@@ -3,7 +3,9 @@ import { show } from './base/screens.js';
 import { state } from './base/state.js';
 import type { FlashProgress, Preloaded } from './types.js';
 import { presencePollMs } from './config.js';
+import { buildAirgap, openCode } from './airgap.js';
 import { el } from './utils.js';
+import * as text from './strings.js';
 import { refresh, showWaiting } from './update/device.js';
 import { keyFor } from './update/files.js';
 import { loadReleases, preload, retryListing } from './update/releases.js';
@@ -28,6 +30,7 @@ import { renderScan, verify } from './verify/state.js';
 import { answer, verdictButton, verdictGuide } from './verify/verdict.js';
 
 buildRows();
+buildAirgap();
 
 el<HTMLButtonElement>('btn-transfer').addEventListener('click', () => void startTransfer());
 el<HTMLButtonElement>('btn-cancel').addEventListener('click', cancelTransfer);
@@ -37,7 +40,13 @@ el<HTMLButtonElement>('btn-failed-back').addEventListener('click', () => {
   void refresh();
 });
 el<HTMLButtonElement>('btn-ready-verify').addEventListener('click', () => void openVerify());
-el<HTMLButtonElement>('card-update').addEventListener('click', openUpdate);
+el('card-update').addEventListener('click', openUpdate);
+el('card-update').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    openUpdate();
+  }
+});
 el<HTMLButtonElement>('btn-done').addEventListener('click', () => {
   show('screen-home');
   void refresh();
@@ -56,6 +65,9 @@ el<HTMLButtonElement>('btn-verify-update').addEventListener('click', () => {
 el<HTMLButtonElement>('verify-list-online').addEventListener('click', () => void useOnlineList());
 el<HTMLButtonElement>('verify-list-file').addEventListener('click', () => void useOwnList());
 el<HTMLButtonElement>('btn-camera').addEventListener('click', () => void startCamera());
+el<HTMLButtonElement>('btn-units-code').addEventListener('click', () =>
+  void openCode(text.airgap.urls.units, text.airgap.what.units),
+);
 el<HTMLButtonElement>('btn-scan-back').addEventListener('click', () => {
   stopScan();
   show('screen-verify');

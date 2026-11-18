@@ -539,6 +539,7 @@ pub fn run() {
             verify::units_use_file,
             verify::units_challenge,
             verify::units_check,
+            verify::link_code,
             scan::scan_start,
             scan::scan_frame,
             scan::scan_stop

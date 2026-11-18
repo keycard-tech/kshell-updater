@@ -1,4 +1,5 @@
 import { chooseFile, openExternal, pickImageFile } from '../base/bridge.js';
+import { openCode } from '../airgap.js';
 import { state, type ByKind, type ReadyFile } from '../base/state.js';
 import { human } from '../errors.js';
 import * as text from '../strings.js';
@@ -25,6 +26,7 @@ interface RowRefs {
   select: HTMLSelectElement;
   staticBox: HTMLElement;
   pick: HTMLButtonElement;
+  code: HTMLButtonElement;
   hint: HTMLElement;
   sha: HTMLElement;
 }
@@ -57,6 +59,7 @@ export const buildRows = (): void => {
       select: slot<HTMLSelectElement>(row, 'select'),
       staticBox: slot<HTMLElement>(row, 'static'),
       pick: slot<HTMLButtonElement>(row, 'pick'),
+      code: slot<HTMLButtonElement>(row, 'code'),
       hint: slot(row, 'hint'),
       sha: slot(row, 'sha'),
     };
@@ -76,6 +79,8 @@ export const buildRows = (): void => {
       render(kind);
     });
     refs.pick.addEventListener('click', () => chooseImage(kind));
+    refs.code.setAttribute('aria-label', text.airgap.button);
+    refs.code.addEventListener('click', () => void openCode(text.airgap.urls[kind], text.airgap.what[kind]));
     refs.select.addEventListener('change', () => {
       state.variant[kind] = Number(refs.select.value);
       state.ready[kind] = null;
@@ -151,6 +156,7 @@ export const render = (kind: ImageKind): void => {
   refs.field.hidden = mode !== 'online';
   refs.pick.hidden = mode !== 'file';
   refs.link.hidden = mode !== 'online' || !selectedFile(kind);
+  refs.code.hidden = !state.listError || Boolean(ready);
 
   if (mode === 'online') renderField(kind, refs);
 

@@ -129,7 +129,7 @@ MEASURE = """JSON.stringify((() => {
     words: Object.fromEntries(['home-sub', 'status-note', 'failed-title', 'failed-detail',
                                'verdict-sub',
                                'verify-qr-note', 'scan-problem', 'transfer-bytes', 'transfer-step',
-                               'verify-list-line', 'device-line'].map((id) => {
+                               'verify-list-line', 'device-line', 'ag-guide', 'ag-title'].map((id) => {
       const n = document.getElementById(id);
       return [id, !n ? null : n.hidden ? '' : (n.textContent || '').trim()];
     }).concat([['pickLabel',
@@ -140,6 +140,12 @@ MEASURE = """JSON.stringify((() => {
        [...document.querySelectorAll('[data-kind=firmware] option')].map((o) => o.textContent.trim()).join(' / ') || null],
       ['databaseChoice',
        (document.querySelector('[data-kind=database] [data-slot=static]') || {}).textContent || null],
+      // Which air-gapped affordances are up: counted, so a row that quietly keeps its button after
+      // a file resolves cannot pass.
+      ['codeBtns', String([...document.querySelectorAll('.ksh__row .ksh__agbtn')].filter(shown).length)],
+      ['unitsCode', shown(document.getElementById('btn-units-code') || { hidden: true }) ? 'shown' : ''],
+      ['agModal', shown(document.getElementById('ag-modal') || { hidden: true }) ? 'shown' : ''],
+      ['homeAirgap', shown(document.getElementById('home-airgap') || { hidden: true }) ? 'shown' : ''],
       // How many times a code was minted, and how many cameras the list offers after repeats of the
       // same device are dropped: both were runaway numbers no screenshot showed.
       ['challengeMints', String(window.__challengeMints || 0)],
@@ -246,7 +252,7 @@ STATES = {
     # The markup leaves home-sub to the app, so this can only be satisfied by a rendered hint: the
     # sentence lives in strings.ts and nowhere else.
     'home': ({'noDevice': True}, [], 'screen-home',
-             {'home-sub': 'unavailable until the Keycard Shell', 'homeTitle': 'Update Shell',
+             {'home-sub': 'unavailable until the Shell', 'homeTitle': 'Update Shell',
               'segMatch': 'identical', 'titleMatch': 'identical',
               'homeImg': 'panel_shell.png'}),
     'ready': ({}, ["document.getElementById('card-update').click()"], 'screen-ready',
@@ -283,6 +289,25 @@ STATES = {
     'list-newest-unhashed': ({'newestOffered': False},
                              ["document.getElementById('card-update').click()"], 'screen-ready',
                              {'status-note': 'publishes no hash', 'noteShown': 'shown'}),
+    # The guide belongs to the card, not to the network: whatever the hint above it says, and
+    # online or offline, the way to the air-gapped instructions stays on screen.
+    'home-airgapped-link': ({}, [], 'screen-home',
+                            {'ag-guide': 'Read the guide', 'homeAirgap': 'shown'}),
+    'home-airgapped-offline': ({'listError': True}, [], 'screen-home', {'homeAirgap': 'shown'}),
+    'ready-airgapped-codes': ({'listError': True},
+                              ["document.getElementById('card-update').click()"], 'screen-ready',
+                              {'codeBtns': '2', 'status-note': 'Offline'}),
+    'ready-airgapped-code-open': ({'listError': True}, [
+        "document.getElementById('card-update').click()",
+        "document.querySelector('[data-kind=firmware] [data-slot=code]').click()",
+    ], 'screen-ready', {'agModal': 'shown', 'ag-title': 'Download the latest firmware'}),
+    'verify-airgapped-codes': ({'units': 'none'},
+                               ["document.getElementById('card-verify').click()"], 'screen-verify',
+                               {'unitsCode': 'shown', 'verify-qr-note': 'No units list available'}),
+    'verify-airgapped-code-open': ({'units': 'none'}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('btn-units-code').click()",
+    ], 'screen-verify', {'agModal': 'shown', 'ag-title': 'Download the units list'}),
     'transfer': ({'flash': 'pending'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",
@@ -652,6 +677,9 @@ def stub(name):
                 window.__challenge = 'UR:DEV-AUTH/oeadadamhdcx' + (window.__challengeMints - 1);
               }
               return Promise.resolve({ text: window.__challenge, svg: b.qr });
+            case 'link_code':
+              // The air-gapped codes: the same drawing the challenge uses, for any url.
+              return Promise.resolve(b.qr);
             case 'units_check':
               return Promise.resolve(b.verdict === 'authentic' ? { outcome: 'authentic' }
                 : b.verdict === 'notRegistered'

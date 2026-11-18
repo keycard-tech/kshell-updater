@@ -55,6 +55,8 @@ export const unitsChallenge = (renew: boolean): Promise<Challenge> =>
 
 export const unitsCheck = (text: string): Promise<Verdict> => call('units_check', { text });
 
+export const linkCode = (url: string): Promise<string> => call('link_code', { url });
+
 export const scanStart = (device?: string): Promise<Scan> => call('scan_start', { device });
 
 export const scanStop = (): Promise<undefined> => call('scan_stop');

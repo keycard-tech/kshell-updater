@@ -1,0 +1,85 @@
+.ksh__card[aria-disabled='true'] {
+  cursor: default;
+}
+
+.ksh__link--underline {
+  border-bottom: 0;
+  padding-bottom: 0;
+  text-decoration: underline;
+  text-underline-offset: calc(3px * var(--scale));
+}
+
+.ksh__agbtn {
+  margin-left: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(34px * var(--scale));
+  height: calc(34px * var(--scale));
+  padding: 0;
+  background: var(--surface);
+  border: solid 1px var(--line-strong);
+  border-radius: var(--radius-control);
+  color: var(--ink-mid);
+  cursor: pointer;
+}
+
+.ksh__agbtn--tall {
+  width: calc(44px * var(--scale));
+  height: auto;
+}
+
+.ksh__agbtn svg {
+  width: calc(20px * var(--scale));
+  height: calc(20px * var(--scale));
+}
+
+.ksh__btnline {
+  display: flex;
+  align-items: stretch;
+  gap: calc(10px * var(--scale));
+}
+
+.ksh__btnline > .ksh__btn {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.ksh__agmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgb(1 1 1 / 78%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ksh__agdialog {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(10px * var(--scale));
+  padding: calc(18px * var(--scale));
+  max-width: calc(360px * var(--scale));
+  background: #111;
+  border: solid 1px var(--line);
+  border-radius: var(--radius-card);
+  text-align: center;
+}
+
+.ksh__agtile {
+  width: calc(180px * var(--scale));
+  padding: calc(8px * var(--scale));
+  background: var(--ink-white);
+  border-radius: calc(12px * var(--scale));
+  aspect-ratio: 1;
+}
+
+.ksh__agtile svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

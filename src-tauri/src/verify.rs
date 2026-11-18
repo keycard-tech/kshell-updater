@@ -267,6 +267,11 @@ pub fn units_check(units: tauri::State<'_, Units>, text: String) -> Result<Verdi
 
 const QUIET_ZONE_MODULES: usize = 4;
 
+#[tauri::command]
+pub fn link_code(url: String) -> Result<String, String> {
+    challenge_svg(&url)
+}
+
 pub fn challenge_svg(text: &str) -> Result<String, String> {
     use fast_qr::convert::svg::SvgBuilder;
     use fast_qr::convert::{Builder, Shape};

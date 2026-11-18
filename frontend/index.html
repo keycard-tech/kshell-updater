@@ -10,12 +10,12 @@
     <link rel="stylesheet" href="css/ready.css" />
     <link rel="stylesheet" href="css/transfer.css" />
     <link rel="stylesheet" href="css/verify.css" />
+    <link rel="stylesheet" href="css/airgap.css" />
   </head>
   <body>
     <div class="ksh">
-      <!-- the landing card is the button: card one updates, card two verifies -->
       <div class="ksh__home" id="screen-home">
-        <button class="ksh__card" id="card-update" type="button">
+        <div class="ksh__card" id="card-update" role="button" tabindex="0">
           <div class="ksh__card-head">
             <h1 class="ksh__h1">Update Shell</h1>
             <span class="ksh__badge ksh__badge--warn" id="home-badge">USB-C required</span>
@@ -25,11 +25,13 @@
               <p class="ksh__prompt" id="home-text">
                 Unlock Keycard Shell, connect it with a USB-C cable to upgrade to the latest firmware &amp; database.
               </p>
-              <span class="ksh__hint" id="home-sub"></span>
+              <span class="ksh__hint" id="home-text-hint"><span id="home-sub"></span><span
+                id="home-airgap"> · <span id="home-airgap-prompt"></span>
+                <a class="ksh__link ksh__link--underline" id="ag-guide"><img src="img/external.svg" alt="" /></a></span></span>
             </div>
             <img class="ksh__card-img" src="img/panel_shell.png" alt="" id="home-img" />
           </div>
-        </button>
+        </div>
 
         <button class="ksh__card ksh__card--quiet" id="card-verify" type="button">
           <div class="ksh__card-head">
@@ -85,7 +87,12 @@
               <p id="verify-note-text"></p>
             </div>
 
-            <button class="ksh__btn ksh__btn--primary" id="btn-camera" disabled>Enable camera</button>
+            <div class="ksh__btnline">
+              <button class="ksh__btn ksh__btn--primary" id="btn-camera" disabled>Enable camera</button>
+              <button type="button" class="ksh__agbtn ksh__agbtn--tall" id="btn-units-code" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path fill="currentColor" stroke="none" d="M14 14h2.5v2.5H14zM19 14h2v2h-2zM14 19h2v2h-2zM18.5 18.5h2.5v2.5h-2.5z"/></svg>
+              </button>
+            </div>
             <button
               class="ksh__link ksh__link--button ksh__link--block"
               type="button"
@@ -179,6 +186,9 @@
               <a class="ksh__link" data-slot="link" href="https://github.com/keycard-tech/kshell-updater/releases" hidden>
                 <img src="img/external.svg" alt="" /><span data-slot="link-label"></span>
               </a>
+              <button type="button" class="ksh__agbtn" data-slot="code" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path fill="currentColor" stroke="none" d="M14 14h2.5v2.5H14zM19 14h2v2h-2zM14 19h2v2h-2zM18.5 18.5h2.5v2.5h-2.5z"/></svg>
+              </button>
             </div>
             <div class="ksh__row-foot">
               <span class="ksh__hint" data-slot="hint"></span>
@@ -207,6 +217,9 @@
               <a class="ksh__link" data-slot="link" href="https://github.com/keycard-tech/kshell-updater/releases" hidden>
                 <img src="img/external.svg" alt="" /><span data-slot="link-label"></span>
               </a>
+              <button type="button" class="ksh__agbtn" data-slot="code" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path fill="currentColor" stroke="none" d="M14 14h2.5v2.5H14zM19 14h2v2h-2zM14 19h2v2h-2zM18.5 18.5h2.5v2.5h-2.5z"/></svg>
+              </button>
             </div>
             <div class="ksh__row-foot">
               <span class="ksh__hint" data-slot="hint"></span>
@@ -293,6 +306,15 @@
         <span class="ksh__hint">You can disconnect the device.</span>
         <button class="ksh__btn ksh__btn--primary" id="btn-done">Done</button>
       </section>
+
+      <div class="ksh__agmodal" id="ag-modal" hidden>
+        <div class="ksh__agdialog">
+          <div class="ksh__agtile" id="ag-code"></div>
+          <h2 class="ksh__h2" id="ag-title"></h2>
+          <span class="ksh__hint" id="ag-hint"></span>
+          <button class="ksh__link ksh__link--button" type="button" id="ag-close"></button>
+        </div>
+      </div>
 
       <div class="ksh__statusbar" id="statusbar">
         <span
