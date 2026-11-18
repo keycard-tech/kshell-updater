@@ -11,7 +11,7 @@ import { human } from '../errors.js';
 import * as text from '../strings.js';
 import { el, reason } from '../utils.js';
 import { listLine } from '../views/verify.js';
-import { listReady, verify } from './state.js';
+import { listLoaded, listReady, verify } from './state.js';
 
 export const openVerify = async (): Promise<void> => {
   show('screen-verify');
@@ -64,6 +64,12 @@ export const fetchList = async (): Promise<void> => {
   verify.fetching = false;
 };
 
+export const retryFetch = async (): Promise<void> => {
+  if (listLoaded(verify.status)) return;
+  await fetchList();
+  renderVerify();
+};
+
 export const useOwnList = async (): Promise<void> => {
   try {
     const path = await chooseFile({
@@ -103,10 +109,7 @@ export const renderVerify = (): void => {
     state.device && state.config ? text.verify.updateShell : text.verify.goHome;
 
   const button = el<HTMLButtonElement>('btn-camera');
-  let label = text.verify.enableCamera;
-  if (!loaded) label = verify.fetching ? text.verify.fetchingList : text.verify.loadList;
-  button.textContent = label;
-  button.disabled = verify.fetching;
-  button.classList.toggle('ksh__btn--primary', loaded);
+  button.textContent = verify.fetching ? text.verify.fetchingList : text.verify.enableCamera;
+  button.disabled = !loaded || verify.fetching;
   el('btn-units-code').hidden = loaded || verify.fetching;
 };

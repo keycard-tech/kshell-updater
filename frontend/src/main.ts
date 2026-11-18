@@ -24,6 +24,7 @@ import {
   fetchList,
   openVerify,
   renderVerify,
+  retryFetch,
   useOwnList,
 } from './verify/screen.js';
 import { renderScan, verify } from './verify/state.js';
@@ -114,11 +115,6 @@ async function useOnlineList(): Promise<void> {
 }
 
 async function startCamera(): Promise<void> {
-  if (!verify.status) {
-    await fetchList();
-    renderVerify();
-    return;
-  }
   await ensureChallenge(false);
   await scanRun();
 }
@@ -152,6 +148,9 @@ showWaiting();
 void readRecord().then(refresh).then(loadReleases).then(preload);
 
 setInterval(() => void poll(), presencePollMs);
-addEventListener('online', () => void retryListing(true));
+addEventListener('online', () => {
+  void retryListing(true);
+  void retryFetch();
+});
 
 window.kshell = { scanAnswer: answer, renderScan, verify };

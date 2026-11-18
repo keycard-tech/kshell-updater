@@ -151,7 +151,6 @@ export const verify = {
   updateShell: 'Update Shell',
   goHome: 'Back to Home',
   fetchingList: 'Fetching units list…',
-  loadList: 'Fetch units list',
 };
 
 export interface Shown {

@@ -303,7 +303,8 @@ STATES = {
     ], 'screen-ready', {'agModal': 'shown', 'ag-title': 'Download the latest firmware'}),
     'verify-airgapped-codes': ({'units': 'none'},
                                ["document.getElementById('card-verify').click()"], 'screen-verify',
-                               {'unitsCode': 'shown', 'verify-qr-note': 'No units list available'}),
+                               {'unitsCode': 'shown', 'cameraButton': 'Enable camera · disabled',
+                                'verify-qr-note': 'No units list available'}),
     'verify-airgapped-code-open': ({'units': 'none'}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('btn-units-code').click()",
@@ -340,7 +341,19 @@ STATES = {
     'verify-no-list': ({'units': 'none'},
                        ["document.getElementById('card-verify').click()"], 'screen-verify',
                        {'verify-qr-note': 'No units list available',
-                        'verify-list-line': 'Load own list to verify offline.'}),
+                        'verify-list-line': 'Load own list to verify offline.',
+                        # The camera button is the camera in every state: until a list is in it
+                        # waits, it does not double as a fetch.
+                        'cameraButton': 'Enable camera · disabled'}),
+    # The network coming back is the retry: the stuck screen fetches again by itself.
+    'verify-fetch-after-online': ({'units': 'none'}, [
+        "document.getElementById('card-verify').click()",
+        "window.__backOnline = true;",
+        "window.dispatchEvent(new Event('online'));",
+    ], 'screen-verify', {
+        'cameraButton': 'Enable camera', 'unitsCode': '',
+        'verify-qr-note': '', 'verify-list-line': 'Units list fetched 2026-11-13',
+    }),
     # The first paint of a slow fetch, which is what a white empty tile used to look like.
     # A failure message is however long the Rust is long, and this screen must not be sized for its
     # tidiest state: the one that started this was a two-line `state not managed` complaint.
@@ -658,7 +671,9 @@ def stub(name):
               });
             case 'units_fetch':
               if (b.fetchHangs) return new Promise(() => {});
-              if (b.units === 'none' || b.units === 'cached') {
+              // Past the allowance until the network returns, like `list_releases`: the state that
+              // dispatches `online` must be able to see the screen recover without leaving it.
+              if ((b.units === 'none' || b.units === 'cached') && !window.__backOnline) {
                 return fail(b.longReason
                   ? 'the downloaded units list was refused: the signature over 131200 bytes does not '
                     + 'match the pinned key 032ac68f2b2a500ebf1bc31f0c36e4645b24530ce6d1460e92c2d94e9a47ba550e, '
