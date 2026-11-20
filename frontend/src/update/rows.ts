@@ -95,6 +95,8 @@ export const buildRows = (): void => {
   }
 };
 
+const noList = (): boolean => state.offline || state.listError !== null;
+
 const rowState = (kind: ImageKind): RowStatus => {
   if (state.mode[kind] === 'file') {
     const picked = state.ready[kind]?.info;
@@ -110,9 +112,7 @@ const rowState = (kind: ImageKind): RowStatus => {
 
   const file = selectedFile(kind);
   if (!file) {
-    return state.offline || state.listError
-      ? rowOf(text.status.noList, 'empty')
-      : rowOf(text.status.reading, 'empty');
+    return noList() ? rowOf(text.status.noList, 'empty') : rowOf(text.status.reading, 'empty');
   }
 
   if (kind === 'database') {
@@ -156,7 +156,7 @@ export const render = (kind: ImageKind): void => {
   refs.field.hidden = mode !== 'online';
   refs.pick.hidden = mode !== 'file';
   refs.link.hidden = mode !== 'online' || !selectedFile(kind);
-  refs.code.hidden = !(state.listError || state.offline) || Boolean(ready) || isReadyToFlash(kind);
+  refs.code.hidden = !noList() || Boolean(ready) || isReadyToFlash(kind);
 
   if (mode === 'online') renderField(kind, refs);
 

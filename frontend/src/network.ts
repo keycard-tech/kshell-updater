@@ -8,16 +8,16 @@ export const renderNote = (aboutTheList: string): void => {
   el('status-note').textContent = state.offline ? '' : aboutTheList;
 };
 
-export const forgetOnline = (): void => {
-  for (const { kind } of text.kinds) {
-    state.files[kind] = [];
+export const heard = (online: boolean): void => {
+  state.offline = !online;
+  if (!online) {
+    for (const { kind } of text.kinds) {
+      state.files[kind] = [];
+    }
+    state.listError = null;
+    state.preloading = false;
   }
-  state.listError = null;
-  state.preloading = false;
-};
-
-export const renderNetwork = (): void => {
-  el('status-net').hidden = !state.offline;
+  el('status-net').hidden = online;
   el('status-net-word').textContent = text.network.offline;
   renderNote('');
   renderRows();

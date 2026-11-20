@@ -4,7 +4,7 @@ import { state } from './base/state.js';
 import type { FlashProgress, Preloaded } from './types.js';
 import { presencePollMs } from './config.js';
 import { buildAirgap, openCode } from './airgap.js';
-import { forgetOnline, renderNetwork } from './network.js';
+import { heard } from './network.js';
 import { el } from './utils.js';
 import * as text from './strings.js';
 import { refresh, showWaiting } from './update/device.js';
@@ -151,14 +151,11 @@ void readRecord().then(refresh).then(loadReleases).then(preload);
 setInterval(() => void poll(), presencePollMs);
 
 const aboutNetwork = (online: boolean): void => {
-  state.offline = !online;
+  heard(online);
   if (online) {
     void retryListing(true);
     void retryFetch();
-  } else {
-    forgetOnline();
   }
-  renderNetwork();
 };
 
 listen<boolean>(events.reachable, aboutNetwork);
