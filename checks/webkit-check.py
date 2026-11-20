@@ -160,6 +160,9 @@ MEASURE = """JSON.stringify((() => {
       ['onlineSeg', ((n) => n
         ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
         : null)(document.querySelector('[data-kind=firmware] [data-mode=online]'))],
+      ['unitsSeg', ((n) => n
+        ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
+        : null)(document.getElementById('verify-list-online'))],
       ['cancelButton', ((n) => n
         ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
         : null)(document.getElementById('btn-cancel'))],
@@ -338,6 +341,15 @@ STATES = {
         'status-net-word': 'Offline - no connection', 'cameraButton': 'Enable camera',
         'verify-qr-note': '', 'verify-list-line': 'Units list fetched 2026-11-13',
     }),
+    'verify-goes-offline': ({}, [
+        "document.getElementById('card-verify').click()",
+        "window.__net(false);",
+    ], 'screen-verify', {'unitsSeg': 'Online \u00b7 disabled'}),
+    'verify-comes-back': ({}, [
+        "document.getElementById('card-verify').click()",
+        "window.__net(false);",
+        "window.__net(true);",
+    ], 'screen-verify', {'unitsSeg': 'Online \u00b7 enabled'}),
     # The badge describes the pass that failed, not the rest of the session: once the network is back
     # the app lists again and the status bar has to go quiet.
     'list-error-recovered': ({'listError': True}, [

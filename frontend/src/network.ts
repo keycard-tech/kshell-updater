@@ -1,25 +1,28 @@
 import { state } from './base/state.js';
 import * as text from './strings.js';
 import { el } from './utils.js';
+import { retryOnline } from './update/releases.js';
 import { renderRows } from './update/rows.js';
-import { renderVerify } from './verify/screen.js';
+import { ensureList, renderVerify } from './verify/screen.js';
 
-export const renderNote = (aboutTheList: string): void => {
-  el('status-note').textContent = state.offline ? '' : aboutTheList;
+const forgetOnline = (): void => {
+  for (const { kind } of text.kinds) state.files[kind] = [];
+  state.listError = null;
+  state.preloading = false;
 };
 
-export const heard = (online: boolean): void => {
-  state.offline = !online;
-  if (!online) {
-    for (const { kind } of text.kinds) {
-      state.files[kind] = [];
-    }
-    state.listError = null;
-    state.preloading = false;
+export const reachabilityChanged = (reachable: boolean): void => {
+  state.offline = !reachable;
+  if (reachable) {
+    void retryOnline(true);
+    void ensureList();
+  } else {
+    forgetOnline();
   }
-  el('status-net').hidden = online;
+
+  el('status-net').hidden = reachable;
   el('status-net-word').textContent = text.network.offline;
-  renderNote('');
+  el('status-note').textContent = '';
   renderRows();
   renderVerify();
 };

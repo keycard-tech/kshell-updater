@@ -8,34 +8,42 @@ pub const EVENT: &str = "net://reachable";
 
 const PROBE: &str = "https://github.com";
 const PROBE_WAIT: Duration = Duration::from_secs(3);
-const HOME_POLL: Duration = Duration::from_secs(20);
-const AWAY_POLL: Duration = Duration::from_secs(3);
+const REACHABLE_POLL: Duration = Duration::from_secs(20);
+const UNREACHABLE_POLL: Duration = Duration::from_secs(3);
 
 fn page() -> &'static OnceLock<AppHandle> {
     static PAGE: OnceLock<AppHandle> = OnceLock::new();
     &PAGE
 }
 
-fn reached() -> &'static AtomicBool {
-    static REACHED: AtomicBool = AtomicBool::new(true);
-    &REACHED
+fn last_answer() -> &'static AtomicBool {
+    static LAST: AtomicBool = AtomicBool::new(true);
+    &LAST
 }
 
-pub fn heard(online: bool) {
-    if reached().swap(online, Ordering::Relaxed) == online {
+fn remember(reachable: bool) {
+    if last_answer().swap(reachable, Ordering::Relaxed) == reachable {
         return;
     }
     log::info!(
         "[net] {}",
-        if online {
+        if reachable {
             "github.com answers again"
         } else {
             "nothing answers"
         }
     );
     if let Some(app) = page().get() {
-        let _ = app.emit(EVENT, online);
+        let _ = app.emit(EVENT, reachable);
     }
+}
+
+pub fn answered() {
+    remember(true);
+}
+
+pub fn unreachable() {
+    remember(false);
 }
 
 async fn asks(url: &str) -> bool {
@@ -48,16 +56,20 @@ async fn asks(url: &str) -> bool {
 }
 
 async fn ask() -> bool {
-    let online = asks(PROBE).await;
-    heard(online);
-    online
+    let reachable = asks(PROBE).await;
+    remember(reachable);
+    reachable
 }
 
 pub fn watch(app: AppHandle) {
     let _ = page().set(app);
     std::thread::spawn(|| loop {
-        let online = tauri::async_runtime::block_on(ask());
-        std::thread::sleep(if online { HOME_POLL } else { AWAY_POLL });
+        let reachable = tauri::async_runtime::block_on(ask());
+        std::thread::sleep(if reachable {
+            REACHABLE_POLL
+        } else {
+            UNREACHABLE_POLL
+        });
     });
 }
 

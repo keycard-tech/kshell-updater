@@ -9,23 +9,26 @@ export const sentence: Record<Fault, string> = {
   unexpected: 'Something went wrong - try again',
 };
 
+const says = (detail: string, words: RegExp): boolean => words.test(detail);
+
+const CAMERA_WORDS = /camera|videoinput|notallowed|permission|deviceId|picture/i;
+
+const LIST_BLAMED = /units list|produced units|list file/i;
+
+const FAULT_WORDS: [Fault, RegExp][] = [
+  ['damaged', /was refused|checksum|sha256|hash|too large|truncat|lowercase hex|expected|decode/i],
+  ['qr', /qr|signature|digest|pinned|challenge|device answer|unit id|recovers/i],
+  ['device', /unplug|usb|hidraw|\bhid\b|disappear|disconnect|no device|not connected|pipe/i],
+  [
+    'offline',
+    /could not reach|connect|proxy|tunnel|resolve|timed out|timeout|allowance|rate limit|responded|network|offline|403|429|5\d\d/i,
+  ],
+];
+
 const faultOf = (detail: string, about?: 'answer'): Fault => {
-  const says = (words: RegExp): boolean => words.test(detail);
-  if (says(/camera|videoinput|notallowed|permission|deviceId|picture/i)) return 'camera';
-  // A refusal of a scanned answer is about the code, unless it names the list - that is a file.
-  if (about === 'answer' && !says(/units list|produced units|list file/i)) return 'qr';
-  if (says(/was refused|checksum|sha256|hash|too large|truncat|lowercase hex|expected|decode/i))
-    return 'damaged';
-  if (says(/qr|signature|digest|pinned|challenge|device answer|unit id|recovers/i)) return 'qr';
-  if (says(/unplug|usb|hidraw|\bhid\b|disappear|disconnect|no device|not connected|pipe/i))
-    return 'device';
-  if (
-    says(
-      /could not reach|connect|proxy|tunnel|resolve|timed out|timeout|allowance|rate limit|responded|network|offline|403|429|5\d\d/i,
-    )
-  )
-    return 'offline';
-  return 'unexpected';
+  if (says(detail, CAMERA_WORDS)) return 'camera';
+  if (about === 'answer' && !says(detail, LIST_BLAMED)) return 'qr';
+  return FAULT_WORDS.find(([, words]) => says(detail, words))?.[0] ?? 'unexpected';
 };
 
 const writtenForAPerson = (detail: string): boolean =>

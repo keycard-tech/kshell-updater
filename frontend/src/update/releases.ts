@@ -3,13 +3,16 @@ import { state } from '../base/state.js';
 import * as text from '../strings.js';
 import { listRetryMs } from '../config.js';
 import { sentence } from '../errors.js';
-import { renderNote } from '../network.js';
-import { reason } from '../utils.js';
+import { el, reason } from '../utils.js';
 import { checkedOf, filesFor } from './files.js';
 import { renderHome } from './home.js';
 import { renderRows, renderSummary } from './rows.js';
 
 let lastPass = 0;
+
+const renderListNote = (said: string): void => {
+  el('status-note').textContent = state.offline ? '' : said;
+};
 
 export const loadReleases = async (): Promise<void> => {
   if (state.offline) return;
@@ -32,11 +35,11 @@ export const loadReleases = async (): Promise<void> => {
   }
 
   state.listError = failure;
-  renderNote(failure ? sentence.offline : said);
+  renderListNote(failure ? sentence.offline : said);
   renderHome();
 };
 
-export const retryListing = async (immediate: boolean): Promise<void> => {
+export const retryOnline = async (immediate: boolean): Promise<void> => {
   if (state.busy || state.offline) return;
   const waiting = text.kinds.some(
     ({ kind }) => !state.files[kind].length || checkedOf(kind) === 'failed',

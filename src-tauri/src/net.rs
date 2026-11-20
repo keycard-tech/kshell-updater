@@ -212,13 +212,13 @@ async fn get(url: &str, accept: &str, max: usize) -> Result<Vec<u8>, NetError> {
     }
 
     let response = request.send().await.map_err(|source| {
-        crate::reach::heard(false);
+        crate::reach::unreachable();
         NetError::Request {
             url: url.to_string(),
             source,
         }
     })?;
-    crate::reach::heard(true);
+    crate::reach::answered();
     let status = response.status();
     let headers = response.headers().clone();
 
@@ -324,8 +324,6 @@ mod tests {
         map
     }
 
-    /// A stand-in for the API: it answers, revalidates, refuses, and counts what it was asked for,
-    /// because "we stopped asking" is the whole point of the cache and the wait.
     struct Api {
         asked: Arc<Mutex<Vec<String>>>,
         base: String,

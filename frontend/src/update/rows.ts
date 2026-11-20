@@ -144,8 +144,9 @@ export const render = (kind: ImageKind): void => {
   const row = rowState(kind);
 
   for (const button of refs.row.querySelectorAll<HTMLButtonElement>('[data-mode]')) {
-    button.classList.toggle('ksh__seg--on', button.dataset.mode === mode);
-    button.disabled = state.busy || (button.dataset.mode === 'online' && state.offline);
+    const offeredSource = button.dataset.mode;
+    button.classList.toggle('ksh__seg--on', offeredSource === mode);
+    button.disabled = state.busy || (offeredSource === 'online' && state.offline);
   }
   refs.status.textContent = row.status;
   refs.status.className = `ksh__status${row.modifier ? ` ksh__status--${row.modifier}` : ''}`;

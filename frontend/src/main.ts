@@ -4,12 +4,12 @@ import { state } from './base/state.js';
 import type { FlashProgress, Preloaded } from './types.js';
 import { presencePollMs } from './config.js';
 import { buildAirgap, openCode } from './airgap.js';
-import { heard } from './network.js';
+import { reachabilityChanged } from './network.js';
 import { el } from './utils.js';
 import * as text from './strings.js';
 import { refresh, showWaiting } from './update/device.js';
 import { keyFor } from './update/files.js';
-import { loadReleases, preload, retryListing } from './update/releases.js';
+import { loadReleases, preload, retryOnline } from './update/releases.js';
 import { readRecord } from './update/record.js';
 import { buildRows, render } from './update/rows.js';
 import {
@@ -25,7 +25,6 @@ import {
   fetchList,
   openVerify,
   renderVerify,
-  retryFetch,
   useOwnList,
 } from './verify/screen.js';
 import { renderScan, verify } from './verify/state.js';
@@ -124,7 +123,7 @@ async function poll(): Promise<void> {
   if (state.scanning || state.busy) return;
   state.scanning = true;
   try {
-    void retryListing(false);
+    void retryOnline(false);
     const found = await listShells();
     const path = found.length ? found[0].path : null;
     const seen = state.device?.path ?? null;
@@ -142,7 +141,7 @@ function openUpdate(): void {
   }
   show('screen-ready');
   void refresh();
-  void retryListing(true);
+  void retryOnline(true);
 }
 
 showWaiting();
@@ -150,15 +149,7 @@ void readRecord().then(refresh).then(loadReleases).then(preload);
 
 setInterval(() => void poll(), presencePollMs);
 
-const aboutNetwork = (online: boolean): void => {
-  heard(online);
-  if (online) {
-    void retryListing(true);
-    void retryFetch();
-  }
-};
-
-listen<boolean>(events.reachable, aboutNetwork);
-void networkStatus().then(aboutNetwork);
+listen<boolean>(events.reachable, reachabilityChanged);
+void networkStatus().then(reachabilityChanged);
 
 window.kshell = { scanAnswer: answer, renderScan, verify };

@@ -26,9 +26,6 @@ export const openVerify = async (): Promise<void> => {
   renderVerify();
 };
 
-/** The code the Shell signs belongs to the verify session: a list arriving, a camera restarting or a
-    render never replaces it, because the Shell may already be signing that one. Only a session that
-    ended asks for a fresh code, and a second call while one is on its way joins it. */
 export const ensureChallenge = async (renew: boolean): Promise<void> => {
   if (verify.drawing) return verify.drawing;
   verify.drawing = (async () => {
@@ -64,7 +61,7 @@ export const fetchList = async (): Promise<void> => {
   verify.fetching = false;
 };
 
-export const retryFetch = async (): Promise<void> => {
+export const ensureList = async (): Promise<void> => {
   if (listLoaded(verify.status)) return;
   await fetchList();
   renderVerify();
