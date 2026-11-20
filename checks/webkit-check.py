@@ -2,6 +2,7 @@ import json
 import functools
 import http.server
 import os
+import re
 import socketserver
 import sys
 import threading
@@ -27,6 +28,10 @@ JPEG = ('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLik
         'AAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwT/xAAUEQEAAAAA'
         'AAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCTAOlf/9k=')
 SCALE = float(open(f'{FRONTEND}/css/tokens.css').read().split('--scale:')[1].split(';')[0])
+# The fallback wording has one home, in errors.ts: a copy here would fail on a reword, not on a bug.
+ERROR_SENTENCES = dict(re.findall(
+    r"^  (\w+): '(.*?)',$",
+    open(f'{FRONTEND}/src/errors.ts').read().split('sentence: Record<Fault, string> = {')[1], re.M))
 
 _served = None
 
@@ -294,7 +299,7 @@ STATES = {
     ], 'screen-done'),
     'ready-list-error': ({'listError': True},
                          ["document.getElementById('card-update').click()"], 'screen-ready',
-                         {'status-note': 'No connection - try again when you are online',
+                         {'status-note': ERROR_SENTENCES['offline'],
                           'noteShown': 'shown',
                           'codeBtns': '2',
                           'rowHint': ''}),
@@ -367,7 +372,7 @@ STATES = {
     'home-airgapped-offline': ({'online': False}, [], 'screen-home', {'homeAirgap': 'shown'}),
     'ready-airgapped-codes': ({'listError': True},
                               ["document.getElementById('card-update').click()"], 'screen-ready',
-                              {'codeBtns': '2', 'status-note': 'No connection - try again when you are online'}),
+                              {'codeBtns': '2', 'status-note': ERROR_SENTENCES['offline']}),
     'ready-airgapped-code-open': ({'listError': True}, [
         "document.getElementById('card-update').click()",
         "document.querySelector('[data-kind=firmware] [data-slot=code]').click()",
@@ -438,7 +443,7 @@ STATES = {
     ], 'screen-verify', {
         'unitsSeg': 'Fetched list \u00b7 enabled',
         'verify-qr-note': 'No units list available',
-        'note': 'That file is not something the app can use - choose another one',
+        'note': ERROR_SENTENCES['unusable'],
     }),
     'verify-refused-file-back-to-fetched': ({'fileFails': True}, [
         "document.getElementById('card-verify').click()",
@@ -540,7 +545,7 @@ STATES = {
         {'button:btn-verdict': 'Try again', 'button:btn-verdict-guide': ''},
         # The refusal behind this is a bytewords decode failure naming bytes; what is said is that the
         # code did not check out.
-        {'verdict-sub': 'That answer does not match this code - scan it again'}),
+        {'verdict-sub': ERROR_SENTENCES['qr']}),
     'complete': ({'flash': 'ok'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",
