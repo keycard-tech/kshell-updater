@@ -212,13 +212,13 @@ async fn get(url: &str, accept: &str, max: usize) -> Result<Vec<u8>, NetError> {
     }
 
     let response = request.send().await.map_err(|source| {
-        crate::reach::blocked();
+        crate::reach::heard(false);
         NetError::Request {
             url: url.to_string(),
             source,
         }
     })?;
-    crate::reach::answered();
+    crate::reach::heard(true);
     let status = response.status();
     let headers = response.headers().clone();
 

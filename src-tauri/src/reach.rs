@@ -21,7 +21,7 @@ fn reached() -> &'static AtomicBool {
     &REACHED
 }
 
-fn heard(online: bool) {
+pub fn heard(online: bool) {
     if reached().swap(online, Ordering::Relaxed) == online {
         return;
     }
@@ -38,14 +38,6 @@ fn heard(online: bool) {
     }
 }
 
-pub fn answered() {
-    heard(true);
-}
-
-pub fn blocked() {
-    heard(false);
-}
-
 async fn asks(url: &str) -> bool {
     net::client()
         .head(url)
@@ -55,20 +47,23 @@ async fn asks(url: &str) -> bool {
         .is_ok()
 }
 
+async fn ask() -> bool {
+    let online = asks(PROBE).await;
+    heard(online);
+    online
+}
+
 pub fn watch(app: AppHandle) {
     let _ = page().set(app);
     std::thread::spawn(|| loop {
-        let online = tauri::async_runtime::block_on(asks(PROBE));
-        heard(online);
+        let online = tauri::async_runtime::block_on(ask());
         std::thread::sleep(if online { HOME_POLL } else { AWAY_POLL });
     });
 }
 
 #[tauri::command]
 pub async fn network_status() -> bool {
-    let online = asks(PROBE).await;
-    heard(online);
-    online
+    ask().await
 }
 
 #[cfg(test)]
