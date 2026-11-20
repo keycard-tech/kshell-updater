@@ -294,7 +294,7 @@ STATES = {
     ], 'screen-done'),
     'ready-list-error': ({'listError': True},
                          ["document.getElementById('card-update').click()"], 'screen-ready',
-                         {'status-note': 'Offline - no list available, connection error',
+                         {'status-note': 'No connection - try again when you are online',
                           'noteShown': 'shown',
                           'codeBtns': '2',
                           'rowHint': ''}),
@@ -344,12 +344,12 @@ STATES = {
     'verify-goes-offline': ({}, [
         "document.getElementById('card-verify').click()",
         "window.__net(false);",
-    ], 'screen-verify', {'unitsSeg': 'Online \u00b7 disabled'}),
+    ], 'screen-verify', {'unitsSeg': 'Fetched list \u00b7 disabled'}),
     'verify-comes-back': ({}, [
         "document.getElementById('card-verify').click()",
         "window.__net(false);",
         "window.__net(true);",
-    ], 'screen-verify', {'unitsSeg': 'Online \u00b7 enabled'}),
+    ], 'screen-verify', {'unitsSeg': 'Fetched list \u00b7 enabled'}),
     # The badge describes the pass that failed, not the rest of the session: once the network is back
     # the app lists again and the status bar has to go quiet.
     'list-error-recovered': ({'listError': True}, [
@@ -367,7 +367,7 @@ STATES = {
     'home-airgapped-offline': ({'online': False}, [], 'screen-home', {'homeAirgap': 'shown'}),
     'ready-airgapped-codes': ({'listError': True},
                               ["document.getElementById('card-update').click()"], 'screen-ready',
-                              {'codeBtns': '2', 'status-note': 'Offline'}),
+                              {'codeBtns': '2', 'status-note': 'No connection - try again when you are online'}),
     'ready-airgapped-code-open': ({'listError': True}, [
         "document.getElementById('card-update').click()",
         "document.querySelector('[data-kind=firmware] [data-slot=code]').click()",
@@ -432,8 +432,23 @@ STATES = {
     # tidiest state: the one that started this was a two-line `state not managed` complaint.
     'verify-no-list-long': ({'units': 'none', 'longReason': True},
                             ["document.getElementById('card-verify').click()"], 'screen-verify'),
-    # A refused own list blurs the code again even when a fetched one is already in memory: the
-    # source the person chose is the one that has to be good.
+   'verify-refused-file-keeps-way-back': ({'fileFails': True}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('verify-list-file').click()",
+    ], 'screen-verify', {
+        'unitsSeg': 'Fetched list \u00b7 enabled',
+        'verify-qr-note': 'No units list available',
+        'note': 'That file is not something the app can use - choose another one',
+    }),
+    'verify-refused-file-back-to-fetched': ({'fileFails': True}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('verify-list-file').click()",
+        "document.getElementById('verify-list-online').click()",
+    ], 'screen-verify', {
+        'verify-list-line': 'Units list fetched 2026-11-13',
+        'verify-qr-note': '', 'cameraButton': 'Enable camera', 'note': '',
+        'unitsSeg': 'Fetched list \u00b7 enabled',
+    }),
     'verify-own-list-refused': ({'fileFails': True}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('verify-list-file').click()",
@@ -525,7 +540,7 @@ STATES = {
         {'button:btn-verdict': 'Try again', 'button:btn-verdict-guide': ''},
         # The refusal behind this is a bytewords decode failure naming bytes; what is said is that the
         # code did not check out.
-        {'verdict-sub': 'Invalid QR'}),
+        {'verdict-sub': 'That answer does not match this code - scan it again'}),
     'complete': ({'flash': 'ok'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",

@@ -107,9 +107,10 @@ listen<string>(events.scanned, (code) => {
 });
 
 async function useOnlineList(): Promise<void> {
-  if (verify.mode === 'online' && verify.status) return;
+  if (verify.mode === 'online' && verify.status && !verify.listProblem) return;
   verify.mode = 'online';
   verify.problem = null;
+  verify.listProblem = false;
   await fetchList();
   renderVerify();
 }

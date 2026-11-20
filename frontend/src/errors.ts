@@ -1,8 +1,9 @@
-type Fault = 'offline' | 'damaged' | 'qr' | 'device' | 'camera' | 'unexpected';
+type Fault = 'offline' | 'damaged' | 'unusable' | 'qr' | 'device' | 'camera' | 'unexpected';
 
 export const sentence: Record<Fault, string> = {
   offline: 'Offline - no list available, connection error',
   damaged: 'That file did not arrive whole - try again',
+  unusable: 'Invalid file - choose another one',
   qr: 'Invalid QR',
   device: 'The Shell stopped answering - plug it in again',
   camera: 'The camera did not start - try another one',
@@ -16,8 +17,9 @@ const CAMERA_WORDS = /camera|videoinput|notallowed|permission|deviceId|picture/i
 const LIST_BLAMED = /units list|produced units|list file/i;
 
 const FAULT_WORDS: [Fault, RegExp][] = [
-  ['damaged', /was refused|checksum|sha256|hash|too large|truncat|lowercase hex|expected|decode/i],
   ['qr', /qr|signature|digest|pinned|challenge|device answer|unit id|recovers/i],
+  ['damaged', /checksum|sha256|hash|too large|truncat|lowercase hex|expected|decode/i],
+  ['unusable', /not a units list|was refused|could not read|not sorted/i],
   ['device', /unplug|usb|hidraw|\bhid\b|disappear|disconnect|no device|not connected|pipe/i],
   [
     'offline',

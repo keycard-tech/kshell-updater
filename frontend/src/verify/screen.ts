@@ -94,7 +94,7 @@ export const renderVerify = (): void => {
   const online = el<HTMLButtonElement>('verify-list-online');
   online.classList.toggle('ksh__seg--on', loaded && verify.mode === 'online');
   el('verify-list-file').classList.toggle('ksh__seg--on', loaded && verify.mode === 'file');
-  online.disabled = !loaded || state.offline;
+  online.disabled = state.offline;
   el('verify-list-line').textContent = listLine(verify.status, verify.fetching);
   el('verify-qr-tile').classList.toggle('ksh__qr-tile--blurred', !loaded);
   el('verify-qr-note').hidden = loaded;
