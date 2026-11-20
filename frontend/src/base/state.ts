@@ -37,6 +37,7 @@ interface State {
   variant: ByKind<number | null>;
   ready: ByKind<ReadyFile | null>;
   listError: string | null;
+  offline: boolean;
   busy: boolean;
   scanning: boolean;
   cache: Record<string, { ok: boolean; note?: string }>;
@@ -59,6 +60,7 @@ export const state: State = {
   variant: { firmware: 0, database: null },
   ready: byKind(null),
   listError: null,
+  offline: false,
   busy: false,
   scanning: false,
   cache: {},

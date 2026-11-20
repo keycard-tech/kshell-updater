@@ -1,12 +1,15 @@
-import { events, listShells, listen } from './base/bridge.js';
+import { events, listShells, listen, networkStatus } from './base/bridge.js';
 import { show } from './base/screens.js';
 import { state } from './base/state.js';
 import type { FlashProgress, Preloaded } from './types.js';
 import { presencePollMs } from './config.js';
+import { buildAirgap, openCode } from './airgap.js';
+import { reachabilityChanged } from './network.js';
 import { el } from './utils.js';
+import * as text from './strings.js';
 import { refresh, showWaiting } from './update/device.js';
 import { keyFor } from './update/files.js';
-import { loadReleases, preload, retryListing } from './update/releases.js';
+import { loadReleases, preload, retryOnline } from './update/releases.js';
 import { readRecord } from './update/record.js';
 import { buildRows, render } from './update/rows.js';
 import {
@@ -28,6 +31,7 @@ import { renderScan, verify } from './verify/state.js';
 import { answer, verdictButton, verdictGuide } from './verify/verdict.js';
 
 buildRows();
+buildAirgap();
 
 el<HTMLButtonElement>('btn-transfer').addEventListener('click', () => void startTransfer());
 el<HTMLButtonElement>('btn-cancel').addEventListener('click', cancelTransfer);
@@ -37,7 +41,13 @@ el<HTMLButtonElement>('btn-failed-back').addEventListener('click', () => {
   void refresh();
 });
 el<HTMLButtonElement>('btn-ready-verify').addEventListener('click', () => void openVerify());
-el<HTMLButtonElement>('card-update').addEventListener('click', openUpdate);
+el('card-update').addEventListener('click', openUpdate);
+el('card-update').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    openUpdate();
+  }
+});
 el<HTMLButtonElement>('btn-done').addEventListener('click', () => {
   show('screen-home');
   void refresh();
@@ -56,6 +66,9 @@ el<HTMLButtonElement>('btn-verify-update').addEventListener('click', () => {
 el<HTMLButtonElement>('verify-list-online').addEventListener('click', () => void useOnlineList());
 el<HTMLButtonElement>('verify-list-file').addEventListener('click', () => void useOwnList());
 el<HTMLButtonElement>('btn-camera').addEventListener('click', () => void startCamera());
+el<HTMLButtonElement>('btn-units-code').addEventListener('click', () =>
+  void openCode(text.airgap.urls.units, text.airgap.what.units),
+);
 el<HTMLButtonElement>('btn-scan-back').addEventListener('click', () => {
   stopScan();
   show('screen-verify');
@@ -94,19 +107,15 @@ listen<string>(events.scanned, (code) => {
 });
 
 async function useOnlineList(): Promise<void> {
-  if (verify.mode === 'online' && verify.status) return;
+  if (verify.mode === 'online' && verify.status && !verify.listProblem) return;
   verify.mode = 'online';
   verify.problem = null;
+  verify.listProblem = false;
   await fetchList();
   renderVerify();
 }
 
 async function startCamera(): Promise<void> {
-  if (!verify.status) {
-    await fetchList();
-    renderVerify();
-    return;
-  }
   await ensureChallenge(false);
   await scanRun();
 }
@@ -115,7 +124,7 @@ async function poll(): Promise<void> {
   if (state.scanning || state.busy) return;
   state.scanning = true;
   try {
-    void retryListing(false);
+    void retryOnline(false);
     const found = await listShells();
     const path = found.length ? found[0].path : null;
     const seen = state.device?.path ?? null;
@@ -133,13 +142,15 @@ function openUpdate(): void {
   }
   show('screen-ready');
   void refresh();
-  void retryListing(true);
+  void retryOnline(true);
 }
 
 showWaiting();
 void readRecord().then(refresh).then(loadReleases).then(preload);
 
 setInterval(() => void poll(), presencePollMs);
-addEventListener('online', () => void retryListing(true));
+
+listen<boolean>(events.reachable, reachabilityChanged);
+void networkStatus().then(reachabilityChanged);
 
 window.kshell = { scanAnswer: answer, renderScan, verify };

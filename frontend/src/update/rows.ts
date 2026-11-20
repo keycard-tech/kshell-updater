@@ -1,4 +1,5 @@
 import { chooseFile, openExternal, pickImageFile } from '../base/bridge.js';
+import { openCode } from '../airgap.js';
 import { state, type ByKind, type ReadyFile } from '../base/state.js';
 import { human } from '../errors.js';
 import * as text from '../strings.js';
@@ -25,6 +26,7 @@ interface RowRefs {
   select: HTMLSelectElement;
   staticBox: HTMLElement;
   pick: HTMLButtonElement;
+  code: HTMLButtonElement;
   hint: HTMLElement;
   sha: HTMLElement;
 }
@@ -57,6 +59,7 @@ export const buildRows = (): void => {
       select: slot<HTMLSelectElement>(row, 'select'),
       staticBox: slot<HTMLElement>(row, 'static'),
       pick: slot<HTMLButtonElement>(row, 'pick'),
+      code: slot<HTMLButtonElement>(row, 'code'),
       hint: slot(row, 'hint'),
       sha: slot(row, 'sha'),
     };
@@ -76,6 +79,8 @@ export const buildRows = (): void => {
       render(kind);
     });
     refs.pick.addEventListener('click', () => chooseImage(kind));
+    refs.code.setAttribute('aria-label', text.airgap.button);
+    refs.code.addEventListener('click', () => void openCode(text.airgap.urls[kind], text.airgap.what[kind]));
     refs.select.addEventListener('change', () => {
       state.variant[kind] = Number(refs.select.value);
       state.ready[kind] = null;
@@ -89,6 +94,8 @@ export const buildRows = (): void => {
     });
   }
 };
+
+const noList = (): boolean => state.offline || state.listError !== null;
 
 const rowState = (kind: ImageKind): RowStatus => {
   if (state.mode[kind] === 'file') {
@@ -105,9 +112,7 @@ const rowState = (kind: ImageKind): RowStatus => {
 
   const file = selectedFile(kind);
   if (!file) {
-    return state.listError
-      ? rowOf(text.status.noList, 'empty')
-      : rowOf(text.status.reading, 'empty');
+    return noList() ? rowOf(text.status.noList, 'empty') : rowOf(text.status.reading, 'empty');
   }
 
   if (kind === 'database') {
@@ -139,8 +144,9 @@ export const render = (kind: ImageKind): void => {
   const row = rowState(kind);
 
   for (const button of refs.row.querySelectorAll<HTMLButtonElement>('[data-mode]')) {
-    button.classList.toggle('ksh__seg--on', button.dataset.mode === mode);
-    button.disabled = state.busy;
+    const offeredSource = button.dataset.mode;
+    button.classList.toggle('ksh__seg--on', offeredSource === mode);
+    button.disabled = state.busy || (offeredSource === 'online' && state.offline);
   }
   refs.status.textContent = row.status;
   refs.status.className = `ksh__status${row.modifier ? ` ksh__status--${row.modifier}` : ''}`;
@@ -151,6 +157,7 @@ export const render = (kind: ImageKind): void => {
   refs.field.hidden = mode !== 'online';
   refs.pick.hidden = mode !== 'file';
   refs.link.hidden = mode !== 'online' || !selectedFile(kind);
+  refs.code.hidden = !noList() || Boolean(ready) || isReadyToFlash(kind);
 
   if (mode === 'online') renderField(kind, refs);
 

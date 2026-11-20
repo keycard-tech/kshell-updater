@@ -2,6 +2,7 @@ import json
 import functools
 import http.server
 import os
+import re
 import socketserver
 import sys
 import threading
@@ -27,6 +28,10 @@ JPEG = ('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLik
         'AAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAwT/xAAUEQEAAAAA'
         'AAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCTAOlf/9k=')
 SCALE = float(open(f'{FRONTEND}/css/tokens.css').read().split('--scale:')[1].split(';')[0])
+# The fallback wording has one home, in errors.ts: a copy here would fail on a reword, not on a bug.
+ERROR_SENTENCES = dict(re.findall(
+    r"^  (\w+): '(.*?)',$",
+    open(f'{FRONTEND}/src/errors.ts').read().split('sentence: Record<Fault, string> = {')[1], re.M))
 
 _served = None
 
@@ -126,20 +131,27 @@ MEASURE = """JSON.stringify((() => {
     // once did exactly that: the camera click had not landed and the scan png showed the challenge.
     // What the screens actually say. A node that a simplification deleted reports null, so a state
     // that expects a line cannot pass because the line was quietly taken away.
-    words: Object.fromEntries(['home-sub', 'status-note', 'failed-title', 'failed-detail',
-                               'verdict-sub',
+    words: Object.fromEntries(['home-sub', 'status-note', 'status-net-word', 'failed-title',
+                               'failed-detail', 'verdict-sub',
                                'verify-qr-note', 'scan-problem', 'transfer-bytes', 'transfer-step',
-                               'verify-list-line', 'device-line'].map((id) => {
+                               'verify-list-line', 'device-line', 'ag-guide', 'ag-title'].map((id) => {
       const n = document.getElementById(id);
       return [id, !n ? null : n.hidden ? '' : (n.textContent || '').trim()];
     }).concat([['pickLabel',
       (document.querySelector('[data-kind=firmware] [data-slot=pick]') || {}).textContent || null],
       ['rowHint', (document.querySelector('[data-kind=firmware] [data-slot=hint]') || {}).textContent || null],
+      ['rowStatus', (document.querySelector('[data-kind=firmware] [data-slot=status]') || {}).textContent || null],
       ['rowSha', (document.querySelector('[data-kind=firmware] [data-slot=sha]') || {}).textContent || null],
       ['rowVersions',
        [...document.querySelectorAll('[data-kind=firmware] option')].map((o) => o.textContent.trim()).join(' / ') || null],
       ['databaseChoice',
        (document.querySelector('[data-kind=database] [data-slot=static]') || {}).textContent || null],
+      // Which air-gapped affordances are up: counted, so a row that quietly keeps its button after
+      // a file resolves cannot pass.
+      ['codeBtns', String([...document.querySelectorAll('.ksh__row .ksh__agbtn')].filter(shown).length)],
+      ['unitsCode', shown(document.getElementById('btn-units-code') || { hidden: true }) ? 'shown' : ''],
+      ['agModal', shown(document.getElementById('ag-modal') || { hidden: true }) ? 'shown' : ''],
+      ['homeAirgap', shown(document.getElementById('home-airgap') || { hidden: true }) ? 'shown' : ''],
       // How many times a code was minted, and how many cameras the list offers after repeats of the
       // same device are dropped: both were runaway numbers no screenshot showed.
       ['challengeMints', String(window.__challengeMints || 0)],
@@ -149,6 +161,13 @@ MEASURE = """JSON.stringify((() => {
       ['transferButton', ((n) => n
         ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
         : null)(document.getElementById('btn-transfer'))],
+      // An offline machine has no online source, so the online half of the list switch is out.
+      ['onlineSeg', ((n) => n
+        ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
+        : null)(document.querySelector('[data-kind=firmware] [data-mode=online]'))],
+      ['unitsSeg', ((n) => n
+        ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
+        : null)(document.getElementById('verify-list-online'))],
       ['cancelButton', ((n) => n
         ? `${(n.textContent || '').trim()}${n.disabled ? ' \u00b7 disabled' : ' \u00b7 enabled'}`
         : null)(document.getElementById('btn-cancel'))],
@@ -171,6 +190,15 @@ MEASURE = """JSON.stringify((() => {
         if (!note || note.hidden || !(note.textContent || '').trim()) return 'empty';
         const r = note.getBoundingClientRect();
         return r.height > 0 && r.width > 0 && r.bottom <= innerHeight ? 'shown' : 'invisible';
+      })()],
+      // The offline line shares the strip with a serial number forty-odd characters long, so being
+      // in the document is not enough: it has to still fit beside it.
+      ['netShown', (() => {
+        const net = document.getElementById('status-net');
+        if (!net || net.hidden || !(net.textContent || '').trim()) return 'empty';
+        const r = net.getBoundingClientRect();
+        return r.height > 0 && r.width > 0 && r.bottom <= innerHeight && r.right <= innerWidth
+          ? 'shown' : 'invisible';
       })()],
       // The list switch appears on both flows and has to read as one control. Computed styles are
       // measured rather than the boxes, because the hidden screen reports no box at all.
@@ -246,11 +274,11 @@ STATES = {
     # The markup leaves home-sub to the app, so this can only be satisfied by a rendered hint: the
     # sentence lives in strings.ts and nowhere else.
     'home': ({'noDevice': True}, [], 'screen-home',
-             {'home-sub': 'unavailable until the Keycard Shell', 'homeTitle': 'Update Shell',
+             {'home-sub': 'unavailable until the Shell', 'homeTitle': 'Update Shell',
               'segMatch': 'identical', 'titleMatch': 'identical',
               'homeImg': 'panel_shell.png'}),
     'ready': ({}, ["document.getElementById('card-update').click()"], 'screen-ready',
-               {'homeImg': 'panel_shell.png',
+               {'homeImg': 'panel_shell.png', 'onlineSeg': 'Online · enabled',
                 'transfer-bytes': None, 'transfer-step': None, 'rowSha': 'sha256',
                 'device-line': 'Installed on Shell · firmware', 'rowVersions': 'omni',
                 'databaseChoice': '20261081'}),
@@ -271,18 +299,92 @@ STATES = {
     ], 'screen-done'),
     'ready-list-error': ({'listError': True},
                          ["document.getElementById('card-update').click()"], 'screen-ready',
-                         {'status-note': 'Offline - no list available, connection error',
+                         {'status-note': ERROR_SENTENCES['offline'],
                           'noteShown': 'shown',
+                          'codeBtns': '2',
                           'rowHint': ''}),
+    # The connection going away is its own line in the strip, so the list sentence next to it has
+    # nothing left to repeat, and the rows are left holding whatever was read while it worked.
+    'home-offline': ({}, ["window.__net(false);"], 'screen-home',
+                      {'status-net-word': 'Offline - no connection', 'netShown': 'shown',
+                       'status-note': '', 'homeAirgap': 'shown'}),
+    # Offline before the page asks, which is the other way in: `network_status` at load rather than
+    # an event, and every read the app starts with failing as it would on a machine with no route.
+    'home-starts-offline': ({'online': False}, [], 'screen-home',
+                            {'status-net-word': 'Offline - no connection', 'netShown': 'shown',
+                             'status-note': ''}),
+    'offline-recovered': ({}, ["window.__net(false);", "window.__net(true);"], 'screen-home',
+                          {'status-net-word': '', 'status-note': ''}),
+    # Offline is not "the list on screen, read earlier": the online source is closed, its list and
+    # its files gone with it, and what is left to offer is a file and a download code.
+    'ready-offline': ({}, [
+        "document.getElementById('card-update').click()",
+        "window.__net(false);",
+    ], 'screen-ready', {
+        'status-net-word': 'Offline - no connection', 'netShown': 'shown', 'status-note': '',
+        'onlineSeg': 'Online · disabled', 'codeBtns': '2',
+        'rowStatus': 'No list', 'transferButton': 'Transfer · disabled',
+    }),
+    # A write to the Shell travels over USB, so the network leaving mid-transfer must not disturb it:
+    # the queue, its labels and the cancel button are exactly as they were.
+    'transfer-offline': ({'flash': 'pending'}, [
+        "document.getElementById('card-update').click()",
+        "document.getElementById('btn-transfer').click()",
+        "window.__net(false);",
+    ], 'screen-transfer', {
+        'cancelButton': 'Cancel · enabled',
+        # The strip is hidden on this screen, which is also the answer for the offline line: nothing
+        # about the network has a place to appear while a write is running.
+        'netShown': 'invisible',
+    }),
+    # A units list already in hand is what makes the challenge scannable, and the check is local: the
+    # connection going away stops a re-fetch, it does not end the verification under way.
+    'verify-offline-midway': ({}, [
+        "document.getElementById('card-verify').click()",
+        "window.__net(false);",
+    ], 'screen-verify', {
+        'status-net-word': 'Offline - no connection', 'cameraButton': 'Enable camera',
+        'verify-qr-note': '', 'verify-list-line': 'Units list fetched 2026-11-13',
+    }),
+    'verify-goes-offline': ({}, [
+        "document.getElementById('card-verify').click()",
+        "window.__net(false);",
+    ], 'screen-verify', {'unitsSeg': 'Fetched list \u00b7 disabled'}),
+    'verify-comes-back': ({}, [
+        "document.getElementById('card-verify').click()",
+        "window.__net(false);",
+        "window.__net(true);",
+    ], 'screen-verify', {'unitsSeg': 'Fetched list \u00b7 enabled'}),
     # The badge describes the pass that failed, not the rest of the session: once the network is back
     # the app lists again and the status bar has to go quiet.
     'list-error-recovered': ({'listError': True}, [
         "window.__backOnline = true;",
-        "window.dispatchEvent(new Event('online'));",
-    ], 'screen-home', {'status-note': ''}),
+        "window.__net(false);",
+        "window.__net(true);",
+    ], 'screen-home', {'status-net-word': '', 'status-note': ''}),
     'list-newest-unhashed': ({'newestOffered': False},
                              ["document.getElementById('card-update').click()"], 'screen-ready',
                              {'status-note': 'publishes no hash', 'noteShown': 'shown'}),
+    # The guide belongs to the card, not to the network: whatever the hint above it says, and
+    # online or offline, the way to the air-gapped instructions stays on screen.
+    'home-airgapped-link': ({}, [], 'screen-home',
+                            {'ag-guide': 'Read the guide', 'homeAirgap': 'shown'}),
+    'home-airgapped-offline': ({'online': False}, [], 'screen-home', {'homeAirgap': 'shown'}),
+    'ready-airgapped-codes': ({'listError': True},
+                              ["document.getElementById('card-update').click()"], 'screen-ready',
+                              {'codeBtns': '2', 'status-note': ERROR_SENTENCES['offline']}),
+    'ready-airgapped-code-open': ({'listError': True}, [
+        "document.getElementById('card-update').click()",
+        "document.querySelector('[data-kind=firmware] [data-slot=code]').click()",
+    ], 'screen-ready', {'agModal': 'shown', 'ag-title': 'Download the latest firmware'}),
+    'verify-airgapped-codes': ({'units': 'none'},
+                               ["document.getElementById('card-verify').click()"], 'screen-verify',
+                               {'unitsCode': 'shown', 'cameraButton': 'Enable camera · disabled',
+                                'verify-qr-note': 'No units list available'}),
+    'verify-airgapped-code-open': ({'units': 'none'}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('btn-units-code').click()",
+    ], 'screen-verify', {'agModal': 'shown', 'ag-title': 'Download the units list'}),
     'transfer': ({'flash': 'pending'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",
@@ -291,7 +393,8 @@ STATES = {
                                 ["document.getElementById('card-update').click()"], 'screen-ready'),
     'preload-retried': ({'preloadFail': 'once'}, [
         "document.getElementById('card-update').click()",
-        "window.dispatchEvent(new Event('online'));",
+        "window.__net(false);",
+        "window.__net(true);",
     ], 'screen-ready', {'transferButton': 'Transfer to device · enabled'}),
     'verify': ({}, ["document.getElementById('card-verify').click()"], 'screen-verify',
                {'verify-qr-note': '',
@@ -315,14 +418,42 @@ STATES = {
     'verify-no-list': ({'units': 'none'},
                        ["document.getElementById('card-verify').click()"], 'screen-verify',
                        {'verify-qr-note': 'No units list available',
-                        'verify-list-line': 'Load own list to verify offline.'}),
+                        'verify-list-line': 'Load own list to verify offline.',
+                        # The camera button is the camera in every state: until a list is in it
+                        # waits, it does not double as a fetch.
+                        'cameraButton': 'Enable camera · disabled'}),
+    # The network coming back is the retry: the stuck screen fetches again by itself.
+    'verify-fetch-after-online': ({'units': 'none'}, [
+        "document.getElementById('card-verify').click()",
+        "window.__backOnline = true;",
+        "window.__net(false);",
+        "window.__net(true);",
+    ], 'screen-verify', {
+        'cameraButton': 'Enable camera', 'unitsCode': '',
+        'verify-qr-note': '', 'verify-list-line': 'Units list fetched 2026-11-13',
+    }),
     # The first paint of a slow fetch, which is what a white empty tile used to look like.
     # A failure message is however long the Rust is long, and this screen must not be sized for its
     # tidiest state: the one that started this was a two-line `state not managed` complaint.
     'verify-no-list-long': ({'units': 'none', 'longReason': True},
                             ["document.getElementById('card-verify').click()"], 'screen-verify'),
-    # A refused own list blurs the code again even when a fetched one is already in memory: the
-    # source the person chose is the one that has to be good.
+   'verify-refused-file-keeps-way-back': ({'fileFails': True}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('verify-list-file').click()",
+    ], 'screen-verify', {
+        'unitsSeg': 'Fetched list \u00b7 enabled',
+        'verify-qr-note': 'No units list available',
+        'note': ERROR_SENTENCES['unusable'],
+    }),
+    'verify-refused-file-back-to-fetched': ({'fileFails': True}, [
+        "document.getElementById('card-verify').click()",
+        "document.getElementById('verify-list-file').click()",
+        "document.getElementById('verify-list-online').click()",
+    ], 'screen-verify', {
+        'verify-list-line': 'Units list fetched 2026-11-13',
+        'verify-qr-note': '', 'cameraButton': 'Enable camera', 'note': '',
+        'unitsSeg': 'Fetched list \u00b7 enabled',
+    }),
     'verify-own-list-refused': ({'fileFails': True}, [
         "document.getElementById('card-verify').click()",
         "document.getElementById('verify-list-file').click()",
@@ -414,7 +545,7 @@ STATES = {
         {'button:btn-verdict': 'Try again', 'button:btn-verdict-guide': ''},
         # The refusal behind this is a bytewords decode failure naming bytes; what is said is that the
         # code did not check out.
-        {'verdict-sub': 'Invalid QR'}),
+        {'verdict-sub': ERROR_SENTENCES['qr']}),
     'complete': ({'flash': 'ok'}, [
         "document.getElementById('card-update').click()",
         "document.getElementById('btn-transfer').click()",
@@ -513,6 +644,9 @@ def stub(name):
         'ownFileVariant': options.get('ownFileVariant'),
         'newestOffered': options.get('newestOffered', True),
         'cancelAgain': bool(options.get('cancelAgain')),
+        # What the app is told about the network when it asks at load. A state that starts with no
+        # connection says so here, and the reads that need one answer as the Rust would answer.
+        'online': options.get('online', True),
         'qr': QR_SVG,
     }
     template = """
@@ -523,11 +657,20 @@ def stub(name):
       addEventListener('error', (e) => window.__errors__.push(String(e.message)));
       addEventListener('unhandledrejection', (e) => window.__errors__.push(String(e.reason)));
       // The real bridge rejects with the bare string, so the view's String(error) reads the same.
+      // The bare sentence a request that got no answer arrives as, so a screen with no connection is
+      // driven with what the Rust would hand the page rather than with a tidy placeholder.
+      const NO_CONNECTION = 'could not reach https://api.github.com/repos/keycard-tech/keycard-shell'
+        + '/releases?per_page=100: client error (Connect): dns error: failed to lookup address '
+        + 'information: Temporary failure in name resolution';
       const fail = (m) => Promise.reject(m);
       window.__events__ = {};
+      // A state announces the network the only way the app can hear it: the event the Rust emits when
+      // its answer about github.com changes.
+      window.__net = (online) => window.__events__['net://reachable']({ payload: online });
       window.__TAURI__ = {
         core: { invoke: (command, args) => {
           switch (command) {
+            case 'network_status': return Promise.resolve(b.online);
             case 'list_shells': return Promise.resolve(b.devices);
             // After a flash the Shell answers with what it now runs, and the view asks again to be sure.
             case 'shell_app_configuration': return Promise.resolve(b.flashedConfig ?? b.config);
@@ -601,10 +744,12 @@ def stub(name):
             case 'clear_update_record':
               return Promise.resolve(null);
             case 'list_releases':
-              // `__backOnline` is set by a state that dispatches the browser's `online` event: the
-              // list is unreachable until the network returns, and reachable afterwards, so a badge
-              // that never came back down fails here rather than in a browser.
-              if (b.listError && !window.__backOnline) return fail(b.listError);
+              // `__backOnline` is set by a state that announces the network coming back: the list is
+              // unreachable until then and reachable afterwards, so a screen that never came back
+              // down fails here rather than in a browser.
+              if ((b.listError || !b.online) && !window.__backOnline) {
+                return fail(b.listError || NO_CONNECTION);
+              }
               return Promise.resolve({
                 ...b.fixtures[args.kind],
                 newestOffered: args.kind === 'firmware' ? b.newestOffered : true,
@@ -633,7 +778,11 @@ def stub(name):
               });
             case 'units_fetch':
               if (b.fetchHangs) return new Promise(() => {});
-              if (b.units === 'none' || b.units === 'cached') {
+              // Past the allowance until the network returns, like `list_releases`: the state that
+              // announces the network coming back must be able to see the screen recover without
+              // leaving it.
+              if ((b.units === 'none' || b.units === 'cached')
+                && (!b.online || !window.__backOnline)) {
                 return fail(b.longReason
                   ? 'the downloaded units list was refused: the signature over 131200 bytes does not '
                     + 'match the pinned key 032ac68f2b2a500ebf1bc31f0c36e4645b24530ce6d1460e92c2d94e9a47ba550e, '
@@ -652,6 +801,9 @@ def stub(name):
                 window.__challenge = 'UR:DEV-AUTH/oeadadamhdcx' + (window.__challengeMints - 1);
               }
               return Promise.resolve({ text: window.__challenge, svg: b.qr });
+            case 'link_code':
+              // The air-gapped codes: the same drawing the challenge uses, for any url.
+              return Promise.resolve(b.qr);
             case 'units_check':
               return Promise.resolve(b.verdict === 'authentic' ? { outcome: 'authentic' }
                 : b.verdict === 'notRegistered'

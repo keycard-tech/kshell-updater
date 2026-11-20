@@ -17,6 +17,8 @@ const call = <T = undefined>(command: string, args?: Record<string, unknown>): P
 
 export const listShells = (): Promise<DeviceInfo[]> => call('list_shells');
 
+export const networkStatus = (): Promise<boolean> => call('network_status');
+
 export const shellConfiguration = (path: string): Promise<AppConfiguration> =>
   call('shell_app_configuration', { path });
 
@@ -55,6 +57,8 @@ export const unitsChallenge = (renew: boolean): Promise<Challenge> =>
 
 export const unitsCheck = (text: string): Promise<Verdict> => call('units_check', { text });
 
+export const linkCode = (url: string): Promise<string> => call('link_code', { url });
+
 export const scanStart = (device?: string): Promise<Scan> => call('scan_start', { device });
 
 export const scanStop = (): Promise<undefined> => call('scan_stop');
@@ -81,6 +85,7 @@ export const openExternal = (url: string): Promise<undefined> =>
   call('plugin:opener|open_url', { url });
 
 export const events = {
+  reachable: 'net://reachable',
   connected: 'shell://connected',
   disconnected: 'shell://disconnected',
   flashProgress: 'shell://flash-progress',

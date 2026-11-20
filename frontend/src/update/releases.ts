@@ -10,7 +10,12 @@ import { renderRows, renderSummary } from './rows.js';
 
 let lastPass = 0;
 
+const renderListNote = (said: string): void => {
+  el('status-note').textContent = state.offline ? '' : said;
+};
+
 export const loadReleases = async (): Promise<void> => {
+  if (state.offline) return;
   lastPass = Date.now();
   let failure: string | null = null;
   let said = '';
@@ -30,13 +35,15 @@ export const loadReleases = async (): Promise<void> => {
   }
 
   state.listError = failure;
-  el('status-note').textContent = failure ? sentence.offline : said;
+  renderListNote(failure ? sentence.offline : said);
   renderHome();
 };
 
-export const retryListing = async (immediate: boolean): Promise<void> => {
-  if (state.busy) return;
-  const waiting = state.listError || text.kinds.some(({ kind }) => checkedOf(kind) === 'failed');
+export const retryOnline = async (immediate: boolean): Promise<void> => {
+  if (state.busy || state.offline) return;
+  const waiting = text.kinds.some(
+    ({ kind }) => !state.files[kind].length || checkedOf(kind) === 'failed',
+  );
   if (!waiting) return;
   if (!immediate && Date.now() - lastPass < listRetryMs) return;
   await loadReleases();

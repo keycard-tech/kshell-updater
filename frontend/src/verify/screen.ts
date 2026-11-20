@@ -11,7 +11,7 @@ import { human } from '../errors.js';
 import * as text from '../strings.js';
 import { el, reason } from '../utils.js';
 import { listLine } from '../views/verify.js';
-import { listReady, verify } from './state.js';
+import { listLoaded, listReady, verify } from './state.js';
 
 export const openVerify = async (): Promise<void> => {
   show('screen-verify');
@@ -26,9 +26,6 @@ export const openVerify = async (): Promise<void> => {
   renderVerify();
 };
 
-/** The code the Shell signs belongs to the verify session: a list arriving, a camera restarting or a
-    render never replaces it, because the Shell may already be signing that one. Only a session that
-    ended asks for a fresh code, and a second call while one is on its way joins it. */
 export const ensureChallenge = async (renew: boolean): Promise<void> => {
   if (verify.drawing) return verify.drawing;
   verify.drawing = (async () => {
@@ -48,7 +45,7 @@ export const ensureChallenge = async (renew: boolean): Promise<void> => {
 };
 
 export const fetchList = async (): Promise<void> => {
-  if (verify.mode !== 'online') return;
+  if (verify.mode !== 'online' || state.offline) return;
   verify.fetching = true;
   renderVerify();
   try {
@@ -62,6 +59,12 @@ export const fetchList = async (): Promise<void> => {
     verify.listProblem = true;
   }
   verify.fetching = false;
+};
+
+export const ensureList = async (): Promise<void> => {
+  if (listLoaded(verify.status)) return;
+  await fetchList();
+  renderVerify();
 };
 
 export const useOwnList = async (): Promise<void> => {
@@ -91,7 +94,7 @@ export const renderVerify = (): void => {
   const online = el<HTMLButtonElement>('verify-list-online');
   online.classList.toggle('ksh__seg--on', loaded && verify.mode === 'online');
   el('verify-list-file').classList.toggle('ksh__seg--on', loaded && verify.mode === 'file');
-  online.disabled = !loaded;
+  online.disabled = state.offline;
   el('verify-list-line').textContent = listLine(verify.status, verify.fetching);
   el('verify-qr-tile').classList.toggle('ksh__qr-tile--blurred', !loaded);
   el('verify-qr-note').hidden = loaded;
@@ -103,9 +106,7 @@ export const renderVerify = (): void => {
     state.device && state.config ? text.verify.updateShell : text.verify.goHome;
 
   const button = el<HTMLButtonElement>('btn-camera');
-  let label = text.verify.enableCamera;
-  if (!loaded) label = verify.fetching ? text.verify.fetchingList : text.verify.loadList;
-  button.textContent = label;
-  button.disabled = verify.fetching;
-  button.classList.toggle('ksh__btn--primary', loaded);
+  button.textContent = verify.fetching ? text.verify.fetchingList : text.verify.enableCamera;
+  button.disabled = !loaded || verify.fetching;
+  el('btn-units-code').hidden = loaded || verify.fetching;
 };

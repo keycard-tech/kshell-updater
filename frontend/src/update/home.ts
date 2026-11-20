@@ -59,7 +59,5 @@ export const renderHome = (): void => {
   el('home-text').textContent = said.prompt;
   el('home-sub').textContent = said.hint;
 
-  const card = el<HTMLButtonElement>('card-update');
-  card.disabled = !state.config;
-  card.setAttribute('aria-disabled', String(!state.config));
+  el('card-update').setAttribute('aria-disabled', String(!state.config));
 };

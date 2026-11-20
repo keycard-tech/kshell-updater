@@ -4,6 +4,26 @@ export const links = {
   firmwareNotes: 'https://shell.keycard.tech/firmware/release-notes/',
   databaseHistory: 'https://shell.keycard.tech/update/db-version-history/',
   verifyHelp: 'https://keycard.tech/help/verify-keycard-shell-authenticity',
+  airGapped: 'https://shell.keycard.tech/update/air-gapped/',
+};
+
+export const airgap = {
+  prompt: 'Air-gapped update?',
+  guide: 'Read the guide',
+  button: 'Show the download code',
+  hint: 'Scan on a connected device, copy the .bin to a USB stick, then pick From file.',
+  close: 'Close',
+  download: (what: string): string => `Download ${what}`,
+  what: {
+    firmware: 'the latest firmware',
+    database: 'the latest database',
+    units: 'the units list',
+  },
+  urls: {
+    firmware: 'https://github.com/keycard-tech/keycard-shell/releases/latest',
+    database: 'https://github.com/keycard-tech/keycard-eth-db/releases/latest',
+    units: 'https://github.com/keycard-tech/shell-units/releases/latest/download/shell-verification-db.bin',
+  },
 };
 
 export const kinds: { kind: ImageKind; title: string; link: string; url: string }[] = [
@@ -43,7 +63,7 @@ export const home = {
   badgeOwed: 'Update owed',
   badgeUpdates: (count: number): string => `${count} update${count > 1 ? 's' : ''}`,
   connect: 'Unlock your Keycard Shell, connect it with a USB-C cable to upgrade to the latest firmware & database.',
-  connectHint: 'Update is unavailable until the Keycard Shell is connected',
+  connectHint: 'Update is unavailable until the Shell is connected',
   prompt: 'Transfer the newest firmware and the newest Ethereum database to the Shell.',
   runs: (firmware: string, variant: string, database: string): string =>
     `Firmware - ${firmware}${variant}, Database - ${database}`,
@@ -65,6 +85,10 @@ export const summary = {
 export const listing = {
   newestUnhashed: 'The newest release publishes no hash, so this list stops at the one before it.',
   hashList: 'A published hash list could not be read, so some files are not offered.',
+};
+
+export const network = {
+  offline: 'Offline - no connection',
 };
 
 export const row = {
@@ -131,7 +155,6 @@ export const verify = {
   updateShell: 'Update Shell',
   goHome: 'Back to Home',
   fetchingList: 'Fetching units list…',
-  loadList: 'Fetch units list',
 };
 
 export interface Shown {
