@@ -110,7 +110,7 @@ const rowState = (kind: ImageKind): RowStatus => {
 
   const file = selectedFile(kind);
   if (!file) {
-    return state.listError
+    return state.offline || state.listError
       ? rowOf(text.status.noList, 'empty')
       : rowOf(text.status.reading, 'empty');
   }
@@ -145,7 +145,7 @@ export const render = (kind: ImageKind): void => {
 
   for (const button of refs.row.querySelectorAll<HTMLButtonElement>('[data-mode]')) {
     button.classList.toggle('ksh__seg--on', button.dataset.mode === mode);
-    button.disabled = state.busy;
+    button.disabled = state.busy || (button.dataset.mode === 'online' && state.offline);
   }
   refs.status.textContent = row.status;
   refs.status.className = `ksh__status${row.modifier ? ` ksh__status--${row.modifier}` : ''}`;

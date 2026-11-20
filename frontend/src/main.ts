@@ -1,16 +1,17 @@
-import { events, listShells, listen } from './base/bridge.js';
+import { events, listShells, listen, networkStatus } from './base/bridge.js';
 import { show } from './base/screens.js';
 import { state } from './base/state.js';
 import type { FlashProgress, Preloaded } from './types.js';
 import { presencePollMs } from './config.js';
 import { buildAirgap, openCode } from './airgap.js';
+import { forgetOnline, renderNetwork } from './network.js';
 import { el } from './utils.js';
 import * as text from './strings.js';
 import { refresh, showWaiting } from './update/device.js';
 import { keyFor } from './update/files.js';
 import { loadReleases, preload, retryListing } from './update/releases.js';
 import { readRecord } from './update/record.js';
-import { buildRows, render, renderRows } from './update/rows.js';
+import { buildRows, render } from './update/rows.js';
 import {
   backToUpdates,
   cancelTransfer,
@@ -149,17 +150,18 @@ void readRecord().then(refresh).then(loadReleases).then(preload);
 
 setInterval(() => void poll(), presencePollMs);
 
-addEventListener('offline', () => {
-  if (state.offline) return;
-  state.offline = true;
-  el('status-note').textContent = text.network.offline;
-  renderRows();
-  renderVerify();
-});
-addEventListener('online', () => {
-  state.offline = false;
-  void retryListing(true);
-  void retryFetch();
-});
+const aboutNetwork = (online: boolean): void => {
+  state.offline = !online;
+  if (online) {
+    void retryListing(true);
+    void retryFetch();
+  } else {
+    forgetOnline();
+  }
+  renderNetwork();
+};
+
+listen<boolean>(events.reachable, aboutNetwork);
+void networkStatus().then(aboutNetwork);
 
 window.kshell = { scanAnswer: answer, renderScan, verify };

@@ -60,7 +60,7 @@ export const state: State = {
   variant: { firmware: 0, database: null },
   ready: byKind(null),
   listError: null,
-  offline: !navigator.onLine,
+  offline: false,
   busy: false,
   scanning: false,
   cache: {},

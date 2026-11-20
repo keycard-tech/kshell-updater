@@ -317,10 +317,15 @@
       </div>
 
       <div class="ksh__statusbar" id="statusbar">
-        <span
-          ><i class="ksh__dot ksh__dot--off" id="status-dot"></i
-          ><span id="status-device">No device connected</span></span
-        >
+        <span class="ksh__status-group">
+          <span
+            ><i class="ksh__dot ksh__dot--off" id="status-dot"></i
+            ><span id="status-device">No device connected</span></span
+          >
+          <span id="status-net" hidden
+            ><i class="ksh__dot ksh__dot--warn"></i><span id="status-net-word"></span
+          ></span>
+        </span>
         <span id="status-note">reading the release list…</span>
       </div>
     </div>

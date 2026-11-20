@@ -16,6 +16,12 @@
   text-overflow: ellipsis;
 }
 
+.ksh__status-group {
+  display: flex;
+  align-items: center;
+  gap: calc(14px * var(--scale));
+}
+
 /* Update screen: device line, release rows, action. */
 .ksh__device {
   display: flex;
@@ -155,6 +161,14 @@
 
 .ksh__dot--off {
   background: var(--ink-faint);
+}
+
+.ksh__dot--warn {
+  background: var(--accent);
+}
+
+#status-net {
+  color: var(--accent);
 }
 
 .ksh__row--off {

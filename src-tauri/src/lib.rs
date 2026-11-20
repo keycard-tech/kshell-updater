@@ -1,6 +1,7 @@
 pub mod bytewords;
 pub mod image;
 pub mod net;
+pub mod reach;
 pub mod releases;
 pub mod scan;
 mod shell;
@@ -521,9 +522,11 @@ pub fn run() {
                 net::keep_reads_in(dir.join("reads"));
             }
             watch_presence(app.handle().clone());
+            reach::watch(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            reach::network_status,
             list_shells,
             shell_app_configuration,
             list_releases,

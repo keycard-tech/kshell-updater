@@ -175,7 +175,7 @@ fn minutes_until(reset: u64, now: u64) -> u64 {
 
 const CONNECT_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
 
-fn client() -> &'static reqwest::Client {
+pub(crate) fn client() -> &'static reqwest::Client {
     static CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
     CLIENT.get_or_init(|| {
         reqwest::Client::builder()
@@ -211,10 +211,14 @@ async fn get(url: &str, accept: &str, max: usize) -> Result<Vec<u8>, NetError> {
         request = request.header(IF_NONE_MATCH, etag);
     }
 
-    let response = request.send().await.map_err(|source| NetError::Request {
-        url: url.to_string(),
-        source,
+    let response = request.send().await.map_err(|source| {
+        crate::reach::blocked();
+        NetError::Request {
+            url: url.to_string(),
+            source,
+        }
     })?;
+    crate::reach::answered();
     let status = response.status();
     let headers = response.headers().clone();
 
@@ -293,6 +297,12 @@ pub async fn get_image(url: &str) -> Result<Vec<u8>, NetError> {
 
 pub async fn get_bytes(url: &str, max: usize) -> Result<Vec<u8>, NetError> {
     get(url, "application/octet-stream", max).await
+}
+
+/// reqwest needs a tokio reactor, which is what the app itself runs on.
+#[cfg(test)]
+pub(crate) fn block_on<F: std::future::Future>(future: F) -> F::Output {
+    tauri::async_runtime::block_on(future)
 }
 
 #[cfg(test)]
@@ -431,11 +441,6 @@ mod tests {
             "while the allowance is out nothing else is asked of it",
         );
         std::fs::remove_dir_all(&kept_in).ok();
-    }
-
-    /// reqwest needs a tokio reactor, which is what the app itself runs on.
-    fn block_on<F: std::future::Future>(future: F) -> F::Output {
-        tauri::async_runtime::block_on(future)
     }
 
     #[test]

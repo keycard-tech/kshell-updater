@@ -48,7 +48,7 @@ export const ensureChallenge = async (renew: boolean): Promise<void> => {
 };
 
 export const fetchList = async (): Promise<void> => {
-  if (verify.mode !== 'online') return;
+  if (verify.mode !== 'online' || state.offline) return;
   verify.fetching = true;
   renderVerify();
   try {
@@ -97,7 +97,7 @@ export const renderVerify = (): void => {
   const online = el<HTMLButtonElement>('verify-list-online');
   online.classList.toggle('ksh__seg--on', loaded && verify.mode === 'online');
   el('verify-list-file').classList.toggle('ksh__seg--on', loaded && verify.mode === 'file');
-  online.disabled = !loaded;
+  online.disabled = !loaded || state.offline;
   el('verify-list-line').textContent = listLine(verify.status, verify.fetching);
   el('verify-qr-tile').classList.toggle('ksh__qr-tile--blurred', !loaded);
   el('verify-qr-note').hidden = loaded;
