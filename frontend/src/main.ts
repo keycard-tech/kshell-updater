@@ -10,7 +10,7 @@ import { refresh, showWaiting } from './update/device.js';
 import { keyFor } from './update/files.js';
 import { loadReleases, preload, retryListing } from './update/releases.js';
 import { readRecord } from './update/record.js';
-import { buildRows, render } from './update/rows.js';
+import { buildRows, render, renderRows } from './update/rows.js';
 import {
   backToUpdates,
   cancelTransfer,
@@ -148,7 +148,16 @@ showWaiting();
 void readRecord().then(refresh).then(loadReleases).then(preload);
 
 setInterval(() => void poll(), presencePollMs);
+
+addEventListener('offline', () => {
+  if (state.offline) return;
+  state.offline = true;
+  el('status-note').textContent = text.network.offline;
+  renderRows();
+  renderVerify();
+});
 addEventListener('online', () => {
+  state.offline = false;
   void retryListing(true);
   void retryFetch();
 });

@@ -156,7 +156,7 @@ export const render = (kind: ImageKind): void => {
   refs.field.hidden = mode !== 'online';
   refs.pick.hidden = mode !== 'file';
   refs.link.hidden = mode !== 'online' || !selectedFile(kind);
-  refs.code.hidden = !state.listError || Boolean(ready);
+  refs.code.hidden = !(state.listError || state.offline) || Boolean(ready) || isReadyToFlash(kind);
 
   if (mode === 'online') renderField(kind, refs);
 

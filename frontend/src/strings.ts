@@ -87,6 +87,10 @@ export const listing = {
   hashList: 'A published hash list could not be read, so some files are not offered.',
 };
 
+export const network = {
+  offline: 'Offline - no connection',
+};
+
 export const row = {
   choose: 'Choose a .bin file',
   fromFileVersion: (version: string, variant: string): string =>

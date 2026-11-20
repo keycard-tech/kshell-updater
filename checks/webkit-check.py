@@ -279,7 +279,21 @@ STATES = {
                          ["document.getElementById('card-update').click()"], 'screen-ready',
                          {'status-note': 'Offline - no list available, connection error',
                           'noteShown': 'shown',
+                          'codeBtns': '2',
                           'rowHint': ''}),
+   'home-offline': ({}, ["window.dispatchEvent(new Event('offline'));"], 'screen-home',
+                     {'status-note': 'Offline - no connection', 'homeAirgap': 'shown'}),
+    'offline-recovered': ({}, [
+        "window.dispatchEvent(new Event('offline'));",
+        "window.dispatchEvent(new Event('online'));",
+    ], 'screen-home', {'status-note': ''}),
+    'ready-offline': ({}, [
+        "document.getElementById('card-update').click()",
+        "window.dispatchEvent(new Event('offline'));",
+    ], 'screen-ready', {
+        'status-note': 'Offline - no connection', 'codeBtns': '0',
+        'transferButton': 'Transfer to device · enabled',
+    }),
     # The badge describes the pass that failed, not the rest of the session: once the network is back
     # the app lists again and the status bar has to go quiet.
     'list-error-recovered': ({'listError': True}, [
